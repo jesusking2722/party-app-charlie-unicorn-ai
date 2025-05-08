@@ -1,0 +1,3 @@
+export const GOOGLE_API_KEY = "AIzaSyD-ON7g5hfIjGcbJ0AySwZn1BEbLdqLLnQ";
+export const STRIPE_PUBLISHABLE_KEY =
+  "pk_test_51RGgNOB3QdeQ8arQcprVRXtbcpeDjhIQV6pBlLRrNJpb9MqGi9lrR7VTLYaHbsnozaqQjP42RM8FBqSBPzmjAJ5m00FAlzmRBY";
