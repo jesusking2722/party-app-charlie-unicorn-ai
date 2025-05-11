@@ -67,7 +67,6 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
 
   // Handle country selection
   const handleSelect = (item: any) => {
-    debugger;
     onSelect({
       code: item.code,
       name: item.name.en,

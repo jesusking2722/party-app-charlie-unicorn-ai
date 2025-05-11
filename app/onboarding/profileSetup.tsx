@@ -20,22 +20,13 @@ import {
   LocationPicker,
   RegionPicker,
 } from "@/components/common";
+import { CountryType, RegionType } from "@/types/place";
 import { router } from "expo-router";
 
 // Your Google API key
 const GOOGLE_PLACES_API_KEY = "YOUR_GOOGLE_API_KEY";
 
 // Define types for our form data
-interface CountryType {
-  code: string;
-  name: string;
-  flag?: string;
-}
-
-interface RegionType {
-  code: string;
-  name: string;
-}
 
 interface FormErrorsType {
   fullName?: string;

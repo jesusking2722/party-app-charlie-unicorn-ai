@@ -2,6 +2,7 @@ import { FONTS } from "@/app/theme";
 import { Button } from "@/components/common";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import LottieView from "lottie-react-native";
 import React, { useEffect, useRef } from "react";
 import {
@@ -84,7 +85,7 @@ const CongratulationsScreen = () => {
 
   // Handle navigation to the home screen
   const handleJoinNow = () => {
-    // Navigate to the home screen or dashboard
+    router.push("/main");
   };
 
   return (
@@ -215,7 +216,11 @@ const CongratulationsScreen = () => {
               },
             ]}
           >
-            <Button title="Join now" variant="primary" onPress={() => {}} />
+            <Button
+              title="Join now"
+              variant="primary"
+              onPress={handleJoinNow}
+            />
           </Animated.View>
         </View>
       </LinearGradient>

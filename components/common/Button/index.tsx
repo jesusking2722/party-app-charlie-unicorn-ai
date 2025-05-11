@@ -32,7 +32,7 @@ type ButtonVariant =
 
 // Expanded props interface
 interface ButtonProps extends Omit<TouchableOpacityProps, "style"> {
-  title: string;
+  title?: string;
   onPress: () => void;
   variant?: ButtonVariant;
   icon?: React.ReactNode;
