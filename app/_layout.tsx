@@ -11,7 +11,6 @@ import { Header, Navbar } from "@/layouts";
 SplashScreen.preventAutoHideAsync();
 
 const NAVIGATION_HIDDEN_ROUTES = [
-  "/",
   "/auth",
   "/onboarding",
   "/login",
@@ -73,14 +72,7 @@ export default function RootLayout() {
     <ThemeProvider>
       <View style={styles.container} onLayout={onLayoutRootView}>
         {/* Header component */}
-        {showNavigation && (
-          <Header
-            userAvatar={userData.avatar}
-            notificationCount={userData.notificationCount}
-            chatCount={userData.chatCount}
-            showBackButton={pathname !== "/main" && pathname !== "/"}
-          />
-        )}
+        {showNavigation && <Header userAvatar={userData.avatar} />}
 
         {/* Main content */}
         <View

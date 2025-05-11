@@ -28,6 +28,7 @@ type ButtonVariant =
   | "warning"
   | "info"
   | "dark"
+  | "indigo"
   | "neomorphic";
 
 // Expanded props interface
@@ -116,6 +117,12 @@ const Button: React.FC<ButtonProps> = ({
     "#111827",
   ];
 
+  // Indigo gradient (deep indigo to purple)
+  const indigoGradientColors: readonly [ColorValue, ColorValue] = [
+    "#4338CA",
+    "#5B21B6",
+  ];
+
   // Google brand colors
   const googleGradientColors: readonly [ColorValue, ColorValue] = [
     "#4285F4",
@@ -162,6 +169,8 @@ const Button: React.FC<ButtonProps> = ({
         return infoGradientColors;
       case "dark":
         return darkGradientColors;
+      case "indigo":
+        return indigoGradientColors;
       case "google":
         return googleGradientColors;
       case "apple":

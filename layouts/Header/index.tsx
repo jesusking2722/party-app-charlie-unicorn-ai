@@ -1,12 +1,10 @@
 import { FONTS, THEME } from "@/app/theme";
-import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  ColorValue,
   Image,
   Platform,
   StatusBar,
@@ -16,7 +14,7 @@ import {
   View,
 } from "react-native";
 
-import { LanguageDropdown, ThemeToggle } from "@/components/common";
+import { ProfileDrawer } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
 
 // Logo asset path - update with your actual logo path
@@ -26,48 +24,45 @@ const DEFAULT_AVATAR = require("@/assets/images/bnb.png");
 
 interface HeaderProps {
   title?: string;
-  showBackButton?: boolean;
-  showNotifications?: boolean;
-  showChat?: boolean;
-  notificationCount?: number;
-  chatCount?: number;
   userAvatar?: string; // URL for the user's avatar
-  onAvatarPress?: () => void;
-  onNotificationPress?: () => void;
-  onChatPress?: () => void;
-  onBackPress?: () => void;
-  rightComponent?: React.ReactNode;
+  userName?: string; // User's name for the profile drawer
+  professionalTitle?: string; // User's professional title
+  description?: string; // User's description
+  email?: string; // User's email
   currentLanguage?: string;
   onLanguageChange?: (language: string) => void;
+  onProfileUpdate?: (data: {
+    userName: string;
+    professionalTitle: string;
+    description: string;
+  }) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
-  title,
-  showBackButton = false,
-  showNotifications = true,
-  showChat = true,
-  notificationCount = 0,
-  chatCount = 0,
+  title = "Charlie Unicorn AI",
   userAvatar,
-  onAvatarPress,
-  onNotificationPress,
-  onChatPress,
-  onBackPress,
-  rightComponent,
+  userName = "John Doe",
+  professionalTitle = "Software Developer",
+  description = "Experienced software developer with a passion for creating beautiful and functional applications.",
+  email = "johndoe@example.com",
   currentLanguage = "EN",
-  onLanguageChange = () => {},
+  onLanguageChange,
+  onProfileUpdate,
 }) => {
   const router = useRouter();
   const translateY = useRef(new Animated.Value(-50)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const [profileDrawerVisible, setProfileDrawerVisible] = useState(false);
 
+  const [userInfo, setUserInfo] = useState({
+    userName: userName,
+    professionalTitle: professionalTitle,
+    description: description,
+  });
+
+  // Theme context
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
-
-  // Gradient colors for the badge based on theme
-  const accentGradientColors: readonly [ColorValue, ColorValue] = isDarkMode
-    ? (["#D97706", "#DC2626"] as [string, string]) // Darker orange to red for dark mode
-    : (["#F59E0B", "#EF4444"] as [string, string]); // Original orange to red for light mode
 
   // Animation effect on component mount
   useEffect(() => {
@@ -85,202 +80,84 @@ const Header: React.FC<HeaderProps> = ({
     ]).start();
   }, []);
 
-  // Handle back press
-  const handleBackPress = () => {
-    if (onBackPress) {
-      onBackPress();
-    } else {
-      router.back();
+  // Handle profile update
+  const handleProfileUpdate = (data: {
+    userName: string;
+    professionalTitle: string;
+    description: string;
+  }) => {
+    setUserInfo(data);
+    // Call the parent callback if provided
+    if (onProfileUpdate) {
+      onProfileUpdate(data);
     }
   };
 
-  // Handle notification press
-  const handleNotificationPress = () => {
-    if (onNotificationPress) {
-      onNotificationPress();
-    } else {
-      router.push("/");
-    }
-  };
-
-  // Handle chat press
-  const handleChatPress = () => {
-    if (onChatPress) {
-      onChatPress();
-    } else {
-      router.push("/");
-    }
-  };
-
-  // Handle avatar press
+  // Handle avatar press - now opens profile drawer
   const handleAvatarPress = () => {
-    if (onAvatarPress) {
-      onAvatarPress();
-    } else {
-      router.push("/");
-    }
+    setProfileDrawerVisible(true);
   };
 
-  // Badge rendering function with gradient
-  const renderBadge = (count: number) => {
-    if (count <= 0) return null;
-
-    return (
-      <View style={styles.badgeOuterContainer}>
-        <LinearGradient
-          colors={accentGradientColors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.badge}
-        >
-          <Text style={styles.badgeText}>{count > 99 ? "99+" : count}</Text>
-        </LinearGradient>
-      </View>
-    );
+  // Handle profile drawer close
+  const handleProfileDrawerClose = () => {
+    setProfileDrawerVisible(false);
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar
-        translucent
-        backgroundColor="transparent"
-        barStyle="light-content"
-      />
-
-      {/* Background with gradient and blur */}
-      <View style={StyleSheet.absoluteFill}>
-        <LinearGradient
-          colors={theme.GRADIENT as [string, string]}
-          style={styles.background}
-          start={{ x: 0, y: 0 }}
-          end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+    <>
+      <View style={styles.container}>
+        <StatusBar
+          translucent
+          backgroundColor="transparent"
+          barStyle="light-content"
         />
-        <BlurView
-          intensity={isDarkMode ? 25 : 10}
-          tint="dark"
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
 
-      <Animated.View
-        style={[
-          styles.headerContent,
-          {
-            transform: [{ translateY }],
-            opacity: opacityAnim,
-          },
-        ]}
-      >
-        {/* Left section: Logo or Back button */}
-        <View style={styles.leftSection}>
-          {showBackButton && (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBackPress}
-              activeOpacity={0.7}
-            >
-              <Feather name="arrow-left" size={22} color={theme.TEXT_COLOR} />
-            </TouchableOpacity>
-          )}
-          <View style={styles.logoWrapper}>
-            <Image
-              source={LOGO_IMAGE}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            {title && (
-              <Text
-                style={[styles.title, { color: theme.TEXT_COLOR }]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                <Text style={styles.titleBold}>{title}</Text>
-              </Text>
-            )}
-          </View>
+        {/* Background with gradient and blur */}
+        <View style={StyleSheet.absoluteFill}>
+          <LinearGradient
+            colors={theme.GRADIENT as [string, string]}
+            style={styles.background}
+            start={{ x: 0, y: 0 }}
+            end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+          />
+          <BlurView
+            intensity={isDarkMode ? 25 : 10}
+            tint="dark"
+            style={StyleSheet.absoluteFill}
+          />
         </View>
 
-        {/* Right section: Custom component or default icons */}
-        {rightComponent ? (
-          <View style={styles.rightSection}>{rightComponent}</View>
-        ) : (
+        <Animated.View
+          style={[
+            styles.headerContent,
+            {
+              transform: [{ translateY }],
+              opacity: opacityAnim,
+            },
+          ]}
+        >
+          {/* Left section: Logo and Title */}
+          <View style={styles.leftSection}>
+            <View style={styles.logoWrapper}>
+              <Image
+                source={LOGO_IMAGE}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              {title && (
+                <Text
+                  style={[styles.title, { color: theme.TEXT_COLOR }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  <Text style={styles.titleBold}>{title}</Text>
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Right section: Avatar only */}
           <View style={styles.rightSection}>
-            {/* Chat icon */}
-            {showChat && (
-              <View style={styles.iconOuterContainer}>
-                <View
-                  style={[
-                    styles.iconButtonContainer,
-                    { borderColor: theme.BORDER_COLOR },
-                  ]}
-                >
-                  <BlurView
-                    intensity={isDarkMode ? 25 : 10}
-                    tint={isDarkMode ? "dark" : "light"}
-                    style={styles.iconButtonBlur}
-                  >
-                    <TouchableOpacity
-                      style={[
-                        styles.iconButton,
-                        { backgroundColor: theme.BUTTON_BG },
-                      ]}
-                      onPress={handleChatPress}
-                      activeOpacity={0.7}
-                    >
-                      <Feather
-                        name="message-circle"
-                        size={20}
-                        color={theme.TEXT_COLOR}
-                      />
-                    </TouchableOpacity>
-                  </BlurView>
-                </View>
-                {/* Badge positioned outside the button container */}
-                {renderBadge(chatCount)}
-              </View>
-            )}
-
-            {/* Notification icon */}
-            {showNotifications && (
-              <View style={styles.iconOuterContainer}>
-                <View
-                  style={[
-                    styles.iconButtonContainer,
-                    { borderColor: theme.BORDER_COLOR },
-                  ]}
-                >
-                  <BlurView
-                    intensity={isDarkMode ? 25 : 10}
-                    tint={isDarkMode ? "dark" : "light"}
-                    style={styles.iconButtonBlur}
-                  >
-                    <TouchableOpacity
-                      style={[
-                        styles.iconButton,
-                        { backgroundColor: theme.BUTTON_BG },
-                      ]}
-                      onPress={handleNotificationPress}
-                      activeOpacity={0.7}
-                    >
-                      <Feather name="bell" size={20} color={theme.TEXT_COLOR} />
-                    </TouchableOpacity>
-                  </BlurView>
-                </View>
-                {/* Badge positioned outside the button container */}
-                {renderBadge(notificationCount)}
-              </View>
-            )}
-
-            {/* Language dropdown component */}
-            <LanguageDropdown
-              currentLanguage={currentLanguage}
-              onLanguageChange={onLanguageChange}
-              isDarkMode={isDarkMode}
-            />
-
-            {/* Theme toggle component */}
-            <ThemeToggle />
-
             {/* User avatar button */}
             <TouchableOpacity
               onPress={handleAvatarPress}
@@ -313,9 +190,23 @@ const Header: React.FC<HeaderProps> = ({
               </BlurView>
             </TouchableOpacity>
           </View>
-        )}
-      </Animated.View>
-    </View>
+        </Animated.View>
+      </View>
+
+      {/* Profile Drawer */}
+      <ProfileDrawer
+        visible={profileDrawerVisible}
+        onClose={handleProfileDrawerClose}
+        userAvatar={userAvatar}
+        userName={userInfo.userName}
+        professionalTitle={userInfo.professionalTitle}
+        description={userInfo.description}
+        email={email}
+        onProfileUpdate={handleProfileUpdate}
+        currentLanguage={currentLanguage}
+        onLanguageChange={onLanguageChange}
+      />
+    </>
   );
 };
 
@@ -360,73 +251,16 @@ const styles = StyleSheet.create({
     marginRight: 15,
   },
   title: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: FONTS.REGULAR,
   },
   titleBold: {
     fontFamily: FONTS.BOLD,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   rightSection: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 10,
-  },
-  // Outer container to handle badge positioning
-  iconOuterContainer: {
-    position: "relative",
-    width: 40,
-    height: 40,
-  },
-  iconButtonContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-  },
-  iconButtonBlur: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  iconButton: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  badgeOuterContainer: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    width: 18,
-    height: 18,
-    zIndex: 20,
-    borderRadius: 9,
-    overflow: "hidden",
-  },
-  badge: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 9,
-  },
-  badgeText: {
-    color: "white",
-    fontSize: 9,
-    fontFamily: FONTS.BOLD,
-    textAlign: "center",
   },
   avatarButtonContainer: {
     width: 42,

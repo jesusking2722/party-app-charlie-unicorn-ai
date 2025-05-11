@@ -632,7 +632,7 @@ const HomeScreen = () => {
                 {/* View More Button */}
                 <Button
                   title="View More Events"
-                  variant="primary"
+                  variant={isDarkMode ? "indigo" : "primary"}
                   icon={
                     <FontAwesome5
                       name="chevron-right"
@@ -648,35 +648,6 @@ const HomeScreen = () => {
           </ScrollView>
         </SafeAreaView>
       </LinearGradient>
-
-      {/* Floating Action Button with Animations */}
-      <Animated.View
-        style={[
-          styles.floatingButton,
-          {
-            transform: [
-              { scale: fabScaleAnim },
-              { rotate: fabRotate },
-              { scale: fabPulseAnim },
-            ],
-          },
-        ]}
-      >
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => console.log("Create new event")}
-          style={styles.fabTouchable}
-        >
-          <LinearGradient
-            colors={theme.FAB_GRADIENT as [string, string]}
-            style={styles.floatingButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <FontAwesome5 name="plus" size={24} color={theme.TEXT_COLOR} />
-          </LinearGradient>
-        </TouchableOpacity>
-      </Animated.View>
     </View>
   );
 };
