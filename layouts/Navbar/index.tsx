@@ -30,7 +30,7 @@ const NAV_ITEMS = [
   {
     name: "Create",
     icon: "plus-circle",
-    path: "/create",
+    path: "/main/party/create",
   },
   {
     name: "Tickets",

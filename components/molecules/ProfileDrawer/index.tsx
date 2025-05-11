@@ -1,16 +1,16 @@
 import { FONTS } from "@/app/theme";
-import { Drawer, LanguageSelector } from "@/components/common";
+import { Button, Drawer, LanguageSelector } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { Feather, FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
   KeyboardAvoidingView,
   Platform,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -21,6 +21,7 @@ import {
 } from "react-native";
 
 const DEFAULT_AVATAR = require("@/assets/images/bnb.png");
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface ProfileDrawerProps {
   visible: boolean;
@@ -71,6 +72,13 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
+
+  // Reset state when drawer visibility changes
+  useEffect(() => {
+    if (!visible) {
+      setActiveSection(null);
+    }
+  }, [visible]);
 
   // Form validation errors
   const [errors, setErrors] = useState({
@@ -279,13 +287,11 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   return (
     <Drawer
       visible={visible}
-      onClose={activeSection ? () => {} : onClose}
+      onClose={activeSection ? handleCancelEdit : onClose}
       position="right"
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Fixed header with X button */}
         <View style={styles.header}>
           {activeSection ? (
             <TouchableOpacity
@@ -307,314 +313,297 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
           )}
         </View>
 
-        <ScrollView
-          style={styles.content}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+        {/* Scrollable content area */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
         >
-          {/* User Profile Header */}
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
-                style={styles.avatar}
-              />
-              {activeSection === "profile" && (
-                <TouchableOpacity
-                  style={styles.changeAvatarButton}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.changeAvatarIconContainer}>
-                    <Feather name="camera" size={18} color="white" />
+          <ScrollView
+            style={styles.content}
+            contentContainerStyle={styles.contentContainer}
+            showsVerticalScrollIndicator={true}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
+            {/* User Profile Header */}
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarContainer}>
+                <Image
+                  source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
+                  style={styles.avatar}
+                />
+                {activeSection === "profile" && (
+                  <TouchableOpacity
+                    style={styles.changeAvatarButton}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.changeAvatarIconContainer}>
+                      <Feather name="camera" size={18} color="white" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {activeSection === "profile" ? (
+                // Profile Edit Form
+                <View style={styles.formContainer}>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Name</Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        errors.userName ? styles.inputError : null,
+                      ]}
+                      value={editedUserName}
+                      onChangeText={setEditedUserName}
+                      placeholder="Your name"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    />
+                    {errors.userName ? (
+                      <Text style={styles.errorText}>{errors.userName}</Text>
+                    ) : null}
                   </View>
-                </TouchableOpacity>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Professional Title</Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        errors.professionalTitle ? styles.inputError : null,
+                      ]}
+                      value={editedProfessionalTitle}
+                      onChangeText={setEditedProfessionalTitle}
+                      placeholder="Your professional title"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    />
+                    {errors.professionalTitle ? (
+                      <Text style={styles.errorText}>
+                        {errors.professionalTitle}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>About You</Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        styles.textareaInput,
+                        errors.description ? styles.inputError : null,
+                      ]}
+                      value={editedDescription}
+                      onChangeText={setEditedDescription}
+                      placeholder="Describe yourself"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                    />
+                    {errors.description ? (
+                      <Text style={styles.errorText}>{errors.description}</Text>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.buttonContainer}>
+                    <Button
+                      variant={isDarkMode ? "indigo" : "primary"}
+                      title="Save"
+                      icon={
+                        <FontAwesome name="check" style={styles.saveIcon} />
+                      }
+                      onPress={handleSaveProfile}
+                      loading={isSaving}
+                    />
+                  </View>
+                </View>
+              ) : activeSection === "account" ? (
+                // Account Edit Form
+                <View style={styles.formContainer}>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <TextInput
+                      style={[
+                        styles.textInput,
+                        errors.email ? styles.inputError : null,
+                      ]}
+                      value={editedEmail}
+                      onChangeText={setEditedEmail}
+                      placeholder="Your email"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                    {errors.email ? (
+                      <Text style={styles.errorText}>{errors.email}</Text>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.passwordSection}>
+                    <Text style={styles.sectionTitle}>Change Password</Text>
+
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>Current Password</Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          errors.currentPassword ? styles.inputError : null,
+                        ]}
+                        value={currentPassword}
+                        onChangeText={setCurrentPassword}
+                        placeholder="Enter current password"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        secureTextEntry
+                      />
+                      {errors.currentPassword ? (
+                        <Text style={styles.errorText}>
+                          {errors.currentPassword}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>New Password</Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          errors.newPassword ? styles.inputError : null,
+                        ]}
+                        value={newPassword}
+                        onChangeText={setNewPassword}
+                        placeholder="Enter new password"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        secureTextEntry
+                      />
+                      {errors.newPassword ? (
+                        <Text style={styles.errorText}>
+                          {errors.newPassword}
+                        </Text>
+                      ) : null}
+                    </View>
+
+                    <View style={styles.inputContainer}>
+                      <Text style={styles.inputLabel}>
+                        Confirm New Password
+                      </Text>
+                      <TextInput
+                        style={[
+                          styles.textInput,
+                          errors.confirmPassword ? styles.inputError : null,
+                        ]}
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="Confirm new password"
+                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                        secureTextEntry
+                      />
+                      {errors.confirmPassword ? (
+                        <Text style={styles.errorText}>
+                          {errors.confirmPassword}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+
+                  <View style={styles.buttonContainer}>
+                    <Button
+                      variant={isDarkMode ? "indigo" : "primary"}
+                      title="Save"
+                      icon={
+                        <FontAwesome name="check" style={styles.saveIcon} />
+                      }
+                      onPress={handleSaveAccount}
+                      loading={isSaving}
+                    />
+                  </View>
+                </View>
+              ) : (
+                // View mode - show profile info
+                <>
+                  <Text style={styles.userName}>{userName}</Text>
+                  <Text style={styles.professionalTitle}>
+                    {professionalTitle}
+                  </Text>
+                  <Text style={styles.description}>{description}</Text>
+                </>
               )}
             </View>
 
-            {activeSection === "profile" ? (
-              // Profile Edit Form
-              <View style={styles.formContainer}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Name</Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      errors.userName ? styles.inputError : null,
-                    ]}
-                    value={editedUserName}
-                    onChangeText={setEditedUserName}
-                    placeholder="Your name"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+            {/* Settings Section */}
+            {!activeSection && (
+              <View style={styles.settingsContainer}>
+                <TouchableOpacity
+                  style={styles.settingButton}
+                  onPress={handleEditProfile}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.settingIconContainer}>
+                    <Feather name="user" size={20} color="white" />
+                  </View>
+                  <Text style={styles.settingButtonText}>Edit Profile</Text>
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color="rgba(255, 255, 255, 0.5)"
                   />
-                  {errors.userName ? (
-                    <Text style={styles.errorText}>{errors.userName}</Text>
-                  ) : null}
-                </View>
+                </TouchableOpacity>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Professional Title</Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      errors.professionalTitle ? styles.inputError : null,
-                    ]}
-                    value={editedProfessionalTitle}
-                    onChangeText={setEditedProfessionalTitle}
-                    placeholder="Your professional title"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                <TouchableOpacity
+                  style={styles.settingButton}
+                  onPress={handleEditAccount}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.settingIconContainer}>
+                    <Feather name="lock" size={20} color="white" />
+                  </View>
+                  <Text style={styles.settingButtonText}>Account Settings</Text>
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color="rgba(255, 255, 255, 0.5)"
                   />
-                  {errors.professionalTitle ? (
-                    <Text style={styles.errorText}>
-                      {errors.professionalTitle}
-                    </Text>
-                  ) : null}
-                </View>
+                </TouchableOpacity>
 
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>About You</Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      styles.textareaInput,
-                      errors.description ? styles.inputError : null,
-                    ]}
-                    value={editedDescription}
-                    onChangeText={setEditedDescription}
-                    placeholder="Describe yourself"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    multiline
-                    numberOfLines={4}
-                    textAlignVertical="top"
+                <LanguageSelector
+                  currentLanguage={currentLanguage}
+                  onLanguageChange={onLanguageChange}
+                />
+
+                <View style={[styles.settingButton, styles.darkModeContainer]}>
+                  <View style={styles.settingIconContainer}>
+                    <Feather name="moon" size={20} color="white" />
+                  </View>
+                  <Text style={styles.settingButtonText}>Dark Mode</Text>
+                  <Switch
+                    value={isDarkMode}
+                    onValueChange={toggleTheme}
+                    trackColor={{
+                      false: "rgba(255, 255, 255, 0.3)",
+                      true: "rgba(127, 0, 255, 0.6)",
+                    }}
+                    thumbColor={isDarkMode ? "#7F00FF" : "#fff"}
+                    ios_backgroundColor="rgba(255, 255, 255, 0.3)"
                   />
-                  {errors.description ? (
-                    <Text style={styles.errorText}>{errors.description}</Text>
-                  ) : null}
                 </View>
 
                 <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSaveProfile}
-                  activeOpacity={0.8}
-                  disabled={isSaving}
+                  style={[styles.settingButton, styles.logoutButton]}
+                  onPress={handleLogout}
+                  activeOpacity={0.7}
                 >
-                  <LinearGradient
-                    colors={["#3CB371", "#2E8B57"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.saveButtonGradient}
-                  >
-                    {isSaving ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <>
-                        <Feather
-                          name="check"
-                          size={16}
-                          color="white"
-                          style={styles.saveIcon}
-                        />
-                        <Text style={styles.saveButtonText}>Save Changes</Text>
-                      </>
-                    )}
-                  </LinearGradient>
+                  <View style={styles.settingIconContainer}>
+                    <Feather name="log-out" size={20} color="#FF4D4D" />
+                  </View>
+                  <Text style={styles.logoutText}>Logout</Text>
                 </TouchableOpacity>
+
+                {/* Add some extra padding at the bottom for better scrolling on small screens */}
+                <View style={{ height: 40 }} />
               </View>
-            ) : activeSection === "account" ? (
-              // Account Edit Form
-              <View style={styles.formContainer}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Email</Text>
-                  <TextInput
-                    style={[
-                      styles.textInput,
-                      errors.email ? styles.inputError : null,
-                    ]}
-                    value={editedEmail}
-                    onChangeText={setEditedEmail}
-                    placeholder="Your email"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                  {errors.email ? (
-                    <Text style={styles.errorText}>{errors.email}</Text>
-                  ) : null}
-                </View>
-
-                <View style={styles.passwordSection}>
-                  <Text style={styles.sectionTitle}>Change Password</Text>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Current Password</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        errors.currentPassword ? styles.inputError : null,
-                      ]}
-                      value={currentPassword}
-                      onChangeText={setCurrentPassword}
-                      placeholder="Enter current password"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      secureTextEntry
-                    />
-                    {errors.currentPassword ? (
-                      <Text style={styles.errorText}>
-                        {errors.currentPassword}
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>New Password</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        errors.newPassword ? styles.inputError : null,
-                      ]}
-                      value={newPassword}
-                      onChangeText={setNewPassword}
-                      placeholder="Enter new password"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      secureTextEntry
-                    />
-                    {errors.newPassword ? (
-                      <Text style={styles.errorText}>{errors.newPassword}</Text>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Confirm New Password</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        errors.confirmPassword ? styles.inputError : null,
-                      ]}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      placeholder="Confirm new password"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      secureTextEntry
-                    />
-                    {errors.confirmPassword ? (
-                      <Text style={styles.errorText}>
-                        {errors.confirmPassword}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSaveAccount}
-                  activeOpacity={0.8}
-                  disabled={isSaving}
-                >
-                  <LinearGradient
-                    colors={["#3CB371", "#2E8B57"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.saveButtonGradient}
-                  >
-                    {isSaving ? (
-                      <ActivityIndicator size="small" color="white" />
-                    ) : (
-                      <>
-                        <Feather
-                          name="check"
-                          size={16}
-                          color="white"
-                          style={styles.saveIcon}
-                        />
-                        <Text style={styles.saveButtonText}>Save Changes</Text>
-                      </>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              // View mode - show profile info
-              <>
-                <Text style={styles.userName}>{userName}</Text>
-                <Text style={styles.professionalTitle}>
-                  {professionalTitle}
-                </Text>
-                <Text style={styles.description}>{description}</Text>
-              </>
             )}
-          </View>
-
-          {/* Settings Section */}
-          {!activeSection && (
-            <View style={styles.settingsContainer}>
-              <TouchableOpacity
-                style={styles.settingButton}
-                onPress={handleEditProfile}
-                activeOpacity={0.8}
-              >
-                <View style={styles.settingIconContainer}>
-                  <Feather name="user" size={20} color="white" />
-                </View>
-                <Text style={styles.settingButtonText}>Edit Profile</Text>
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color="rgba(255, 255, 255, 0.5)"
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.settingButton}
-                onPress={handleEditAccount}
-                activeOpacity={0.8}
-              >
-                <View style={styles.settingIconContainer}>
-                  <Feather name="lock" size={20} color="white" />
-                </View>
-                <Text style={styles.settingButtonText}>Account Settings</Text>
-                <Feather
-                  name="chevron-right"
-                  size={18}
-                  color="rgba(255, 255, 255, 0.5)"
-                />
-              </TouchableOpacity>
-
-              <LanguageSelector
-                currentLanguage={currentLanguage}
-                onLanguageChange={onLanguageChange}
-              />
-
-              <View style={[styles.settingButton, styles.darkModeContainer]}>
-                <View style={styles.settingIconContainer}>
-                  <Feather name="moon" size={20} color="white" />
-                </View>
-                <Text style={styles.settingButtonText}>Dark Mode</Text>
-                <Switch
-                  value={isDarkMode}
-                  onValueChange={toggleTheme}
-                  trackColor={{
-                    false: "rgba(255, 255, 255, 0.3)",
-                    true: "rgba(127, 0, 255, 0.6)",
-                  }}
-                  thumbColor={isDarkMode ? "#7F00FF" : "#fff"}
-                  ios_backgroundColor="rgba(255, 255, 255, 0.3)"
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.settingButton, styles.logoutButton]}
-                onPress={handleLogout}
-                activeOpacity={0.7}
-              >
-                <View style={styles.settingIconContainer}>
-                  <Feather name="log-out" size={20} color="#FF4D4D" />
-                </View>
-                <Text style={styles.logoutText}>Logout</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Drawer>
   );
 };
@@ -626,6 +615,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
+    zIndex: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   closeButton: {
     width: 40,
@@ -639,7 +631,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 40,
+    paddingBottom: SCREEN_HEIGHT < 700 ? 100 : 40, // Extra padding for small screens
   },
   profileHeader: {
     alignItems: "center",
@@ -787,26 +779,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginTop: 8,
   },
-  saveButton: {
-    height: 44,
-    borderRadius: 22,
-    overflow: "hidden",
-    marginTop: 16,
-  },
-  saveButtonGradient: {
-    width: "100%",
-    height: "100%",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+  buttonContainer: {
+    marginVertical: 20,
   },
   saveIcon: {
-    marginRight: 8,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontFamily: FONTS.MEDIUM,
     color: "white",
+    marginRight: 8,
   },
 });
 

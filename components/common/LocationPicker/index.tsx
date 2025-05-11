@@ -1,4 +1,6 @@
+import { FONTS, THEME } from "@/app/theme";
 import { GOOGLE_API_KEY } from "@/constant";
+import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
@@ -39,6 +41,10 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   countryCode = null,
   regionCode = null,
 }) => {
+  const { isDarkMode } = useTheme();
+  // Get the appropriate theme based on isDarkMode
+  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
+
   const [showModal, setShowModal] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [geocoding, setGeocoding] = useState(false);
@@ -221,21 +227,25 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const ListHeader = () => (
     <View style={styles.listHeaderContainer}>
       <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Enter Address</Text>
+        <Text style={[styles.modalTitle, { color: theme.TEXT_COLOR }]}>
+          Enter Address
+        </Text>
       </View>
 
-      <View style={styles.searchContainer}>
+      <View
+        style={[styles.searchContainer, { backgroundColor: theme.INPUT_BG }]}
+      >
         <FontAwesome
           name="search"
           size={16}
-          color="rgba(255, 255, 255, 0.5)"
+          color={theme.PLACEHOLDER_COLOR}
           style={styles.searchIcon}
         />
         <TextInput
           ref={textInputRef}
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: theme.TEXT_COLOR }]}
           placeholder="Enter your address"
-          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+          placeholderTextColor={theme.PLACEHOLDER_COLOR}
           value={searchText}
           onChangeText={handleTextChange}
           autoFocus={true}
@@ -256,7 +266,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
             <FontAwesome
               name="times-circle"
               size={16}
-              color="rgba(255, 255, 255, 0.5)"
+              color={theme.PLACEHOLDER_COLOR}
             />
           </TouchableOpacity>
         )}
@@ -271,21 +281,26 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       <TouchableOpacity
         style={[
           styles.confirmButton,
+          { backgroundColor: theme.BUTTON_BG },
           (!searchText.trim() || geocoding) && styles.confirmButtonDisabled,
         ]}
         onPress={() => geocodeAddress(searchText)}
         disabled={!searchText.trim() || geocoding}
       >
         {geocoding ? (
-          <ActivityIndicator color="white" size="small" />
+          <ActivityIndicator color={theme.TEXT_COLOR} size="small" />
         ) : (
-          <Text style={styles.confirmButtonText}>Find Location</Text>
+          <Text style={[styles.confirmButtonText, { color: theme.TEXT_COLOR }]}>
+            Find Location
+          </Text>
         )}
       </TouchableOpacity>
 
       {recentAddresses.length > 0 && (
         <View style={styles.recentContainer}>
-          <Text style={styles.recentTitle}>Recent Addresses</Text>
+          <Text style={[styles.recentTitle, { color: theme.TEXT_SECONDARY }]}>
+            Recent Addresses
+          </Text>
         </View>
       )}
     </View>
@@ -294,7 +309,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   // Render recent address item
   const renderRecentItem = ({ item }: { item: string }) => (
     <TouchableOpacity
-      style={styles.recentItem}
+      style={[styles.recentItem, { borderBottomColor: theme.BORDER_COLOR }]}
       onPress={() => {
         setSearchText(item);
         geocodeAddress(item);
@@ -303,10 +318,13 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       <FontAwesome
         name="history"
         size={16}
-        color="rgba(255, 255, 255, 0.6)"
+        color={theme.TEXT_SECONDARY}
         style={styles.recentIcon}
       />
-      <Text style={styles.recentText} numberOfLines={1}>
+      <Text
+        style={[styles.recentText, { color: theme.TEXT_COLOR }]}
+        numberOfLines={1}
+      >
         {item}
       </Text>
     </TouchableOpacity>
@@ -314,11 +332,16 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: theme.TEXT_COLOR }, labelStyle]}>
+          {label}
+        </Text>
+      )}
 
       <TouchableOpacity
         style={[
           styles.pickerContainer,
+          { backgroundColor: theme.INPUT_BG },
           error && styles.pickerContainerError,
           !isEnabled && styles.pickerContainerDisabled,
         ]}
@@ -328,7 +351,8 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         <Text
           style={[
             styles.selectedText,
-            !value && styles.placeholderText,
+            { color: theme.TEXT_COLOR },
+            !value && { color: theme.PLACEHOLDER_COLOR },
             !isEnabled && styles.disabledText,
           ]}
           numberOfLines={1}
@@ -339,7 +363,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         <FontAwesome
           name="chevron-down"
           size={14}
-          color={!isEnabled ? "rgba(255, 255, 255, 0.3)" : "white"}
+          color={!isEnabled ? "rgba(255, 255, 255, 0.3)" : theme.TEXT_COLOR}
         />
       </TouchableOpacity>
 
@@ -372,11 +396,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
                   styles.modalContainer,
                   {
                     transform: [{ translateY: modalSlideAnim }],
+                    backgroundColor: theme.MODAL_BG,
                   },
                 ]}
               >
                 <LinearGradient
-                  colors={["#5A0088", "#7F00FF"]}
+                  colors={isDarkMode ? (theme.GRADIENT as any) : theme.GRADIENT}
                   style={styles.gradientBackground}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -408,12 +433,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontFamily: "Montserrat-Medium",
-    color: "white",
+    fontFamily: FONTS.MEDIUM,
     marginBottom: 8,
   },
   pickerContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
     height: 56,
     paddingHorizontal: 16,
@@ -426,16 +449,12 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 100, 100, 0.7)",
   },
   pickerContainerDisabled: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    opacity: 0.5,
   },
   selectedText: {
     flex: 1,
-    color: "white",
     fontSize: 16,
-    fontFamily: "Montserrat-Regular",
-  },
-  placeholderText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    fontFamily: FONTS.REGULAR,
   },
   disabledText: {
     color: "rgba(255, 255, 255, 0.3)",
@@ -445,7 +464,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     paddingHorizontal: 4,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
   },
   // Modal styles
   modalOverlay: {
@@ -481,13 +500,11 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontFamily: "Montserrat-Bold",
-    color: "white",
+    fontFamily: FONTS.BOLD,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 8,
     margin: 16,
     paddingHorizontal: 10,
@@ -498,8 +515,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-    color: "white",
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
   },
   clearButton: {
     padding: 4,
@@ -511,7 +527,6 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   confirmButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
     height: 50,
     marginHorizontal: 16,
@@ -523,9 +538,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   confirmButtonText: {
-    color: "white",
     fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
+    fontFamily: FONTS.SEMIBOLD,
   },
   errorContainer: {
     marginHorizontal: 16,
@@ -537,7 +551,7 @@ const styles = StyleSheet.create({
   errorMessage: {
     color: "rgba(255, 255, 255, 0.9)",
     fontSize: 14,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
     textAlign: "center",
   },
   recentContainer: {
@@ -546,9 +560,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   recentTitle: {
-    color: "rgba(255, 255, 255, 0.7)",
     fontSize: 14,
-    fontFamily: "Montserrat-Medium",
+    fontFamily: FONTS.MEDIUM,
   },
   recentItem: {
     flexDirection: "row",
@@ -556,15 +569,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   recentIcon: {
     marginRight: 12,
   },
   recentText: {
-    color: "white",
     fontSize: 16,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
     flex: 1,
   },
 });

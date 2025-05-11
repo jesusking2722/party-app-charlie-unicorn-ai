@@ -2,10 +2,11 @@ import { THEME } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  InteractionManager,
   Platform,
   StatusBar,
   StyleSheet,
@@ -33,67 +34,103 @@ const Drawer: React.FC<DrawerProps> = ({
   children,
   contentContainerStyle,
 }) => {
-  const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+  // State to track drawer mounting status
+  const [mounted, setMounted] = useState(false);
+
+  // Use useRef for animation values to avoid re-creating them on re-renders
   const translateX = useRef(
     new Animated.Value(position === "right" ? SCREEN_WIDTH : -SCREEN_WIDTH)
   ).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+
+  // Track whether animation is running to avoid interruptions
+  const animationRunning = useRef(false);
+
+  // Track animation completion for unmounting
+  const shouldUnmount = useRef(false);
+
+  // Get theme context
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
-  // Reset animation state when visibility changes
+  // Handle component mounting/unmounting based on visibility
   useEffect(() => {
-    if (visible) {
-      setIsAnimatingOut(false);
+    if (visible && !mounted) {
+      setMounted(true);
+      shouldUnmount.current = false;
     }
-  }, [visible]);
+  }, [visible, mounted]);
 
+  // Memoize backdrop press handler to avoid recreating on each render
+  const handleBackdropPress = useCallback(() => {
+    if (onClose && !animationRunning.current) {
+      onClose();
+    }
+  }, [onClose]);
+
+  // Animation control
   useEffect(() => {
+    if (!mounted) return;
+
+    // If drawer is visible, animate in
     if (visible) {
+      animationRunning.current = true;
       StatusBar.setBarStyle("light-content");
+
+      // Reset position to ensure proper animation
+      translateX.setValue(position === "right" ? SCREEN_WIDTH : -SCREEN_WIDTH);
+      backdropOpacity.setValue(0);
+
+      // Start animation
       Animated.parallel([
         Animated.timing(translateX, {
           toValue: 0,
-          duration: 300,
+          duration: 250,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
           toValue: 0.7,
-          duration: 300,
+          duration: 250,
           useNativeDriver: true,
         }),
-      ]).start();
-    } else if (!isAnimatingOut) {
-      setIsAnimatingOut(true);
+      ]).start(() => {
+        animationRunning.current = false;
+      });
+    }
+    // If drawer should be hidden, animate out
+    else if (mounted) {
+      animationRunning.current = true;
+      shouldUnmount.current = true;
+
       Animated.parallel([
         Animated.timing(translateX, {
           toValue: position === "right" ? SCREEN_WIDTH : -SCREEN_WIDTH,
-          duration: 300,
+          duration: 250,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
           toValue: 0,
-          duration: 300,
+          duration: 250,
           useNativeDriver: true,
         }),
       ]).start(() => {
-        // Animation is complete, we can set this to false
-        setIsAnimatingOut(false);
+        animationRunning.current = false;
+
+        // Using InteractionManager to delay unmounting until after animations
+        // This ensures we don't interrupt the animation
+        InteractionManager.runAfterInteractions(() => {
+          if (shouldUnmount.current) {
+            setMounted(false);
+          }
+        });
       });
     }
-  }, [visible, position, isAnimatingOut]);
+  }, [visible, position, mounted, translateX, backdropOpacity]);
 
-  // If not visible and not animating out, don't render anything
-  if (!visible && !isAnimatingOut) {
+  // Don't render anything if not mounted
+  if (!mounted) {
     return null;
   }
-
-  // Handle tap on backdrop
-  const handleBackdropPress = () => {
-    if (onClose) {
-      onClose();
-    }
-  };
 
   // Calculate border radius based on position
   const borderRadiusStyle: ViewStyle =
@@ -109,8 +146,13 @@ const Drawer: React.FC<DrawerProps> = ({
 
   return (
     <View
-      style={styles.container}
-      pointerEvents={visible || isAnimatingOut ? "auto" : "none"}
+      style={[
+        styles.container,
+        // Only allow interaction when visible
+        { pointerEvents: visible ? "auto" : "none" },
+      ]}
+      // Adding this ensures we don't interrupt other interactions
+      collapsable={false}
     >
       {/* Backdrop */}
       <Animated.View
@@ -121,6 +163,7 @@ const Drawer: React.FC<DrawerProps> = ({
             backgroundColor: "black",
           },
         ]}
+        pointerEvents={visible ? "auto" : "none"}
       >
         <TouchableOpacity
           style={styles.backdropTouchable}
@@ -139,6 +182,7 @@ const Drawer: React.FC<DrawerProps> = ({
             transform: [{ translateX }],
           },
         ]}
+        pointerEvents={visible ? "auto" : "none"}
       >
         <LinearGradient
           colors={theme.GRADIENT as [string, string]}
@@ -160,6 +204,7 @@ const Drawer: React.FC<DrawerProps> = ({
   );
 };
 
+// Optimize styles
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
@@ -182,8 +227,8 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.25,
-    shadowRadius: 15,
-    elevation: 25,
+    shadowRadius: 10,
+    elevation: 20,
   },
   drawerGradient: {
     flex: 1,

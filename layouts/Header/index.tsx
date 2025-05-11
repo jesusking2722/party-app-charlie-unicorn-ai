@@ -95,7 +95,7 @@ const Header: React.FC<HeaderProps> = ({
 
   // Handle avatar press - now opens profile drawer
   const handleAvatarPress = () => {
-    setProfileDrawerVisible(true);
+    setProfileDrawerVisible(!profileDrawerVisible);
   };
 
   // Handle profile drawer close

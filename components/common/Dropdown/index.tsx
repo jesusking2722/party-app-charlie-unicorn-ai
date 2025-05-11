@@ -166,7 +166,7 @@ const Dropdown: React.FC<DropdownProps> = ({
             {
               opacity: dropdownOpacity,
               maxHeight: dropdownHeight,
-              top: label ? 80 : 56, // Position below trigger + label if present
+              top: label ? 80 : 56,
             },
           ]}
         >
@@ -185,7 +185,9 @@ const Dropdown: React.FC<DropdownProps> = ({
                     value?.value === option.value && styles.selectedOption,
                     index === options.length - 1 && styles.lastOptionItem,
                   ]}
-                  onPress={() => handleSelect(option)}
+                  onPress={() => {
+                    handleSelect(option);
+                  }}
                 >
                   <Text style={styles.optionText}>{option.label}</Text>
                   {value?.value === option.value && (

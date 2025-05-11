@@ -1,3 +1,5 @@
+import { COLORS, FONTS, THEME } from "@/app/theme";
+import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
@@ -11,11 +13,18 @@ import {
 } from "react-native";
 import { CountryPicker } from "react-native-country-codes-picker";
 
+// Country type interface
+export interface CountryType {
+  code: string;
+  name: string;
+  flag: string;
+}
+
 interface CustomCountryPickerProps {
   label?: string;
   placeholder?: string;
-  value?: any;
-  onSelect: (item: any) => void;
+  value?: CountryType | null;
+  onSelect: (item: CountryType) => void;
   containerStyle?: any;
   labelStyle?: any;
   error?: string;
@@ -33,6 +42,10 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
   const [showModal, setShowModal] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
+
+  // Get theme context
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
   // Run animations when error state changes
   useEffect(() => {
@@ -84,34 +97,64 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
   // Setup custom headers and modals components
   const GradientBackground = () => (
     <LinearGradient
-      colors={["#5A0088", "#7F00FF"]} // Darker gradient version of your theme
+      colors={theme.GRADIENT as any}
       style={styles.gradientBackground}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
+      end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
     />
   );
 
   const ListHeaderComponent = () => (
     <View style={styles.listHeaderContainer}>
       <GradientBackground />
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Select a Country</Text>
+      <View
+        style={[styles.modalHeader, { borderBottomColor: theme.BORDER_COLOR }]}
+      >
+        <Text style={[styles.modalTitle, { color: theme.TEXT_COLOR }]}>
+          Select a Country
+        </Text>
       </View>
     </View>
   );
 
+  // Background color for the modal
+  const modalBgColor = isDarkMode
+    ? "#1F2937" // Dark gray for dark mode
+    : "#7F00FF"; // Purple for light mode
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: theme.TEXT_COLOR }, labelStyle]}>
+          {label}
+        </Text>
+      )}
 
       <TouchableOpacity
-        style={[styles.pickerContainer, error && styles.pickerContainerError]}
+        style={[
+          styles.pickerContainer,
+          {
+            backgroundColor: theme.BUTTON_BG,
+            borderColor: theme.BORDER_COLOR,
+          },
+          error && styles.pickerContainerError,
+        ]}
         onPress={() => setShowModal(true)}
       >
-        <Text style={[styles.selectedText, !value && styles.placeholderText]}>
+        <Text
+          style={[
+            styles.selectedText,
+            { color: theme.TEXT_COLOR },
+            !value && {
+              color: isDarkMode
+                ? "rgba(255, 255, 255, 0.6)"
+                : "rgba(255, 255, 255, 0.6)",
+            },
+          ]}
+        >
           {getSelectedCountryName()}
         </Text>
-        <FontAwesome name="chevron-down" size={14} color="white" />
+        <FontAwesome name="chevron-down" size={14} color={theme.TEXT_COLOR} />
       </TouchableOpacity>
 
       {error && (
@@ -142,7 +185,7 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
           // Modal container
           modal: {
             height: Dimensions.get("window").height * 0.7,
-            backgroundColor: "#5A0088", // Using the same exact color as RegionPicker
+            backgroundColor: modalBgColor,
             borderTopLeftRadius: 20,
             borderTopRightRadius: 20,
           },
@@ -152,33 +195,35 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
           },
           // Input line
           line: {
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
+            backgroundColor: theme.BORDER_COLOR,
             height: 1,
           },
           // Text input
           textInput: {
-            backgroundColor: "rgba(255, 255, 255, 0.1)",
-            color: "white",
+            backgroundColor: isDarkMode
+              ? "rgba(55, 65, 81, 0.7)"
+              : "rgba(255, 255, 255, 0.1)",
+            color: theme.TEXT_COLOR,
             borderRadius: 8,
             marginHorizontal: 16,
             marginVertical: 16,
             paddingHorizontal: 16,
             height: 40,
-            fontFamily: "Montserrat-Regular",
+            fontFamily: FONTS.REGULAR,
             fontSize: 16,
           },
           // Country button
           countryButtonStyles: {
             backgroundColor: "transparent",
             borderBottomWidth: 1,
-            borderBottomColor: "rgba(255, 255, 255, 0.1)",
+            borderBottomColor: theme.BORDER_COLOR,
             height: 60,
             paddingHorizontal: 16,
           },
           // Search message
           searchMessageText: {
-            color: "white",
-            fontFamily: "Montserrat-Regular",
+            color: theme.TEXT_COLOR,
+            fontFamily: FONTS.REGULAR,
             fontSize: 16,
             textAlign: "center",
             padding: 20,
@@ -190,15 +235,15 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
           },
           // Dial code
           dialCode: {
-            color: "white",
-            fontFamily: "Montserrat-Regular",
+            color: theme.TEXT_SECONDARY,
+            fontFamily: FONTS.REGULAR,
             fontSize: 14,
             marginLeft: 8,
           },
           // Country name
           countryName: {
-            color: "white",
-            fontFamily: "Montserrat-Medium",
+            color: theme.TEXT_COLOR,
+            fontFamily: FONTS.MEDIUM,
             fontSize: 16,
           },
           // Items list
@@ -222,38 +267,33 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontFamily: "Montserrat-Medium",
-    color: "white",
+    fontFamily: FONTS.MEDIUM,
     marginBottom: 8,
   },
   pickerContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
     height: 56,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    borderWidth: 1,
   },
   pickerContainerError: {
     borderWidth: 1,
-    borderColor: "rgba(255, 100, 100, 0.7)",
+    borderColor: COLORS.ERROR,
   },
   selectedText: {
     flex: 1,
-    color: "white",
     fontSize: 16,
-    fontFamily: "Montserrat-Regular",
-  },
-  placeholderText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    fontFamily: FONTS.REGULAR,
   },
   errorText: {
-    color: "rgba(255, 100, 100, 0.9)",
+    color: COLORS.ERROR,
     fontSize: 12,
     marginTop: 4,
     paddingHorizontal: 4,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
   },
   // Gradient and header styles
   gradientBackground: {
@@ -275,12 +315,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   modalTitle: {
     fontSize: 18,
-    fontFamily: "Montserrat-Bold",
-    color: "white",
+    fontFamily: FONTS.BOLD,
   },
 });
 

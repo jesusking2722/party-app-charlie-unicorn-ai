@@ -1,4 +1,3 @@
-// theme.ts - Create this file to maintain consistent styling
 import { ColorValue } from "react-native";
 
 // Font constants
@@ -19,6 +18,28 @@ export const COLORS = {
   TRANSPARENT_WHITE_BORDER: "rgba(255, 255, 255, 0.3)",
   ERROR: "rgba(255, 100, 100, 0.9)",
   DISABLED: "#888888",
+
+  // New colors for pickers and modals
+  MODAL_BG_DARK: "#1F2937",
+  MODAL_BG_LIGHT: "#7F00FF",
+  INPUT_BG_DARK: "rgba(55, 65, 81, 0.7)",
+  INPUT_BG_LIGHT: "rgba(255, 255, 255, 0.1)",
+
+  // New colors for premium login design
+  LIGHT_BG: "#F8F9FC",
+  DARK_BG: "#111827",
+  DARK_BG_SECONDARY: "#1F2937",
+  LIGHT_INPUT: "rgba(247, 249, 252, 0.7)",
+  DARK_INPUT: "rgba(55, 65, 81, 0.5)",
+  LIGHT_TEXT_PRIMARY: "#333333",
+  LIGHT_TEXT_SECONDARY: "#777777",
+  DARK_TEXT_PRIMARY: "#F3F4F6",
+  DARK_TEXT_SECONDARY: "#D1D5DB",
+  DARK_BORDER: "rgba(75, 85, 99, 0.5)",
+  LIGHT_BORDER: "rgba(230, 234, 240, 0.8)",
+  LIGHT_CARD_GLASS: "rgba(255, 255, 255, 0.8)",
+  DARK_CARD_GLASS: "rgba(31, 41, 55, 0.8)",
+  ACCENT_PURPLE_LIGHT: "#A78BFA",
 };
 
 // Gradient presets
@@ -27,6 +48,40 @@ export const GRADIENTS = {
   SECONDARY: ["#FF0099", "#7F00FF"] as readonly [ColorValue, ColorValue],
   BUTTON: ["#FF0099", "#7F00FF"] as readonly [ColorValue, ColorValue],
   DISABLED: ["#888888", "#666666"] as readonly [ColorValue, ColorValue],
+
+  // New gradients
+  MODAL_HEADER_LIGHT: ["#7F00FF", "#E100FF"] as readonly [
+    ColorValue,
+    ColorValue
+  ],
+  MODAL_HEADER_DARK: ["#111827", "#1F2937"] as readonly [
+    ColorValue,
+    ColorValue
+  ],
+
+  // New gradients for premium login design
+  LIGHT_BG: ["#F7F9FC", "#EEF2F7"] as readonly [ColorValue, ColorValue],
+  DARK_BG: ["#111827", "#1F2937"] as readonly [ColorValue, ColorValue],
+  LIGHT_CARD: [
+    "rgba(255, 255, 255, 0.85)",
+    "rgba(255, 255, 255, 0.75)",
+  ] as readonly [ColorValue, ColorValue],
+  DARK_CARD: ["rgba(31, 41, 55, 0.75)", "rgba(17, 24, 39, 0.85)"] as readonly [
+    ColorValue,
+    ColorValue
+  ],
+  LIGHT_INPUT: [
+    "rgba(247, 249, 252, 0.7)",
+    "rgba(247, 249, 252, 0.7)",
+  ] as readonly [ColorValue, ColorValue],
+  DARK_INPUT: ["rgba(55, 65, 81, 0.5)", "rgba(55, 65, 81, 0.4)"] as readonly [
+    ColorValue,
+    ColorValue
+  ],
+  SOCIAL_BUTTON_DARK: [
+    "rgba(55, 65, 81, 0.6)",
+    "rgba(31, 41, 55, 0.6)",
+  ] as readonly [ColorValue, ColorValue],
 };
 
 // Spacing
@@ -45,6 +100,7 @@ export const BORDER_RADIUS = {
   M: 8,
   L: 12,
   XL: 16,
+  XXL: 30, // New radius for login card
   CIRCLE: 9999,
 };
 
@@ -57,6 +113,7 @@ export const FONT_SIZES = {
   XL: 20,
   XXL: 24,
   XXXL: 28,
+  HUGE: 36, // New size for app title
 };
 
 // Shadow styles
@@ -91,6 +148,33 @@ export const SHADOWS = {
     shadowRadius: 7.49,
     elevation: 12,
   },
+  // New premium shadow style
+  PREMIUM: {
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 15,
+    elevation: 20,
+  },
+};
+
+// Animation timings
+export const ANIMATIONS = {
+  FAST: 200,
+  MEDIUM: 400,
+  SLOW: 700,
+  VERY_SLOW: 1000,
+  STAGGER_INTERVAL: 100,
+};
+
+// New blur effect constants
+export const BLUR = {
+  LIGHT: 10,
+  MEDIUM: 20,
+  HEAVY: 30,
 };
 
 // Theme colors
@@ -112,6 +196,22 @@ export const THEME = {
     TEXT_COLOR: "white",
     TEXT_SECONDARY: "rgba(255, 255, 255, 0.8)",
     FILTER_BG: "rgba(0, 0, 0, 0.15)",
+
+    // Modal specific colors
+    MODAL_BG: "#7F00FF",
+    INPUT_BG: "rgba(255, 255, 255, 0.1)",
+    PLACEHOLDER_COLOR: "rgba(255, 255, 255, 0.6)",
+
+    // New login screen specific colors
+    LOGIN_BG: "#F8F9FC",
+    LOGIN_BG_PATTERN: "#F0F2F7",
+    LOGIN_CARD_BG: "rgba(255, 255, 255, 0.8)",
+    LOGIN_INPUT_BG: "rgba(247, 249, 252, 0.7)",
+    LOGIN_INPUT_BORDER: "rgba(230, 234, 240, 0.8)",
+    LOGIN_TEXT_PRIMARY: "#333333",
+    LOGIN_TEXT_SECONDARY: "#777777",
+    LOGIN_ACCENT: "#7F00FF",
+    LOGIN_CARD_ACCENT: "rgba(127, 0, 255, 0.1)",
   },
   DARK: {
     GRADIENT: ["#111827", "#1F2937"],
@@ -130,5 +230,21 @@ export const THEME = {
     TEXT_COLOR: "#F3F4F6",
     TEXT_SECONDARY: "#D1D5DB",
     FILTER_BG: "rgba(31, 41, 55, 0.95)",
+
+    // Modal specific colors
+    MODAL_BG: "#1F2937",
+    INPUT_BG: "rgba(55, 65, 81, 0.7)",
+    PLACEHOLDER_COLOR: "rgba(255, 255, 255, 0.6)",
+
+    // New login screen specific colors
+    LOGIN_BG: "#111827",
+    LOGIN_BG_PATTERN: "#2C3648",
+    LOGIN_CARD_BG: "rgba(31, 41, 55, 0.8)",
+    LOGIN_INPUT_BG: "rgba(55, 65, 81, 0.5)",
+    LOGIN_INPUT_BORDER: "rgba(75, 85, 99, 0.5)",
+    LOGIN_TEXT_PRIMARY: "#F3F4F6",
+    LOGIN_TEXT_SECONDARY: "#D1D5DB",
+    LOGIN_ACCENT: "#A78BFA",
+    LOGIN_CARD_ACCENT: "rgba(127, 0, 255, 0.12)",
   },
 };

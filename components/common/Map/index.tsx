@@ -2,6 +2,7 @@ import { FONTS } from "@/app/theme";
 import { Geo, Party } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import React, { FC, useEffect, useRef, useState } from "react";
@@ -962,159 +963,160 @@ const AdvancedMapComponent: FC<MapProps> = ({
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={theme.GRADIENT}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+      <BlurView
+        intensity={10}
+        tint={isDarkMode ? "dark" : "light"}
+        style={styles.blurContainer}
       >
-        <View style={styles.mapHeader}>
-          <View style={styles.headerLeft}>
-            <Text style={[styles.mapTitle, { color: theme.TEXT_COLOR }]}>
-              Party Locations
-            </Text>
-            {selectedCountry && (
-              <View
-                style={[
-                  styles.locationTag,
-                  {
-                    backgroundColor: theme.BUTTON_BG,
-                    borderColor: theme.BORDER_COLOR,
-                  },
-                ]}
-              >
-                <FontAwesome5
-                  name="map-marker-alt"
-                  size={12}
-                  color={theme.ACCENT_COLOR}
-                />
-                <Text
-                  style={[styles.locationText, { color: theme.TEXT_COLOR }]}
-                >
-                  {selectedCountry?.name}
-                  {selectedRegion ? `, ${selectedRegion.name}` : ""}
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        <Animated.View
-          style={[styles.mapContainer, { opacity: mapOpacityAnim }]}
-        >
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            initialRegion={mapRegion}
-            customMapStyle={isDarkMode ? mapStyle : lightMapStyle}
-            showsUserLocation={false} // We'll use custom marker
-            showsMyLocationButton={false}
-            showsCompass={false}
-            showsScale={false}
-            showsTraffic={false}
-            showsBuildings={false}
-            showsIndoors={false}
-            rotateEnabled={true}
-            scrollEnabled={true}
-            zoomEnabled={true}
-            pitchEnabled={true}
-            onRegionChangeComplete={onRegionChangeComplete}
-            mapPadding={{ top: 0, right: 0, bottom: 20, left: 0 }}
-          >
-            {/* User location radius circle */}
-            {hasValidMyGeo && userLocation && (
-              <Circle
-                center={{
-                  latitude: userLocation.lat,
-                  longitude: userLocation.lng,
-                }}
-                radius={5000} // 5km radius
-                strokeColor={isDarkMode ? "#3B82F6" : "#4dabf7"}
-                strokeWidth={1}
-                fillColor={
-                  isDarkMode
-                    ? "rgba(59, 130, 246, 0.05)"
-                    : "rgba(77, 171, 247, 0.05)"
-                }
-              />
-            )}
-
-            {/* User location marker */}
-            {hasValidMyGeo && userLocation && (
-              <UserLocationMarker
-                position={userLocation}
-                isDarkMode={isDarkMode}
-              />
-            )}
-
-            {/* Party markers */}
-            {parties.map((party) => (
-              <PartyMarker
-                key={party._id}
-                party={party}
-                myGeo={userLocation}
-                onClick={onClick}
-                isDarkMode={isDarkMode}
-              />
-            ))}
-          </MapView>
-
-          {/* Map overlay gradient */}
-          <LinearGradient
-            colors={theme.MAP_OVERLAY}
-            style={styles.mapOverlay}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            pointerEvents="none"
-          />
-
-          {/* Map Controls */}
-          <MapControls
-            myGeo={userLocation}
-            onCenterLocation={handleCenterOnLocation}
-            centeringOnLocation={centeringOnLocation}
-            isDarkMode={isDarkMode}
-          />
-
-          {/* Map Legend */}
-          <MapLegend isDarkMode={isDarkMode} />
-        </Animated.View>
-
         <View
           style={[
-            styles.statsContainer,
+            styles.overlayBackground,
             {
-              borderTopColor: theme.BORDER_COLOR,
+              backgroundColor: isDarkMode
+                ? "rgba(17, 24, 39, 0.7)"
+                : "rgba(0, 0, 0, 0.1)",
             },
           ]}
         >
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.TEXT_COLOR }]}>
-              {parties.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.TEXT_SECONDARY }]}>
-              Events
-            </Text>
+          <View style={styles.mapHeader}>
+            <View style={styles.headerLeft}>
+              <Text style={[styles.mapTitle, { color: theme.TEXT_COLOR }]}>
+                Party Locations
+              </Text>
+              {selectedCountry && (
+                <View
+                  style={[
+                    styles.locationTag,
+                    {
+                      backgroundColor: theme.BUTTON_BG,
+                      borderColor: theme.BORDER_COLOR,
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="map-marker-alt"
+                    size={12}
+                    color={theme.ACCENT_COLOR}
+                  />
+                  <Text
+                    style={[styles.locationText, { color: theme.TEXT_COLOR }]}
+                  >
+                    {selectedCountry?.name}
+                    {selectedRegion ? `, ${selectedRegion.name}` : ""}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
+
+          <Animated.View
+            style={[styles.mapContainer, { opacity: mapOpacityAnim }]}
+          >
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              provider={PROVIDER_GOOGLE}
+              initialRegion={mapRegion}
+              customMapStyle={isDarkMode ? mapStyle : lightMapStyle}
+              showsUserLocation={false}
+              showsMyLocationButton={false}
+              showsCompass={false}
+              showsScale={false}
+              showsTraffic={false}
+              showsBuildings={false}
+              showsIndoors={false}
+              rotateEnabled={true}
+              scrollEnabled={true}
+              zoomEnabled={true}
+              pitchEnabled={true}
+              onRegionChangeComplete={onRegionChangeComplete}
+              mapPadding={{ top: 0, right: 0, bottom: 20, left: 0 }}
+            >
+              {/* User location radius circle */}
+              {hasValidMyGeo && userLocation && (
+                <Circle
+                  center={{
+                    latitude: userLocation.lat,
+                    longitude: userLocation.lng,
+                  }}
+                  radius={5000} // 5km radius
+                  strokeColor={isDarkMode ? "#3B82F6" : "#4dabf7"}
+                  strokeWidth={1}
+                  fillColor={
+                    isDarkMode
+                      ? "rgba(59, 130, 246, 0.05)"
+                      : "rgba(77, 171, 247, 0.05)"
+                  }
+                />
+              )}
+
+              {/* User location marker */}
+              {hasValidMyGeo && userLocation && (
+                <UserLocationMarker
+                  position={userLocation}
+                  isDarkMode={isDarkMode}
+                />
+              )}
+
+              {/* Party markers */}
+              {parties.map((party) => (
+                <PartyMarker
+                  key={party._id}
+                  party={party}
+                  myGeo={userLocation}
+                  onClick={onClick}
+                  isDarkMode={isDarkMode}
+                />
+              ))}
+            </MapView>
+
+            {/* Map Controls */}
+            <MapControls
+              myGeo={userLocation}
+              onCenterLocation={handleCenterOnLocation}
+              centeringOnLocation={centeringOnLocation}
+              isDarkMode={isDarkMode}
+            />
+
+            {/* Map Legend */}
+            <MapLegend isDarkMode={isDarkMode} />
+          </Animated.View>
+
           <View
             style={[
-              styles.statDivider,
+              styles.statsContainer,
               {
-                backgroundColor: theme.BORDER_COLOR,
+                borderTopColor: theme.BORDER_COLOR,
               },
             ]}
-          />
-          <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: theme.TEXT_COLOR }]}>
-              {selectedCountry ? selectedCountry.name : "Worldwide"}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.TEXT_SECONDARY }]}>
-              Location
-            </Text>
+          >
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.TEXT_COLOR }]}>
+                {parties.length}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.TEXT_SECONDARY }]}>
+                Events
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statDivider,
+                {
+                  backgroundColor: theme.BORDER_COLOR,
+                },
+              ]}
+            />
+            <View style={styles.statItem}>
+              <Text style={[styles.statValue, { color: theme.TEXT_COLOR }]}>
+                {selectedCountry ? selectedCountry.name : "Worldwide"}
+              </Text>
+              <Text style={[styles.statLabel, { color: theme.TEXT_SECONDARY }]}>
+                Location
+              </Text>
+            </View>
           </View>
         </View>
-      </LinearGradient>
+      </BlurView>
     </View>
   );
 };
@@ -1127,7 +1129,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 24,
   },
-  gradient: {
+  blurContainer: {
+    flex: 1,
+    overflow: "hidden",
+  },
+  overlayBackground: {
     flex: 1,
     padding: 16,
   },

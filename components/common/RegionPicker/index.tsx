@@ -1,3 +1,5 @@
+import { COLORS, FONTS, THEME } from "@/app/theme";
+import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
 import countryRegionData from "country-region-data";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,7 +17,7 @@ import {
   View,
 } from "react-native";
 
-interface RegionType {
+export interface RegionType {
   code: string;
   name: string;
 }
@@ -50,6 +52,10 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
   const modalSlideAnim = useRef(
     new Animated.Value(Dimensions.get("window").height)
   ).current;
+
+  // Get theme context
+  const { isDarkMode } = useTheme();
+  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
   // Run animations when error state changes
   useEffect(() => {
@@ -106,7 +112,7 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
       if (countryData && countryData.regions) {
         // Convert region data to our format
         const formattedRegions = countryData.regions.map((region: any) => ({
-          code: region.shortCode,
+          code: region.shortCode || region.name.replace(/\s+/g, ""), // Fallback if no code
           name: region.name,
         }));
 
@@ -156,31 +162,39 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
   // Render region item
   const renderItem = ({ item }: { item: RegionType }) => (
     <TouchableOpacity
-      style={styles.regionItem}
+      style={[styles.regionItem, { borderBottomColor: theme.BORDER_COLOR }]}
       onPress={() => handleSelect(item)}
     >
-      <Text style={styles.regionName}>{item.name}</Text>
+      <Text style={[styles.regionName, { color: theme.TEXT_COLOR }]}>
+        {item.name}
+      </Text>
     </TouchableOpacity>
   );
 
   // Render list header - removed close button
   const ListHeader = () => (
     <View style={styles.listHeaderContainer}>
-      <View style={styles.modalHeader}>
-        <Text style={styles.modalTitle}>Select a Region</Text>
+      <View
+        style={[styles.modalHeader, { borderBottomColor: theme.BORDER_COLOR }]}
+      >
+        <Text style={[styles.modalTitle, { color: theme.TEXT_COLOR }]}>
+          Select a Region
+        </Text>
       </View>
 
-      <View style={styles.searchContainer}>
+      <View
+        style={[styles.searchContainer, { backgroundColor: theme.INPUT_BG }]}
+      >
         <FontAwesome
           name="search"
           size={16}
-          color="rgba(255, 255, 255, 0.5)"
+          color={theme.TEXT_SECONDARY}
           style={styles.searchIcon}
         />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: theme.TEXT_COLOR }]}
           placeholder="Search regions..."
-          placeholderTextColor="rgba(255, 255, 255, 0.5)"
+          placeholderTextColor={theme.PLACEHOLDER_COLOR}
           value={searchText}
           onChangeText={setSearchText}
         />
@@ -192,7 +206,7 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
             <FontAwesome
               name="times-circle"
               size={16}
-              color="rgba(255, 255, 255, 0.5)"
+              color={theme.TEXT_SECONDARY}
             />
           </TouchableOpacity>
         )}
@@ -203,19 +217,32 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
   // If no regions are available for the country
   const NoRegionsMessage = () => (
     <View style={styles.noRegionsContainer}>
-      <Text style={styles.noRegionsText}>
+      <Text style={[styles.noRegionsText, { color: theme.TEXT_COLOR }]}>
         No regions available for this country
       </Text>
     </View>
   );
 
+  // Background color for the modal
+  const modalBgColor = isDarkMode
+    ? THEME.DARK.MODAL_BG // Dark gray for dark mode
+    : THEME.LIGHT.MODAL_BG; // Purple for light mode
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: theme.TEXT_COLOR }, labelStyle]}>
+          {label}
+        </Text>
+      )}
 
       <TouchableOpacity
         style={[
           styles.pickerContainer,
+          {
+            backgroundColor: theme.BUTTON_BG,
+            borderColor: theme.BORDER_COLOR,
+          },
           error && styles.pickerContainerError,
           !countryCode && styles.pickerContainerDisabled,
         ]}
@@ -225,8 +252,13 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
         <Text
           style={[
             styles.selectedText,
-            !value && styles.placeholderText,
-            !countryCode && styles.disabledText,
+            { color: theme.TEXT_COLOR },
+            !value && { color: theme.PLACEHOLDER_COLOR },
+            !countryCode && {
+              color: isDarkMode
+                ? "rgba(255, 255, 255, 0.3)"
+                : "rgba(255, 255, 255, 0.3)",
+            },
           ]}
         >
           {!countryCode ? "Select a country first" : getSelectedRegionName()}
@@ -234,7 +266,7 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
         <FontAwesome
           name="chevron-down"
           size={14}
-          color={!countryCode ? "rgba(255, 255, 255, 0.3)" : "white"}
+          color={!countryCode ? "rgba(255, 255, 255, 0.3)" : theme.TEXT_COLOR}
         />
       </TouchableOpacity>
 
@@ -267,14 +299,15 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
                   styles.modalContainer,
                   {
                     transform: [{ translateY: modalSlideAnim }],
+                    backgroundColor: modalBgColor,
                   },
                 ]}
               >
                 <LinearGradient
-                  colors={["#5A0088", "#7F00FF"]}
+                  colors={theme.GRADIENT as any}
                   style={styles.gradientBackground}
                   start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
+                  end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
                 />
 
                 {regions.length > 0 ? (
@@ -288,7 +321,12 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
                     showsVerticalScrollIndicator={false}
                     ListEmptyComponent={
                       <View style={styles.noResults}>
-                        <Text style={styles.noResultsText}>
+                        <Text
+                          style={[
+                            styles.noResultsText,
+                            { color: theme.TEXT_COLOR },
+                          ]}
+                        >
                           No regions found matching your search
                         </Text>
                       </View>
@@ -316,44 +354,36 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    fontFamily: "Montserrat-Medium",
-    color: "white",
+    fontFamily: FONTS.MEDIUM,
     marginBottom: 8,
   },
   pickerContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
     height: 56,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    borderWidth: 1,
   },
   pickerContainerError: {
     borderWidth: 1,
-    borderColor: "rgba(255, 100, 100, 0.7)",
+    borderColor: COLORS.ERROR,
   },
   pickerContainerDisabled: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    opacity: 0.7,
   },
   selectedText: {
     flex: 1,
-    color: "white",
     fontSize: 16,
-    fontFamily: "Montserrat-Regular",
-  },
-  placeholderText: {
-    color: "rgba(255, 255, 255, 0.6)",
-  },
-  disabledText: {
-    color: "rgba(255, 255, 255, 0.3)",
+    fontFamily: FONTS.REGULAR,
   },
   errorText: {
-    color: "rgba(255, 100, 100, 0.9)",
+    color: COLORS.ERROR,
     fontSize: 12,
     marginTop: 4,
     paddingHorizontal: 4,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
   },
   // Modal styles
   modalOverlay: {
@@ -382,17 +412,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   modalTitle: {
     fontSize: 18,
-    fontFamily: "Montserrat-Bold",
-    color: "white",
+    fontFamily: FONTS.BOLD,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 8,
     margin: 16,
     paddingHorizontal: 10,
@@ -403,8 +430,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-    color: "white",
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
   },
   clearButton: {
     padding: 4,
@@ -419,11 +445,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   regionName: {
-    color: "white",
-    fontFamily: "Montserrat-Medium",
+    fontFamily: FONTS.MEDIUM,
     fontSize: 16,
   },
   noResults: {
@@ -431,8 +455,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   noResultsText: {
-    color: "white",
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
     fontSize: 16,
   },
   listHeaderContainer: {
@@ -445,8 +468,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   noRegionsText: {
-    color: "white",
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
     fontSize: 16,
     textAlign: "center",
   },

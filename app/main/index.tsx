@@ -410,7 +410,6 @@ const HomeScreen = () => {
                       <CountryPicker
                         label="Country"
                         placeholder="Select Country"
-                        value={country}
                         onSelect={(selectedCountry) => {
                           setCountry(selectedCountry);
                           setRegion(null);
