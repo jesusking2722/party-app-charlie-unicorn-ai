@@ -1,43 +1,23 @@
-import {
-  ANIMATIONS,
-  BORDER_RADIUS,
-  COLORS,
-  FONTS,
-  FONT_SIZES,
-  SPACING,
-  THEME,
-} from "@/app/theme";
+import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
+import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  Animated,
-  Platform,
   StyleSheet,
   Text,
   TextInput,
   TextInputProps,
-  TextStyle,
   TouchableOpacity,
   View,
   ViewStyle,
-  useColorScheme,
 } from "react-native";
 
 interface InputProps extends Omit<TextInputProps, "style"> {
   label?: string;
   isPassword?: boolean;
   containerStyle?: ViewStyle;
-  labelStyle?: TextStyle;
-  inputStyle?: TextStyle;
-  error?: string;
   icon?: React.ReactNode;
-  iconPosition?: "left" | "right";
-  animated?: boolean;
-  variant?: "standard" | "filled" | "outlined" | "glass" | "frosted";
-  isDark?: boolean;
-  onFocus?: () => void;
-  onBlur?: () => void;
+  error?: string;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -45,203 +25,80 @@ const Input: React.FC<InputProps> = ({
   placeholder,
   value,
   onChangeText,
-  secureTextEntry,
   isPassword = false,
-  keyboardType = "default",
-  autoCapitalize = "none",
   containerStyle,
-  labelStyle,
-  inputStyle,
-  error,
   icon,
-  iconPosition = "right",
-  animated = true,
-  variant = "standard",
-  isDark: forceDark,
-  onFocus,
-  onBlur,
+  error,
   ...restProps
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = forceDark !== undefined ? forceDark : colorScheme === "dark";
-
+  const { isDarkMode } = useTheme();
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const [isFocused, setIsFocused] = useState<boolean>(false);
-
-  // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.98)).current;
-  const focusAnim = useRef(new Animated.Value(0)).current;
-  const labelPositionAnim = useRef(new Animated.Value(0)).current;
-  const labelSizeAnim = useRef(new Animated.Value(0)).current;
-
-  // Derived animated values
-  const inputBorderWidth = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 2],
-  });
-
-  const inputBorderColor = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [
-      isDark ? COLORS.DARK_BORDER : COLORS.LIGHT_BORDER,
-      isDark ? COLORS.ACCENT_PURPLE_LIGHT : COLORS.PRIMARY,
-    ],
-  });
-
-  const accentOpacity = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-
-  const shadowOpacity = focusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.1, 0.2],
-  });
-
-  // Animation for mounting
-  useEffect(() => {
-    if (animated) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: ANIMATIONS.MEDIUM,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          speed: 2,
-          bounciness: 5,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      fadeAnim.setValue(1);
-      scaleAnim.setValue(1);
-    }
-  }, []);
-
-  // Handle focus state animations
-  const handleFocus = () => {
-    setIsFocused(true);
-    if (onFocus) onFocus();
-
-    if (animated) {
-      Animated.parallel([
-        Animated.timing(focusAnim, {
-          toValue: 1,
-          duration: ANIMATIONS.FAST,
-          useNativeDriver: false,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1.02,
-          speed: 20,
-          bounciness: 2,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  };
-
-  const handleBlur = () => {
-    setIsFocused(false);
-    if (onBlur) onBlur();
-
-    if (animated) {
-      Animated.parallel([
-        Animated.timing(focusAnim, {
-          toValue: 0,
-          duration: ANIMATIONS.FAST,
-          useNativeDriver: false,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          speed: 20,
-          bounciness: 2,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  };
 
   const toggleVisibility = (): void => {
     setIsVisible(!isVisible);
   };
 
-  // Get the placeholder text color based on theme
-  const getPlaceholderColor = () => {
-    return isDark
-      ? THEME.DARK.PLACEHOLDER_COLOR
-      : THEME.LIGHT.PLACEHOLDER_COLOR;
-  };
+  // Custom light theme accent color (matching the secondary button)
+  const LIGHT_THEME_ACCENT = "#FF0099";
 
-  // Get input background color based on variant and theme
-  const getInputBackgroundColor = () => {
-    switch (variant) {
-      case "filled":
-        return isDark ? COLORS.DARK_INPUT : COLORS.LIGHT_INPUT;
-      case "outlined":
-        return "transparent";
-      case "glass":
-        return isDark ? "rgba(31, 41, 55, 0.3)" : "rgba(255, 255, 255, 0.2)";
-      case "frosted":
-        return isDark ? "rgba(31, 41, 55, 0.01)" : "rgba(255, 255, 255, 0.01)";
-      default:
-        return isDark ? COLORS.INPUT_BG_DARK : COLORS.INPUT_BG_LIGHT;
-    }
-  };
+  // Theme-based styles
+  const getTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
+  const getPlaceholderColor = () =>
+    isDarkMode ? "rgba(255, 255, 255, 0.5)" : "rgba(0, 0, 0, 0.35)";
+  const getLabelColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+  const getBackgroundColor = () =>
+    isDarkMode
+      ? isFocused
+        ? "rgba(40, 45, 55, 0.65)"
+        : "rgba(30, 35, 45, 0.5)"
+      : isFocused
+      ? "rgba(255, 255, 255, 0.65)"
+      : "rgba(255, 255, 255, 0.5)";
+  const getBorderColor = () =>
+    isDarkMode
+      ? isFocused
+        ? COLORS.SECONDARY
+        : "rgba(255, 255, 255, 0.1)"
+      : isFocused
+      ? LIGHT_THEME_ACCENT
+      : "rgba(0, 0, 0, 0.05)";
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
-  // Get text color based on theme
-  const getTextColor = () => {
-    return isDark ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
-  };
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = () => setIsFocused(false);
 
-  // Get label color based on theme
-  const getLabelColor = () => {
-    return isDark ? COLORS.DARK_TEXT_SECONDARY : COLORS.LIGHT_TEXT_SECONDARY;
-  };
+  return (
+    <View style={[styles.inputContainer, containerStyle]}>
+      {label && (
+        <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
+          {label}
+        </Text>
+      )}
 
-  // Get border style based on variant
-  const getBorderStyle = () => {
-    if (variant === "outlined") {
-      return {
-        borderWidth: 1,
-        borderColor: isDark ? COLORS.DARK_BORDER : COLORS.LIGHT_BORDER,
-      };
-    }
-    return {};
-  };
-
-  const renderInput = () => {
-    const inputWrapperStyle = [
-      styles.inputWrapper,
-      getBorderStyle(),
-      {
-        backgroundColor: getInputBackgroundColor(),
-        borderRadius:
-          variant === "frosted" || variant === "glass"
-            ? BORDER_RADIUS.XL
-            : BORDER_RADIUS.L,
-      },
-      error && styles.inputWrapperError,
-      isFocused && styles.inputWrapperFocused,
-    ];
-
-    const inputContent = (
-      <>
-        {iconPosition === "left" && icon && (
-          <View style={styles.iconContainer}>{icon}</View>
-        )}
+      <View
+        style={[
+          styles.inputWrapper,
+          {
+            backgroundColor: getBackgroundColor(),
+            borderColor: getBorderColor(),
+            borderWidth: isFocused ? 1 : 0.5,
+          },
+          error && styles.inputWrapperError,
+        ]}
+      >
+        {icon && <View style={styles.iconContainer}>{icon}</View>}
 
         <TextInput
-          style={[styles.input, { color: getTextColor() }, inputStyle]}
+          style={[styles.input, { color: getTextColor() }]}
           placeholder={placeholder}
           placeholderTextColor={getPlaceholderColor()}
           value={value}
           onChangeText={onChangeText}
-          secureTextEntry={isPassword ? !isVisible : secureTextEntry}
-          autoCapitalize={autoCapitalize}
-          keyboardType={keyboardType}
+          secureTextEntry={isPassword ? !isVisible : false}
           onFocus={handleFocus}
           onBlur={handleBlur}
           {...restProps}
@@ -253,22 +110,12 @@ const Input: React.FC<InputProps> = ({
             onPress={toggleVisibility}
             accessibilityLabel={isVisible ? "Hide password" : "Show password"}
           >
-            <View
-              style={[
-                styles.eyeIconCircle,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(55, 65, 81, 0.7)"
-                    : "rgba(247, 249, 252, 0.7)",
-                },
-                isVisible && styles.eyeIconActive,
-              ]}
-            >
+            <View style={styles.eyeIconCircle}>
               <FontAwesome
                 name={isVisible ? "eye" : "eye-slash"}
-                size={16}
+                size={14}
                 color={
-                  isDark
+                  isDarkMode
                     ? COLORS.DARK_TEXT_SECONDARY
                     : COLORS.LIGHT_TEXT_SECONDARY
                 }
@@ -277,78 +124,18 @@ const Input: React.FC<InputProps> = ({
           </TouchableOpacity>
         )}
 
-        {iconPosition === "right" && icon && !isPassword && (
-          <View style={styles.iconContainer}>{icon}</View>
-        )}
-
-        {/* Animated accent line when focused */}
-        {variant !== "outlined" && variant !== "frosted" && (
-          <Animated.View
+        {/* Accent indicator for focused state */}
+        {isFocused && (
+          <View
             style={[
-              styles.focusIndicator,
+              styles.focusAccent,
               {
-                opacity: accentOpacity,
-                backgroundColor: isDark
-                  ? COLORS.ACCENT_PURPLE_LIGHT
-                  : COLORS.PRIMARY,
+                backgroundColor: getAccentColor(),
               },
             ]}
           />
         )}
-      </>
-    );
-
-    // For frosted glass effect, wrap with BlurView
-    if (variant === "frosted" && Platform.OS !== "web") {
-      return (
-        <Animated.View
-          style={[
-            inputWrapperStyle,
-            {
-              transform: [{ scale: scaleAnim }],
-              opacity: fadeAnim,
-              overflow: "hidden",
-            },
-          ]}
-        >
-          <BlurView
-            intensity={isDark ? 40 : 30}
-            tint={isDark ? "dark" : "light"}
-            style={styles.blurContainer}
-          >
-            {inputContent}
-          </BlurView>
-        </Animated.View>
-      );
-    }
-
-    // For standard, filled, outlined, and glass variants
-    return (
-      <Animated.View
-        style={[
-          inputWrapperStyle,
-          {
-            transform: [{ scale: scaleAnim }],
-            opacity: fadeAnim,
-          },
-        ]}
-      >
-        {inputContent}
-      </Animated.View>
-    );
-  };
-
-  return (
-    <View style={[styles.inputContainer, containerStyle]}>
-      {label && (
-        <Text
-          style={[styles.inputLabel, { color: getLabelColor() }, labelStyle]}
-        >
-          {label}
-        </Text>
-      )}
-
-      {renderInput()}
+      </View>
 
       {error && (
         <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
@@ -363,36 +150,38 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   inputLabel: {
-    fontSize: FONT_SIZES.S,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
     marginBottom: SPACING.XS,
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    height: 56,
-    position: "relative",
+    height: 40,
+    borderRadius: BORDER_RADIUS.L,
     overflow: "hidden",
+    position: "relative",
   },
-  blurContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
+  focusAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
     height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
   },
   inputWrapperError: {
     borderWidth: 1,
     borderColor: COLORS.ERROR,
   },
-  inputWrapperFocused: {
-    // Styles applied when input is focused
-  },
   input: {
     flex: 1,
     height: "100%",
     paddingHorizontal: SPACING.M,
-    fontSize: FONT_SIZES.M,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
   },
   iconContainer: {
@@ -408,29 +197,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   eyeIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: "center",
     alignItems: "center",
-  },
-  eyeIconActive: {
-    opacity: 0.9,
   },
   errorText: {
     fontSize: FONT_SIZES.XS,
     marginTop: SPACING.XS,
     paddingHorizontal: SPACING.XS,
     fontFamily: FONTS.REGULAR,
-  },
-  focusIndicator: {
-    position: "absolute",
-    left: 0,
-    bottom: 0,
-    width: 4,
-    height: "100%",
-    borderTopRightRadius: BORDER_RADIUS.S,
-    borderBottomRightRadius: BORDER_RADIUS.S,
   },
 });
 

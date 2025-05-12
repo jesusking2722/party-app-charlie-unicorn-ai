@@ -631,7 +631,7 @@ const HomeScreen = () => {
                 {/* View More Button */}
                 <Button
                   title="View More Events"
-                  variant={isDarkMode ? "indigo" : "primary"}
+                  variant={isDarkMode ? "primary" : "secondary"}
                   icon={
                     <FontAwesome5
                       name="chevron-right"

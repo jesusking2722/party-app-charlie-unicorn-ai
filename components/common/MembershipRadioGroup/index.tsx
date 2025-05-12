@@ -1,7 +1,9 @@
+import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
+  Animated,
   StyleSheet,
   Text,
   TextStyle,
@@ -9,6 +11,16 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+
+import {
+  ANIMATIONS,
+  BORDER_RADIUS,
+  COLORS,
+  FONTS,
+  FONT_SIZES,
+  GRADIENTS,
+  SPACING,
+} from "@/app/theme";
 
 // Types for our subscription plan
 export interface SubscriptionPlan {
@@ -40,6 +52,131 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
   containerStyle,
   titleStyle,
 }) => {
+  const { isDarkMode } = useTheme();
+
+  const LIGHT_THEME_ACCENT = "#FF0099";
+
+  // Animation references for each plan
+  const animationRefs = useRef<{
+    [key: string]: {
+      scale: Animated.Value;
+      opacity: Animated.Value;
+      checkOpacity: Animated.Value;
+      borderWidth: Animated.Value;
+      colorInterpolation: Animated.Value;
+    };
+  }>({});
+
+  // Initialize animation values for each plan
+  useEffect(() => {
+    plans.forEach((plan) => {
+      const isSelected = selectedPlanId === plan.id;
+
+      if (!animationRefs.current[plan.id]) {
+        animationRefs.current[plan.id] = {
+          scale: new Animated.Value(isSelected ? 1 : 0),
+          opacity: new Animated.Value(isSelected ? 1 : 0),
+          checkOpacity: new Animated.Value(isSelected ? 1 : 0),
+          borderWidth: new Animated.Value(isSelected ? 2 : 1),
+          colorInterpolation: new Animated.Value(isSelected ? 1 : 0),
+        };
+      }
+    });
+  }, [plans]);
+
+  // Animate when selected plan changes
+  useEffect(() => {
+    plans.forEach((plan) => {
+      const isSelected = selectedPlanId === plan.id;
+      const animations = animationRefs.current[plan.id];
+
+      if (animations) {
+        Animated.parallel([
+          Animated.timing(animations.scale, {
+            toValue: isSelected ? 1 : 0,
+            duration: ANIMATIONS.FAST,
+            useNativeDriver: false,
+          }),
+          Animated.timing(animations.opacity, {
+            toValue: isSelected ? 1 : 0,
+            duration: ANIMATIONS.FAST,
+            useNativeDriver: false,
+          }),
+          Animated.timing(animations.checkOpacity, {
+            toValue: isSelected ? 1 : 0,
+            duration: ANIMATIONS.FAST,
+            useNativeDriver: false,
+          }),
+          Animated.timing(animations.borderWidth, {
+            toValue: isSelected ? 2 : 1,
+            duration: ANIMATIONS.FAST,
+            useNativeDriver: false,
+          }),
+          Animated.timing(animations.colorInterpolation, {
+            toValue: isSelected ? 1 : 0,
+            duration: ANIMATIONS.FAST,
+            useNativeDriver: false,
+          }),
+        ]).start();
+      }
+    });
+  }, [selectedPlanId, plans]);
+
+  // Theme-based styles
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  const getPlanBackgroundColor = (
+    isSelected: boolean,
+    isFree: boolean = false
+  ) =>
+    isDarkMode
+      ? isSelected
+        ? "rgba(40, 45, 55, 0.65)"
+        : isFree
+        ? "rgba(25, 30, 40, 0.4)"
+        : "rgba(30, 35, 45, 0.5)"
+      : isSelected
+      ? "rgba(255, 255, 255, 0.65)"
+      : isFree
+      ? "rgba(255, 255, 255, 0.3)"
+      : "rgba(255, 255, 255, 0.5)";
+
+  const getPlanBorderColor = (isSelected: boolean) =>
+    isDarkMode
+      ? isSelected
+        ? "rgba(255, 255, 255, 0.2)"
+        : "rgba(255, 255, 255, 0.1)"
+      : isSelected
+      ? "rgba(255, 0, 153, 0.3)"
+      : "rgba(0, 0, 0, 0.05)";
+
+  const getTitleColor = (isSelected: boolean, isFree: boolean = false) =>
+    isDarkMode
+      ? isSelected
+        ? COLORS.DARK_TEXT_PRIMARY
+        : isFree
+        ? "rgba(255, 255, 255, 0.6)"
+        : "rgba(255, 255, 255, 0.8)"
+      : isSelected
+      ? COLORS.LIGHT_TEXT_PRIMARY
+      : isFree
+      ? "rgba(0, 0, 0, 0.5)"
+      : "rgba(0, 0, 0, 0.8)";
+
+  const getPriceColor = (isSelected: boolean, isFree: boolean = false) =>
+    isDarkMode
+      ? isSelected
+        ? COLORS.DARK_TEXT_PRIMARY
+        : isFree
+        ? "rgba(255, 255, 255, 0.4)"
+        : "rgba(255, 255, 255, 0.7)"
+      : isSelected
+      ? COLORS.LIGHT_TEXT_PRIMARY
+      : isFree
+      ? "rgba(0, 0, 0, 0.4)"
+      : "rgba(0, 0, 0, 0.7)";
+
   // Calculate savings between monthly price and actual price
   const calculateSavings = (
     monthlyPrice: number,
@@ -67,6 +204,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
     <View style={[styles.container, containerStyle]}>
       {plans.map((plan) => {
         const isSelected = selectedPlanId === plan.id;
+        const animations = animationRefs.current[plan.id];
 
         // Calculate months for savings
         const months = plan.duration.includes("year")
@@ -80,39 +218,73 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
           ? calculateSavings(monthlyPrice, plan.price, months)
           : 0;
 
+        // Get background color interpolation for radio button
+        const radioBorderColor = animations?.colorInterpolation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [
+            isDarkMode ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.2)",
+            getAccentColor(),
+          ],
+        });
+
+        const radioInnerColor = animations?.colorInterpolation.interpolate({
+          inputRange: [0, 1],
+          outputRange: ["rgba(0, 0, 0, 0)", getAccentColor()],
+        });
+
         return (
           <TouchableOpacity
             key={plan.id}
             style={[
               styles.planContainer,
-              isSelected && styles.selectedPlanContainer,
-              plan.isFree && styles.freePlanContainer,
+              {
+                backgroundColor: getPlanBackgroundColor(
+                  isSelected,
+                  plan.isFree
+                ),
+                borderColor: getPlanBorderColor(isSelected),
+                borderWidth: isSelected ? 1 : 0.5,
+              },
               plan.isPopular && styles.popularPlanContainer,
             ]}
             onPress={() => onPlanSelect(plan)}
             activeOpacity={0.7}
           >
-            {/* Selected Plan Indicator */}
+            {/* Left Accent Bar when selected */}
             {isSelected && (
-              <LinearGradient
-                colors={["#FF0099", "#7F00FF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.selectedGradient}
+              <Animated.View
+                style={[
+                  styles.selectedAccent,
+                  {
+                    backgroundColor: getAccentColor(),
+                    opacity: animations?.opacity || 1,
+                  },
+                ]}
               />
             )}
 
             {/* Radio Button */}
             <View style={styles.radioButtonContainer}>
-              <View
+              <Animated.View
                 style={[
                   styles.radioButton,
-                  isSelected && styles.radioButtonSelected,
-                  plan.isFree && styles.freeRadioButton,
+                  {
+                    borderColor: radioBorderColor,
+                    borderWidth: animations?.borderWidth || 1,
+                  },
                 ]}
               >
-                {isSelected && <View style={styles.radioButtonInner} />}
-              </View>
+                <Animated.View
+                  style={[
+                    styles.radioButtonInner,
+                    {
+                      backgroundColor: radioInnerColor,
+                      transform: [{ scale: animations?.scale || 0 }],
+                      opacity: animations?.checkOpacity || 0,
+                    },
+                  ]}
+                />
+              </Animated.View>
             </View>
 
             {/* Plan Information */}
@@ -120,8 +292,10 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               <Text
                 style={[
                   styles.planTitle,
-                  isSelected && styles.selectedText,
-                  plan.isFree && styles.freeText,
+                  {
+                    color: getTitleColor(isSelected, plan.isFree),
+                    fontFamily: isSelected ? FONTS.SEMIBOLD : FONTS.MEDIUM,
+                  },
                   titleStyle,
                 ]}
               >
@@ -132,16 +306,35 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                 <Text
                   style={[
                     styles.planPrice,
-                    isSelected && styles.selectedText,
-                    plan.isFree && styles.freeText,
+                    {
+                      color: getPriceColor(isSelected, plan.isFree),
+                    },
                   ]}
                 >
                   {plan.priceLabel}
                 </Text>
 
                 {showSavings && (
-                  <View style={styles.savingsContainer}>
-                    <Text style={styles.savingsText}>
+                  <View
+                    style={[
+                      styles.savingsContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(255, 0, 153, 0.2)"
+                          : "rgba(255, 0, 153, 0.1)",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.savingsText,
+                        {
+                          color: isDarkMode
+                            ? "rgba(255, 255, 255, 0.9)"
+                            : getAccentColor(),
+                        },
+                      ]}
+                    >
                       Save {savingsPercentage}%
                     </Text>
                   </View>
@@ -158,10 +351,25 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                         <FontAwesome5
                           name="minus"
                           size={8}
-                          color="rgba(255, 255, 255, 0.5)"
+                          color={
+                            isDarkMode
+                              ? "rgba(255, 255, 255, 0.4)"
+                              : "rgba(0, 0, 0, 0.4)"
+                          }
                           style={styles.limitationIcon}
                         />
-                        <Text style={styles.limitationText}>{limitation}</Text>
+                        <Text
+                          style={[
+                            styles.limitationText,
+                            {
+                              color: isDarkMode
+                                ? "rgba(255, 255, 255, 0.5)"
+                                : "rgba(0, 0, 0, 0.5)",
+                            },
+                          ]}
+                        >
+                          {limitation}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -175,10 +383,21 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                       <FontAwesome5
                         name="check"
                         size={8}
-                        color="#FF0099"
+                        color={getAccentColor()}
                         style={styles.featureIcon}
                       />
-                      <Text style={styles.featureText}>{feature}</Text>
+                      <Text
+                        style={[
+                          styles.featureText,
+                          {
+                            color: isDarkMode
+                              ? "rgba(255, 255, 255, 0.7)"
+                              : "rgba(0, 0, 0, 0.7)",
+                          },
+                        ]}
+                      >
+                        {feature}
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -189,7 +408,9 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
             {plan.isPopular && (
               <View style={styles.popularBadge}>
                 <LinearGradient
-                  colors={["#FF9500", "#FF0099"]}
+                  colors={
+                    isDarkMode ? GRADIENTS.PRIMARY : ["#FF9500", "#FF0099"]
+                  }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.popularGradient}
@@ -208,8 +429,28 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
             {/* Free Badge */}
             {plan.isFree && (
               <View style={styles.freeBadge}>
-                <View style={styles.freeGradient}>
-                  <Text style={styles.freeTextBadge}>Basic</Text>
+                <View
+                  style={[
+                    styles.freeGradient,
+                    {
+                      backgroundColor: isDarkMode
+                        ? "rgba(255, 255, 255, 0.1)"
+                        : "rgba(0, 0, 0, 0.1)",
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.freeTextBadge,
+                      {
+                        color: isDarkMode
+                          ? "rgba(255, 255, 255, 0.7)"
+                          : "rgba(0, 0, 0, 0.7)",
+                      },
+                    ]}
+                  >
+                    Basic
+                  </Text>
                 </View>
               </View>
             )}
@@ -227,91 +468,62 @@ const styles = StyleSheet.create({
   planContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    marginBottom: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 12,
+    padding: SPACING.M,
+    marginBottom: SPACING.M,
+    borderRadius: BORDER_RADIUS.L,
     position: "relative",
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "transparent",
   },
-  selectedPlanContainer: {
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-  },
-  freePlanContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  selectedAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
+    height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
   },
   popularPlanContainer: {
     borderColor: "rgba(255, 0, 153, 0.3)",
   },
-  selectedGradient: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    width: 4,
-    height: "100%",
-  },
   radioButtonContainer: {
-    marginRight: 16,
+    marginRight: SPACING.M,
   },
   radioButton: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.5)",
     justifyContent: "center",
     alignItems: "center",
-  },
-  radioButtonSelected: {
-    borderColor: "#FF0099",
-  },
-  freeRadioButton: {
-    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   radioButtonInner: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#FF0099",
   },
   planInfo: {
     flex: 1,
   },
   planTitle: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "Montserrat-Medium",
-    marginBottom: 4,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.XS,
   },
   priceContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
   planPrice: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 14,
-    fontFamily: "Montserrat-Regular",
-  },
-  selectedText: {
-    color: "white",
-  },
-  freeText: {
-    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.REGULAR,
   },
   savingsContainer: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
+    marginLeft: SPACING.S,
+    paddingHorizontal: SPACING.S,
     paddingVertical: 2,
-    backgroundColor: "rgba(255, 0, 153, 0.2)",
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.M,
   },
   savingsText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontFamily: "Montserrat-Medium",
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.MEDIUM,
   },
   popularBadge: {
     position: "absolute",
@@ -319,9 +531,9 @@ const styles = StyleSheet.create({
     right: 0,
   },
   popularGradient: {
-    paddingHorizontal: 10,
+    paddingHorizontal: SPACING.S,
     paddingVertical: 4,
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: BORDER_RADIUS.M,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -330,8 +542,8 @@ const styles = StyleSheet.create({
   },
   popularText: {
     color: "white",
-    fontSize: 12,
-    fontFamily: "Montserrat-Medium",
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.MEDIUM,
   },
   freeBadge: {
     position: "absolute",
@@ -339,18 +551,16 @@ const styles = StyleSheet.create({
     right: 0,
   },
   freeGradient: {
-    paddingHorizontal: 10,
+    paddingHorizontal: SPACING.S,
     paddingVertical: 4,
-    borderBottomLeftRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomLeftRadius: BORDER_RADIUS.M,
   },
   freeTextBadge: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 12,
-    fontFamily: "Montserrat-Medium",
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.MEDIUM,
   },
   limitationsContainer: {
-    marginTop: 8,
+    marginTop: SPACING.S,
   },
   limitationItem: {
     flexDirection: "row",
@@ -358,15 +568,14 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   limitationIcon: {
-    marginRight: 6,
+    marginRight: SPACING.XS,
   },
   limitationText: {
-    color: "rgba(255, 255, 255, 0.5)",
-    fontSize: 12,
-    fontFamily: "Montserrat-Regular",
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.REGULAR,
   },
   featuresContainer: {
-    marginTop: 8,
+    marginTop: SPACING.S,
   },
   featureItem: {
     flexDirection: "row",
@@ -374,12 +583,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   featureIcon: {
-    marginRight: 6,
+    marginRight: SPACING.XS,
   },
   featureText: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 12,
-    fontFamily: "Montserrat-Regular",
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.REGULAR,
   },
 });
 

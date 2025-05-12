@@ -1,4 +1,4 @@
-import { FONTS, THEME } from "@/app/theme";
+import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { GOOGLE_API_KEY } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
@@ -16,18 +16,22 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  ViewStyle,
 } from "react-native";
+
+// Custom light theme secondary color - to match Input
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 interface LocationPickerProps {
   label?: string;
   placeholder?: string;
   value?: string | null;
   onSelect: (data: any) => void;
-  containerStyle?: any;
-  labelStyle?: any;
+  containerStyle?: ViewStyle;
   error?: string;
   countryCode?: string | null;
   regionCode?: string | null;
+  isDarkMode?: boolean; // Allow overriding the theme context
 }
 
 const LocationPicker: React.FC<LocationPickerProps> = ({
@@ -36,20 +40,23 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   value = "",
   onSelect,
   containerStyle,
-  labelStyle,
   error,
   countryCode = null,
   regionCode = null,
+  isDarkMode: forceDarkMode,
 }) => {
-  const { isDarkMode } = useTheme();
-  // Get the appropriate theme based on isDarkMode
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
+  const { isDarkMode: contextDarkMode } = useTheme();
+  const isDarkMode =
+    forceDarkMode !== undefined ? forceDarkMode : contextDarkMode;
 
   const [showModal, setShowModal] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [geocoding, setGeocoding] = useState(false);
   const [geocodingError, setGeocodingError] = useState<string | null>(null);
   const [recentAddresses, setRecentAddresses] = useState<string[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
   const modalSlideAnim = useRef(
@@ -121,14 +128,49 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     return value;
   };
 
+  // Theme-based styles (matching Input component)
+  const getTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
+
+  const getPlaceholderColor = () =>
+    isDarkMode ? "rgba(255, 255, 255, 0.5)" : "rgba(0, 0, 0, 0.35)";
+
+  const getLabelColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  const getBackgroundColor = () =>
+    isDarkMode
+      ? isFocused
+        ? "rgba(40, 45, 55, 0.65)"
+        : "rgba(30, 35, 45, 0.5)"
+      : isFocused
+      ? "rgba(255, 255, 255, 0.65)"
+      : "rgba(255, 255, 255, 0.5)";
+
+  const getBorderColor = () =>
+    isDarkMode
+      ? isFocused
+        ? COLORS.SECONDARY
+        : "rgba(255, 255, 255, 0.1)"
+      : isFocused
+      ? LIGHT_THEME_ACCENT
+      : "rgba(0, 0, 0, 0.05)";
+
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
   const handleOpenModal = () => {
-    setGeocodingError(null);
-    setShowModal(true);
+    if (isEnabled) {
+      setIsFocused(true);
+      setGeocodingError(null);
+      setShowModal(true);
+    }
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
     setGeocodingError(null);
+    setIsFocused(false);
   };
 
   // Geocode the address using Google Geocoding API directly
@@ -226,26 +268,56 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   // Render list header with search input
   const ListHeader = () => (
     <View style={styles.listHeaderContainer}>
-      <View style={styles.modalHeader}>
-        <Text style={[styles.modalTitle, { color: theme.TEXT_COLOR }]}>
+      <LinearGradient
+        colors={isDarkMode ? ["#111827", "#1F2937"] : ["#FF0099", "#FF6D00"]}
+        style={styles.gradientBackground}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      />
+
+      <View
+        style={[
+          styles.modalHeader,
+          {
+            borderBottomColor: isDarkMode
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0, 0, 0, 0.1)",
+          },
+        ]}
+      >
+        <Text style={[styles.modalTitle, { color: COLORS.WHITE }]}>
           Enter Address
         </Text>
       </View>
 
       <View
-        style={[styles.searchContainer, { backgroundColor: theme.INPUT_BG }]}
+        style={[
+          styles.searchContainer,
+          {
+            backgroundColor: isDarkMode
+              ? "rgba(40, 45, 55, 0.65)"
+              : "rgba(255, 255, 255, 0.8)",
+            borderColor: isDarkMode
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0, 0, 0, 0.05)",
+          },
+        ]}
       >
         <FontAwesome
           name="search"
           size={16}
-          color={theme.PLACEHOLDER_COLOR}
+          color={
+            isDarkMode
+              ? COLORS.DARK_TEXT_SECONDARY
+              : COLORS.LIGHT_TEXT_SECONDARY
+          }
           style={styles.searchIcon}
         />
         <TextInput
           ref={textInputRef}
-          style={[styles.searchInput, { color: theme.TEXT_COLOR }]}
+          style={[styles.searchInput, { color: getTextColor() }]}
           placeholder="Enter your address"
-          placeholderTextColor={theme.PLACEHOLDER_COLOR}
+          placeholderTextColor={getPlaceholderColor()}
           value={searchText}
           onChangeText={handleTextChange}
           autoFocus={true}
@@ -266,7 +338,11 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
             <FontAwesome
               name="times-circle"
               size={16}
-              color={theme.PLACEHOLDER_COLOR}
+              color={
+                isDarkMode
+                  ? COLORS.DARK_TEXT_SECONDARY
+                  : COLORS.LIGHT_TEXT_SECONDARY
+              }
             />
           </TouchableOpacity>
         )}
@@ -281,24 +357,33 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       <TouchableOpacity
         style={[
           styles.confirmButton,
-          { backgroundColor: theme.BUTTON_BG },
-          (!searchText.trim() || geocoding) && styles.confirmButtonDisabled,
+          {
+            backgroundColor: isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT,
+            opacity: !searchText.trim() || geocoding ? 0.5 : 1,
+          },
         ]}
         onPress={() => geocodeAddress(searchText)}
         disabled={!searchText.trim() || geocoding}
       >
         {geocoding ? (
-          <ActivityIndicator color={theme.TEXT_COLOR} size="small" />
+          <ActivityIndicator color="white" size="small" />
         ) : (
-          <Text style={[styles.confirmButtonText, { color: theme.TEXT_COLOR }]}>
-            Find Location
-          </Text>
+          <Text style={styles.confirmButtonText}>Find Location</Text>
         )}
       </TouchableOpacity>
 
       {recentAddresses.length > 0 && (
         <View style={styles.recentContainer}>
-          <Text style={[styles.recentTitle, { color: theme.TEXT_SECONDARY }]}>
+          <Text
+            style={[
+              styles.recentTitle,
+              {
+                color: isDarkMode
+                  ? COLORS.DARK_TEXT_SECONDARY
+                  : COLORS.LIGHT_TEXT_SECONDARY,
+              },
+            ]}
+          >
             Recent Addresses
           </Text>
         </View>
@@ -309,7 +394,14 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   // Render recent address item
   const renderRecentItem = ({ item }: { item: string }) => (
     <TouchableOpacity
-      style={[styles.recentItem, { borderBottomColor: theme.BORDER_COLOR }]}
+      style={[
+        styles.recentItem,
+        {
+          borderBottomColor: isDarkMode
+            ? "rgba(255, 255, 255, 0.1)"
+            : "rgba(0, 0, 0, 0.05)",
+        },
+      ]}
       onPress={() => {
         setSearchText(item);
         geocodeAddress(item);
@@ -318,11 +410,13 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       <FontAwesome
         name="history"
         size={16}
-        color={theme.TEXT_SECONDARY}
+        color={
+          isDarkMode ? COLORS.DARK_TEXT_SECONDARY : COLORS.LIGHT_TEXT_SECONDARY
+        }
         style={styles.recentIcon}
       />
       <Text
-        style={[styles.recentText, { color: theme.TEXT_COLOR }]}
+        style={[styles.recentText, { color: getTextColor() }]}
         numberOfLines={1}
       >
         {item}
@@ -331,57 +425,106 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   );
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.inputContainer, containerStyle]}>
       {label && (
-        <Text style={[styles.label, { color: theme.TEXT_COLOR }, labelStyle]}>
+        <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
           {label}
         </Text>
       )}
 
-      <TouchableOpacity
+      <View
         style={[
-          styles.pickerContainer,
-          { backgroundColor: theme.INPUT_BG },
-          error && styles.pickerContainerError,
-          !isEnabled && styles.pickerContainerDisabled,
+          styles.inputWrapper,
+          {
+            backgroundColor: getBackgroundColor(),
+            borderColor: getBorderColor(),
+            borderWidth: isFocused ? 1 : 0.5,
+            opacity: !isEnabled ? 0.7 : 1,
+          },
+          error && styles.inputWrapperError,
         ]}
-        onPress={() => isEnabled && handleOpenModal()}
-        disabled={!isEnabled}
       >
-        <Text
-          style={[
-            styles.selectedText,
-            { color: theme.TEXT_COLOR },
-            !value && { color: theme.PLACEHOLDER_COLOR },
-            !isEnabled && styles.disabledText,
-          ]}
-          numberOfLines={1}
-          ellipsizeMode="tail"
+        <View style={styles.iconContainer}>
+          <FontAwesome
+            name="map"
+            size={16}
+            color={
+              !isEnabled
+                ? isDarkMode
+                  ? "rgba(255, 255, 255, 0.3)"
+                  : "rgba(0, 0, 0, 0.2)"
+                : isDarkMode
+                ? COLORS.DARK_TEXT_SECONDARY
+                : COLORS.LIGHT_TEXT_SECONDARY
+            }
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.pickerTouchable}
+          onPress={handleOpenModal}
+          activeOpacity={0.7}
+          disabled={!isEnabled}
         >
-          {getDisplayText()}
-        </Text>
-        <FontAwesome
-          name="chevron-down"
-          size={14}
-          color={!isEnabled ? "rgba(255, 255, 255, 0.3)" : theme.TEXT_COLOR}
-        />
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.selectedText,
+              {
+                color: !isEnabled
+                  ? isDarkMode
+                    ? "rgba(255, 255, 255, 0.3)"
+                    : "rgba(0, 0, 0, 0.2)"
+                  : value
+                  ? getTextColor()
+                  : getPlaceholderColor(),
+              },
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {getDisplayText()}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.chevronContainer}
+          onPress={handleOpenModal}
+          activeOpacity={0.7}
+          disabled={!isEnabled}
+        >
+          <FontAwesome
+            name="chevron-down"
+            size={12}
+            color={
+              !isEnabled
+                ? isDarkMode
+                  ? "rgba(255, 255, 255, 0.3)"
+                  : "rgba(0, 0, 0, 0.2)"
+                : isDarkMode
+                ? COLORS.DARK_TEXT_SECONDARY
+                : COLORS.LIGHT_TEXT_SECONDARY
+            }
+          />
+        </TouchableOpacity>
+
+        {/* Accent indicator for focused state */}
+        {isFocused && (
+          <View
+            style={[
+              styles.focusAccent,
+              {
+                backgroundColor: getAccentColor(),
+              },
+            ]}
+          />
+        )}
+      </View>
 
       {error && (
-        <Animated.Text
-          style={[
-            styles.errorText,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {error}
-        </Animated.Text>
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
       )}
 
-      {/* Address Input Modal */}
+      {/* Location Picker Modal */}
       <Modal
         visible={showModal}
         transparent={true}
@@ -396,17 +539,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
                   styles.modalContainer,
                   {
                     transform: [{ translateY: modalSlideAnim }],
-                    backgroundColor: theme.MODAL_BG,
+                    backgroundColor: isDarkMode
+                      ? COLORS.DARK_BG_SECONDARY
+                      : "#FFFFFF",
                   },
                 ]}
               >
-                <LinearGradient
-                  colors={isDarkMode ? (theme.GRADIENT as any) : theme.GRADIENT}
-                  style={styles.gradientBackground}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                />
-
                 <FlatList
                   data={recentAddresses}
                   renderItem={renderRecentItem}
@@ -427,43 +565,63 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
+  inputContainer: {
+    marginBottom: SPACING.M,
     width: "100%",
   },
-  label: {
-    fontSize: 16,
+  inputLabel: {
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
-    marginBottom: 8,
+    marginBottom: SPACING.XS,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  pickerContainer: {
-    borderRadius: 12,
-    height: 56,
-    paddingHorizontal: 16,
+  inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    height: 40,
+    borderRadius: BORDER_RADIUS.L,
+    overflow: "hidden",
+    position: "relative",
   },
-  pickerContainerError: {
+  focusAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
+    height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
+  },
+  inputWrapperError: {
     borderWidth: 1,
-    borderColor: "rgba(255, 100, 100, 0.7)",
+    borderColor: COLORS.ERROR,
   },
-  pickerContainerDisabled: {
-    opacity: 0.5,
+  iconContainer: {
+    paddingHorizontal: SPACING.M,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pickerTouchable: {
+    flex: 1,
+    height: "100%",
+    justifyContent: "center",
   },
   selectedText: {
-    flex: 1,
-    fontSize: 16,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
   },
-  disabledText: {
-    color: "rgba(255, 255, 255, 0.3)",
+  chevronContainer: {
+    paddingHorizontal: SPACING.M,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
-    color: "rgba(255, 100, 100, 0.9)",
-    fontSize: 12,
-    marginTop: 4,
-    paddingHorizontal: 4,
+    fontSize: FONT_SIZES.XS,
+    marginTop: SPACING.XS,
+    paddingHorizontal: SPACING.XS,
     fontFamily: FONTS.REGULAR,
   },
   // Modal styles
@@ -483,39 +641,41 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    height: 56,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   listHeaderContainer: {
-    backgroundColor: "transparent",
+    width: "100%",
+    position: "relative",
   },
   modalHeader: {
-    flexDirection: "row",
-    justifyContent: "center",
+    paddingVertical: SPACING.M,
     alignItems: "center",
-    padding: 16,
+    justifyContent: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: FONT_SIZES.M,
     fontFamily: FONTS.BOLD,
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 8,
-    margin: 16,
-    paddingHorizontal: 10,
+    borderRadius: BORDER_RADIUS.M,
+    margin: SPACING.M,
+    paddingHorizontal: SPACING.S,
+    height: 40,
+    borderWidth: 1,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: SPACING.S,
   },
   searchInput: {
     flex: 1,
-    height: 40,
+    height: "100%",
     fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
   },
   clearButton: {
     padding: 4,
@@ -527,54 +687,54 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   confirmButton: {
-    borderRadius: 12,
-    height: 50,
-    marginHorizontal: 16,
-    marginBottom: 16,
+    borderRadius: BORDER_RADIUS.M,
+    height: 40,
+    marginHorizontal: SPACING.M,
+    marginBottom: SPACING.M,
     alignItems: "center",
     justifyContent: "center",
   },
-  confirmButtonDisabled: {
-    opacity: 0.5,
-  },
   confirmButtonText: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.S,
     fontFamily: FONTS.SEMIBOLD,
+    color: COLORS.WHITE,
   },
   errorContainer: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 10,
+    marginHorizontal: SPACING.M,
+    marginBottom: SPACING.M,
+    padding: SPACING.S,
     backgroundColor: "rgba(255, 100, 100, 0.2)",
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.M,
   },
   errorMessage: {
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: 14,
+    color: "#FFF",
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
     textAlign: "center",
   },
   recentContainer: {
-    marginTop: 8,
-    marginHorizontal: 16,
-    marginBottom: 4,
+    marginTop: SPACING.S,
+    marginHorizontal: SPACING.M,
+    marginBottom: SPACING.XS,
   },
   recentTitle: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   recentItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: SPACING.M,
+    paddingHorizontal: SPACING.M,
     borderBottomWidth: 1,
   },
   recentIcon: {
-    marginRight: 12,
+    marginRight: SPACING.M,
   },
   recentText: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.S,
     fontFamily: FONTS.REGULAR,
     flex: 1,
   },

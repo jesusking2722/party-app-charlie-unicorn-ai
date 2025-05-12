@@ -11,11 +11,11 @@ import {
   Platform,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  useColorScheme,
 } from "react-native";
 
 import {
@@ -27,52 +27,54 @@ import {
   GRADIENTS,
   SHADOWS,
   SPACING,
-  THEME,
 } from "@/app/theme";
-import { Button, Input } from "@/components/common";
+import { Button, Input, ThemeToggle } from "@/components/common";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const PartyImage = require("@/assets/images/login_bg.png");
 const LogoImage = require("@/assets/images/logo.png");
 
 const { width, height } = Dimensions.get("window");
 
+// Custom light theme secondary color
+const LIGHT_THEME_ACCENT = "#FF0099";
+
 const LoginScreen = () => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const theme = isDark ? THEME.DARK : THEME.LIGHT;
+  const { isDarkMode, toggleTheme } = useTheme();
 
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(false);
-  const [emailFocused, setEmailFocused] = useState<boolean>(false);
-  const [passwordFocused, setPasswordFocused] = useState<boolean>(false);
+  const [errors, setErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
 
-  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(50)).current;
-  const cardScale = useRef(new Animated.Value(0.95)).current;
+  const translateY = useRef(new Animated.Value(30)).current;
+  const cardScale = useRef(new Animated.Value(0.97)).current;
   const logoScale = useRef(new Animated.Value(0)).current;
   const checkboxScale = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
-  const socialBtnAnimations = [0, 1, 2].map(
+  const socialBtnAnimations = [0, 1].map(
     () => useRef(new Animated.Value(0)).current
   );
 
   // Particle animations for the background
-  const particles = Array(10)
+  const particles = Array(6)
     .fill(0)
     .map(() => ({
       x: useRef(new Animated.Value(Math.random() * width)).current,
-      y: useRef(new Animated.Value(Math.random() * height * 0.5)).current,
-      scale: useRef(new Animated.Value(Math.random() * 0.5 + 0.5)).current,
-      opacity: useRef(new Animated.Value(Math.random() * 0.5 + 0.3)).current,
-      speed: Math.random() * 3000 + 2000, // Random speed between 2-5 seconds
+      y: useRef(new Animated.Value(Math.random() * height * 0.4)).current,
+      scale: useRef(new Animated.Value(Math.random() * 0.4 + 0.3)).current,
+      opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
+      speed: Math.random() * 3000 + 2000,
     }));
 
   // Run animations when component mounts
   useEffect(() => {
-    const animationDelay = Platform.OS === "ios" ? 300 : 500;
+    const animationDelay = Platform.OS === "ios" ? 200 : 300;
 
     // Main elements fade in
     setTimeout(() => {
@@ -86,21 +88,21 @@ const LoginScreen = () => {
         // Slide up animation
         Animated.spring(translateY, {
           toValue: 0,
-          tension: 50,
-          friction: 8,
+          tension: 60,
+          friction: 7,
           useNativeDriver: true,
         }),
         // Card scale animation
         Animated.spring(cardScale, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 6,
           useNativeDriver: true,
         }),
         // Logo animation with bounce
         Animated.spring(logoScale, {
           toValue: 1,
-          tension: 60,
+          tension: 70,
           friction: 5,
           useNativeDriver: true,
         }),
@@ -111,8 +113,8 @@ const LoginScreen = () => {
         Animated.delay(animationDelay),
         Animated.spring(buttonScale, {
           toValue: 1,
-          tension: 50,
-          friction: 7,
+          tension: 60,
+          friction: 6,
           useNativeDriver: true,
         }),
         Animated.timing(checkboxScale, {
@@ -126,12 +128,12 @@ const LoginScreen = () => {
       socialBtnAnimations.forEach((anim, index) => {
         Animated.sequence([
           Animated.delay(
-            animationDelay + 200 + index * ANIMATIONS.STAGGER_INTERVAL
+            animationDelay + 150 + index * ANIMATIONS.STAGGER_INTERVAL
           ),
           Animated.spring(anim, {
             toValue: 1,
-            tension: 50,
-            friction: 7,
+            tension: 60,
+            friction: 6,
             useNativeDriver: true,
           }),
         ]).start();
@@ -139,7 +141,7 @@ const LoginScreen = () => {
 
       // Start particle animations
       animateParticles();
-    }, 150);
+    }, 100);
   }, []);
 
   // Continuous animation for floating particles
@@ -149,13 +151,13 @@ const LoginScreen = () => {
       Animated.loop(
         Animated.sequence([
           Animated.timing(particle.y, {
-            toValue: Math.random() * (height * 0.4) + height * 0.05,
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
             duration: particle.speed,
             useNativeDriver: true,
             easing: (t) => Math.sin(t * Math.PI),
           }),
           Animated.timing(particle.y, {
-            toValue: Math.random() * (height * 0.4) + height * 0.05,
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
             duration: particle.speed,
             useNativeDriver: true,
             easing: (t) => Math.sin(t * Math.PI),
@@ -167,12 +169,12 @@ const LoginScreen = () => {
       Animated.loop(
         Animated.sequence([
           Animated.timing(particle.scale, {
-            toValue: Math.random() * 0.4 + 0.6,
+            toValue: Math.random() * 0.3 + 0.4,
             duration: particle.speed * 1.1,
             useNativeDriver: true,
           }),
           Animated.timing(particle.scale, {
-            toValue: Math.random() * 0.4 + 0.6,
+            toValue: Math.random() * 0.3 + 0.4,
             duration: particle.speed * 1.1,
             useNativeDriver: true,
           }),
@@ -183,12 +185,12 @@ const LoginScreen = () => {
       Animated.loop(
         Animated.sequence([
           Animated.timing(particle.opacity, {
-            toValue: Math.random() * 0.3 + 0.2,
+            toValue: Math.random() * 0.2 + 0.2,
             duration: particle.speed * 0.8,
             useNativeDriver: true,
           }),
           Animated.timing(particle.opacity, {
-            toValue: Math.random() * 0.3 + 0.2,
+            toValue: Math.random() * 0.2 + 0.2,
             duration: particle.speed * 0.8,
             useNativeDriver: true,
           }),
@@ -197,32 +199,62 @@ const LoginScreen = () => {
     });
   };
 
+  const validateInputs = (): boolean => {
+    const newErrors: {
+      email?: string;
+      password?: string;
+    } = {};
+    let isValid = true;
+
+    // Validate email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      newErrors.email = "Email is required";
+      isValid = false;
+    } else if (!emailRegex.test(email)) {
+      newErrors.email = "Please enter a valid email";
+      isValid = false;
+    }
+
+    // Validate password
+    if (!password) {
+      newErrors.password = "Password is required";
+      isValid = false;
+    } else if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleLogin = (): void => {
-    if (!email || !password) return;
+    if (validateInputs()) {
+      setLoading(true);
 
-    setLoading(true);
+      // Button press animation
+      Animated.sequence([
+        Animated.timing(buttonScale, {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(buttonScale, {
+          toValue: 1,
+          tension: 200,
+          friction: 20,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-    // Button press animation
-    Animated.sequence([
-      Animated.timing(buttonScale, {
-        toValue: 0.95,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.spring(buttonScale, {
-        toValue: 1,
-        tension: 200,
-        friction: 20,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    // Simulate API call
-    setTimeout(() => {
-      console.log("Login with:", email, password);
-      setLoading(false);
-      router.push("/onboarding");
-    }, 1500);
+      // Simulate API call
+      setTimeout(() => {
+        console.log("Login with:", email, password);
+        setLoading(false);
+        router.push("/onboarding");
+      }, 1500);
+    }
   };
 
   const handleGoogleLogin = (): void => {
@@ -231,10 +263,6 @@ const LoginScreen = () => {
 
   const handleAppleLogin = (): void => {
     console.log("Login with Apple");
-  };
-
-  const handleFacebookLogin = (): void => {
-    console.log("Login with Facebook");
   };
 
   const handleForgotPassword = (): void => {
@@ -291,7 +319,7 @@ const LoginScreen = () => {
               { scale: particle.scale },
             ],
             opacity: particle.opacity,
-            backgroundColor: isDark
+            backgroundColor: isDarkMode
               ? `rgba(${127 + Math.floor(Math.random() * 128)}, ${Math.floor(
                   Math.random() * 100
                 )}, ${Math.floor(Math.random() * 255)}, 0.7)`
@@ -304,380 +332,336 @@ const LoginScreen = () => {
     ));
   };
 
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
   return (
     <SafeAreaView
       style={[
         styles.container,
-        { backgroundColor: isDark ? COLORS.DARK_BG : COLORS.LIGHT_BG },
+        { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <StatusBar style={isDark ? "light" : "dark"} />
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
 
-      {/* Party Image Section (Top Half) */}
-      <View style={styles.partyImageContainer}>
-        <Image
-          source={PartyImage}
-          style={styles.partyImage}
-          resizeMode="cover"
-        />
-
-        {/* Add floating particles for fun effect */}
-        {renderParticles()}
-
-        {/* Overlay gradient for readability */}
-        <LinearGradient
-          colors={["rgba(0,0,0,0.4)", "rgba(0,0,0,0.1)"]}
-          style={styles.imageOverlay}
-        />
-
-        <Animated.View
-          style={[
-            styles.logoContainer,
-            {
-              transform: [{ scale: logoScale }, { translateY: translateY }],
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          <Image source={LogoImage} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.partyTitle}>PARTY APP</Text>
-          <Text style={styles.partySubtitle}>Connect with the fun</Text>
-        </Animated.View>
+      {/* Theme toggle button */}
+      <View style={styles.themeToggle}>
+        <ThemeToggle />
       </View>
 
-      {/* Bottom Half with Animated Background */}
-      <View style={styles.bottomHalf}>
-        <LinearGradient
-          colors={isDark ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
-          style={styles.bottomGradient}
-        />
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        {/* Party Image Section (Top Half) */}
+        <View style={styles.partyImageContainer}>
+          <Image
+            source={PartyImage}
+            style={styles.partyImage}
+            resizeMode="cover"
+          />
 
-        {/* Login Card (overlapping both sections) */}
-        <Animated.View
-          style={[
-            styles.cardContainer,
-            {
-              transform: [{ translateY: translateY }, { scale: cardScale }],
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          <BlurView
-            intensity={isDark ? 40 : 30}
-            tint={isDark ? "dark" : "light"}
-            style={styles.cardBlur}
+          {/* Add floating particles for fun effect */}
+          {renderParticles()}
+
+          {/* Overlay gradient for readability */}
+          <LinearGradient
+            colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0)"]}
+            style={styles.imageOverlay}
+          />
+        </View>
+
+        {/* Bottom Half with Animated Background */}
+        <View style={styles.bottomHalf}>
+          <LinearGradient
+            colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+            style={styles.bottomGradient}
+          />
+
+          {/* Login Card (overlapping both sections) */}
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: translateY }, { scale: cardScale }],
+                opacity: fadeAnim,
+              },
+            ]}
           >
-            <LinearGradient
-              colors={isDark ? GRADIENTS.DARK_CARD : GRADIENTS.LIGHT_CARD}
-              style={styles.cardGradient}
+            <BlurView
+              intensity={isDarkMode ? 40 : 30}
+              tint={isDarkMode ? "dark" : "light"}
+              style={styles.cardBlur}
             >
-              {/* Accent Bar */}
-              <View style={styles.cardAccentBar} />
-
-              <View style={styles.cardContent}>
-                <Text
+              <LinearGradient
+                colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+                style={styles.cardGradient}
+              >
+                {/* Accent Bar */}
+                <View
                   style={[
-                    styles.welcomeText,
+                    styles.cardAccentBar,
                     {
-                      color: isDark
-                        ? COLORS.DARK_TEXT_PRIMARY
-                        : COLORS.LIGHT_TEXT_PRIMARY,
+                      backgroundColor: getAccentColor(),
                     },
                   ]}
-                >
-                  Welcome Back!
-                </Text>
-                <Text
-                  style={[
-                    styles.subtitleText,
-                    {
-                      color: isDark
-                        ? COLORS.DARK_TEXT_SECONDARY
-                        : COLORS.LIGHT_TEXT_SECONDARY,
-                    },
-                  ]}
-                >
-                  Sign in to join the party
-                </Text>
+                />
 
-                {/* Form Inputs - Using your Input component */}
-                <View style={styles.formContainer}>
-                  <Input
-                    label="Email"
-                    placeholder="Enter your email"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    icon={
-                      <FontAwesome
-                        name="envelope-o"
-                        size={18}
-                        color={
-                          isDark
-                            ? COLORS.DARK_TEXT_SECONDARY
-                            : COLORS.LIGHT_TEXT_SECONDARY
-                        }
-                      />
-                    }
-                    variant="frosted" // Using the variant from your component
-                    isDark={isDark}
-                    onFocus={() => setEmailFocused(true)}
-                    onBlur={() => setEmailFocused(false)}
-                  />
-
-                  <Input
-                    label="Password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChangeText={setPassword}
-                    isPassword={true}
-                    variant="frosted" // Using the variant from your component
-                    isDark={isDark}
-                    onFocus={() => setPasswordFocused(true)}
-                    onBlur={() => setPasswordFocused(false)}
-                  />
-
-                  {/* Remember me & Forgot password */}
-                  <View style={styles.optionsRow}>
-                    <Pressable
-                      style={styles.rememberMeContainer}
-                      onPress={toggleRememberMe}
-                      android_ripple={{
-                        color: "rgba(0,0,0,0.1)",
-                        borderless: true,
-                        radius: 20,
-                      }}
-                    >
-                      <Animated.View
-                        style={[
-                          styles.checkbox,
-                          {
-                            backgroundColor: rememberMe
-                              ? isDark
-                                ? COLORS.ACCENT_PURPLE_LIGHT
-                                : COLORS.PRIMARY
-                              : "transparent",
-                            borderColor: isDark
-                              ? COLORS.DARK_BORDER
-                              : COLORS.LIGHT_BORDER,
-                            transform: [{ scale: checkboxScale }],
-                          },
-                        ]}
-                      >
-                        {rememberMe && (
-                          <FontAwesome
-                            name="check"
-                            size={12}
-                            color={COLORS.WHITE}
-                          />
-                        )}
-                      </Animated.View>
-                      <Text
-                        style={[
-                          styles.rememberMeText,
-                          {
-                            color: isDark
-                              ? COLORS.DARK_TEXT_SECONDARY
-                              : COLORS.LIGHT_TEXT_SECONDARY,
-                          },
-                        ]}
-                      >
-                        Remember me
-                      </Text>
-                    </Pressable>
-
-                    <TouchableOpacity onPress={handleForgotPassword}>
-                      <Text
-                        style={[
-                          styles.forgotPasswordText,
-                          {
-                            color: isDark
-                              ? COLORS.ACCENT_PURPLE_LIGHT
-                              : COLORS.PRIMARY,
-                          },
-                        ]}
-                      >
-                        Forgot Password?
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Login Button */}
-                  <Animated.View
-                    style={{
-                      width: "100%",
-                      transform: [{ scale: buttonScale }],
-                      marginTop: SPACING.M,
-                    }}
-                  >
-                    <Button
-                      title="GET STARTED"
-                      onPress={handleLogin}
-                      loading={loading}
-                      pill={true}
-                      elevated={true}
-                      variant="primary" // Using primary variant from your Button component
-                      gradientColors={isDark ? undefined : GRADIENTS.PRIMARY}
-                    />
-                  </Animated.View>
-
-                  {/* Social login section */}
+                <View style={styles.cardContent}>
                   <Text
                     style={[
-                      styles.orText,
+                      styles.welcomeText,
                       {
-                        color: isDark
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
+                      },
+                    ]}
+                  >
+                    Welcome Back!
+                  </Text>
+                  <Text
+                    style={[
+                      styles.subtitleText,
+                      {
+                        color: isDarkMode
                           ? COLORS.DARK_TEXT_SECONDARY
                           : COLORS.LIGHT_TEXT_SECONDARY,
                       },
                     ]}
                   >
-                    Or continue with
+                    Sign in to join the party
                   </Text>
 
-                  <View style={styles.socialButtonsContainer}>
+                  {/* Form Inputs */}
+                  <View style={styles.formContainer}>
+                    <Input
+                      label="Email"
+                      placeholder="Enter your email"
+                      value={email}
+                      onChangeText={setEmail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      error={errors.email}
+                      icon={
+                        <FontAwesome
+                          name="envelope-o"
+                          size={16}
+                          color={
+                            isDarkMode
+                              ? COLORS.DARK_TEXT_SECONDARY
+                              : COLORS.LIGHT_TEXT_SECONDARY
+                          }
+                        />
+                      }
+                    />
+
+                    <Input
+                      label="Password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChangeText={setPassword}
+                      isPassword={true}
+                      error={errors.password}
+                      icon={
+                        <FontAwesome
+                          name="lock"
+                          size={16}
+                          color={
+                            isDarkMode
+                              ? COLORS.DARK_TEXT_SECONDARY
+                              : COLORS.LIGHT_TEXT_SECONDARY
+                          }
+                        />
+                      }
+                    />
+
+                    {/* Remember me & Forgot password */}
+                    <View style={styles.optionsRow}>
+                      <Pressable
+                        style={styles.rememberMeContainer}
+                        onPress={toggleRememberMe}
+                        android_ripple={{
+                          color: "rgba(0,0,0,0.1)",
+                          borderless: true,
+                          radius: 16,
+                        }}
+                      >
+                        <Animated.View
+                          style={[
+                            styles.checkbox,
+                            {
+                              backgroundColor: rememberMe
+                                ? getAccentColor()
+                                : "transparent",
+                              borderColor: isDarkMode
+                                ? COLORS.DARK_BORDER
+                                : "rgba(255, 0, 153, 0.3)",
+                              transform: [{ scale: checkboxScale }],
+                            },
+                          ]}
+                        >
+                          {rememberMe && (
+                            <FontAwesome
+                              name="check"
+                              size={10}
+                              color={COLORS.WHITE}
+                            />
+                          )}
+                        </Animated.View>
+                        <Text
+                          style={[
+                            styles.rememberMeText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          Remember me
+                        </Text>
+                      </Pressable>
+
+                      <TouchableOpacity onPress={handleForgotPassword}>
+                        <Text
+                          style={[
+                            styles.forgotPasswordText,
+                            {
+                              color: getAccentColor(),
+                            },
+                          ]}
+                        >
+                          Forgot Password?
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Login Button */}
                     <Animated.View
                       style={{
-                        transform: [{ scale: socialBtnAnimations[0] }],
-                        opacity: socialBtnAnimations[0],
+                        width: "100%",
+                        transform: [{ scale: buttonScale }],
+                        marginTop: SPACING.S,
                       }}
                     >
-                      <TouchableOpacity
-                        style={[
-                          styles.socialButton,
-                          {
-                            backgroundColor: isDark
-                              ? "rgba(55, 65, 81, 0.7)"
-                              : "rgba(255, 255, 255, 0.9)",
-                            borderColor: isDark
-                              ? COLORS.DARK_BORDER
-                              : COLORS.LIGHT_BORDER,
-                          },
-                        ]}
-                        onPress={handleGoogleLogin}
-                      >
-                        <FontAwesome name="google" size={20} color="#DB4437" />
-                      </TouchableOpacity>
+                      <Button
+                        title="Sign in with email"
+                        onPress={handleLogin}
+                        loading={loading}
+                        variant={isDarkMode ? "primary" : "secondary"}
+                        small={true}
+                      />
                     </Animated.View>
 
-                    <Animated.View
-                      style={{
-                        transform: [{ scale: socialBtnAnimations[1] }],
-                        opacity: socialBtnAnimations[1],
-                      }}
+                    {/* Social login section */}
+                    <Text
+                      style={[
+                        styles.orText,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_SECONDARY
+                            : COLORS.LIGHT_TEXT_SECONDARY,
+                        },
+                      ]}
                     >
-                      <TouchableOpacity
-                        style={[
-                          styles.socialButton,
-                          {
-                            backgroundColor: isDark
-                              ? "rgba(55, 65, 81, 0.7)"
-                              : "rgba(255, 255, 255, 0.9)",
-                            borderColor: isDark
-                              ? COLORS.DARK_BORDER
-                              : COLORS.LIGHT_BORDER,
-                          },
-                        ]}
-                        onPress={handleFacebookLogin}
-                      >
-                        <FontAwesome
-                          name="facebook-f"
-                          size={20}
-                          color="#4267B2"
-                        />
-                      </TouchableOpacity>
-                    </Animated.View>
+                      Or continue with
+                    </Text>
 
-                    <Animated.View
-                      style={{
-                        transform: [{ scale: socialBtnAnimations[2] }],
-                        opacity: socialBtnAnimations[2],
-                      }}
-                    >
-                      <TouchableOpacity
+                    <View style={styles.socialButtonsContainer}>
+                      <Animated.View
+                        style={{
+                          transform: [{ scale: socialBtnAnimations[0] }],
+                          opacity: socialBtnAnimations[0],
+                        }}
+                      >
+                        <TouchableOpacity
+                          style={[
+                            styles.socialButton,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(55, 65, 81, 0.7)"
+                                : "rgba(255, 255, 255, 0.9)",
+                              borderColor: isDarkMode
+                                ? COLORS.DARK_BORDER
+                                : "rgba(255, 0, 153, 0.2)",
+                            },
+                          ]}
+                          onPress={handleGoogleLogin}
+                        >
+                          <FontAwesome
+                            name="google"
+                            size={18}
+                            color="#DB4437"
+                          />
+                        </TouchableOpacity>
+                      </Animated.View>
+
+                      <Animated.View
+                        style={{
+                          transform: [{ scale: socialBtnAnimations[1] }],
+                          opacity: socialBtnAnimations[1],
+                        }}
+                      >
+                        <TouchableOpacity
+                          style={[
+                            styles.socialButton,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(55, 65, 81, 0.7)"
+                                : "rgba(255, 255, 255, 0.9)",
+                              borderColor: isDarkMode
+                                ? COLORS.DARK_BORDER
+                                : "rgba(255, 0, 153, 0.2)",
+                            },
+                          ]}
+                          onPress={handleAppleLogin}
+                        >
+                          <FontAwesome
+                            name="apple"
+                            size={20}
+                            color={isDarkMode ? COLORS.WHITE : COLORS.BLACK}
+                          />
+                        </TouchableOpacity>
+                      </Animated.View>
+                    </View>
+
+                    {/* Sign Up Text */}
+                    <View style={styles.signUpContainer}>
+                      <Text
                         style={[
-                          styles.socialButton,
+                          styles.signUpText,
                           {
-                            backgroundColor: isDark
-                              ? "rgba(55, 65, 81, 0.7)"
-                              : "rgba(255, 255, 255, 0.9)",
-                            borderColor: isDark
-                              ? COLORS.DARK_BORDER
-                              : COLORS.LIGHT_BORDER,
+                            color: isDarkMode
+                              ? COLORS.DARK_TEXT_SECONDARY
+                              : COLORS.LIGHT_TEXT_SECONDARY,
                           },
                         ]}
-                        onPress={handleAppleLogin}
                       >
-                        <FontAwesome
-                          name="apple"
-                          size={22}
-                          color={isDark ? COLORS.WHITE : COLORS.BLACK}
-                        />
+                        Don't have an account?
+                      </Text>
+                      <TouchableOpacity onPress={handleSignUp}>
+                        <Text
+                          style={[
+                            styles.signUpButtonText,
+                            {
+                              color: getAccentColor(),
+                            },
+                          ]}
+                        >
+                          Sign Up
+                        </Text>
                       </TouchableOpacity>
-                    </Animated.View>
+                    </View>
                   </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </BlurView>
-        </Animated.View>
-
-        {/* Sign Up Text */}
-        <Animated.View
-          style={[
-            styles.signUpContainer,
-            {
-              transform: [{ translateY: translateY }],
-              opacity: fadeAnim,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.signUpText,
-              {
-                color: isDark
-                  ? COLORS.DARK_TEXT_SECONDARY
-                  : COLORS.LIGHT_TEXT_SECONDARY,
-              },
-            ]}
-          >
-            Don't have an account?
-          </Text>
-          <TouchableOpacity onPress={handleSignUp}>
-            <Text
-              style={[
-                styles.signUpButtonText,
-                { color: isDark ? COLORS.ACCENT_PURPLE_LIGHT : COLORS.PRIMARY },
-              ]}
-            >
-              Sign Up
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Mode switch (optional) */}
-        <TouchableOpacity
-          style={[
-            styles.modeSwitch,
-            {
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.1)"
-                : "rgba(0,0,0,0.1)",
-            },
-          ]}
-          onPress={() => {
-            /* Toggle theme logic would go here */
-          }}
-        >
-          <FontAwesome
-            name={isDark ? "sun-o" : "moon-o"}
-            size={16}
-            color={isDark ? COLORS.WHITE : COLORS.BLACK}
-          />
-        </TouchableOpacity>
-      </View>
+              </LinearGradient>
+            </BlurView>
+          </Animated.View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -686,8 +670,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollContainer: {
+    flexGrow: 1,
+  },
   partyImageContainer: {
-    height: height * 0.5,
+    height: height * 0.42,
     width: "100%",
     overflow: "hidden",
     position: "relative",
@@ -698,9 +685,9 @@ const styles = StyleSheet.create({
   },
   particle: {
     position: "absolute",
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   imageOverlay: {
     position: "absolute",
@@ -711,19 +698,19 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     position: "absolute",
-    top: height * 0.12,
+    top: height * 0.1,
     width: "100%",
     alignItems: "center",
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
   },
   partyTitle: {
-    marginTop: SPACING.M,
+    marginTop: SPACING.S,
     fontFamily: FONTS.BOLD,
-    fontSize: FONT_SIZES.HUGE,
+    fontSize: FONT_SIZES.XXL,
     color: COLORS.WHITE,
     textShadowColor: "rgba(0, 0, 0, 0.5)",
     textShadowOffset: { width: 1, height: 1 },
@@ -731,7 +718,7 @@ const styles = StyleSheet.create({
   },
   partySubtitle: {
     fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.M,
+    fontSize: FONT_SIZES.S,
     color: COLORS.WHITE,
     opacity: 0.9,
     textShadowColor: "rgba(0, 0, 0, 0.5)",
@@ -739,9 +726,10 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
   },
   bottomHalf: {
-    height: height * 0.6,
+    minHeight: height * 0.58,
     width: "100%",
     position: "relative",
+    paddingBottom: SPACING.XL,
   },
   bottomGradient: {
     position: "absolute",
@@ -751,15 +739,15 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   cardContainer: {
-    position: "absolute",
-    top: -height * 0.15,
-    left: width * 0.05,
+    position: "relative",
+    top: -height * 0.08,
+    marginHorizontal: width * 0.05,
     width: width * 0.9,
     zIndex: 10,
     height: "auto",
     borderRadius: BORDER_RADIUS.XXL,
     overflow: "hidden",
-    ...SHADOWS.PREMIUM,
+    ...SHADOWS.MEDIUM,
   },
   cardBlur: {
     width: "100%",
@@ -772,24 +760,23 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   cardAccentBar: {
-    height: 12,
+    height: 6,
     width: "100%",
-    backgroundColor: COLORS.PRIMARY,
     borderTopLeftRadius: BORDER_RADIUS.XXL,
     borderTopRightRadius: BORDER_RADIUS.XXL,
   },
   cardContent: {
-    padding: SPACING.L,
+    padding: SPACING.M,
   },
   welcomeText: {
     fontFamily: FONTS.BOLD,
-    fontSize: FONT_SIZES.XXL,
+    fontSize: FONT_SIZES.XL,
     marginBottom: SPACING.XS,
   },
   subtitleText: {
     fontFamily: FONTS.REGULAR,
-    fontSize: FONT_SIZES.M,
-    marginBottom: SPACING.L,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.M,
   },
   formContainer: {
     width: "100%",
@@ -799,14 +786,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: SPACING.XS,
+    marginBottom: SPACING.XS,
   },
   rememberMeContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
   checkbox: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     borderRadius: BORDER_RADIUS.S,
     borderWidth: 1,
     marginRight: SPACING.S,
@@ -815,28 +803,29 @@ const styles = StyleSheet.create({
   },
   rememberMeText: {
     fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.S,
+    fontSize: FONT_SIZES.XS,
   },
   forgotPasswordText: {
     fontFamily: FONTS.SEMIBOLD,
-    fontSize: FONT_SIZES.S,
+    fontSize: FONT_SIZES.XS,
   },
   orText: {
     fontFamily: FONTS.REGULAR,
-    fontSize: FONT_SIZES.S,
+    fontSize: FONT_SIZES.XS,
     textAlign: "center",
-    marginVertical: SPACING.L,
+    marginVertical: SPACING.M,
   },
   socialButtonsContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
+    marginBottom: SPACING.M,
   },
   socialButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
     justifyContent: "center",
     alignItems: "center",
     marginHorizontal: SPACING.M,
@@ -844,31 +833,31 @@ const styles = StyleSheet.create({
     ...SHADOWS.SMALL,
   },
   signUpContainer: {
-    position: "absolute",
-    bottom: Platform.OS === "ios" ? SPACING.XL : SPACING.L,
     width: "100%",
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    marginTop: SPACING.XS,
   },
   signUpText: {
     fontFamily: FONTS.REGULAR,
-    fontSize: FONT_SIZES.S,
+    fontSize: FONT_SIZES.XS,
     marginRight: SPACING.XS,
   },
   signUpButtonText: {
     fontFamily: FONTS.BOLD,
-    fontSize: FONT_SIZES.S,
+    fontSize: FONT_SIZES.XS,
   },
-  modeSwitch: {
+  themeToggle: {
     position: "absolute",
-    top: SPACING.L,
-    right: SPACING.L,
+    top: Platform.OS === "ios" ? 50 : 40,
+    right: 20,
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 100,
   },
 });
 

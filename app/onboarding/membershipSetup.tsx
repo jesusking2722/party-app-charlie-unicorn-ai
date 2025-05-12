@@ -3,25 +3,53 @@ import {
   PaymentMethodType,
   SubscriptionPlan,
 } from "@/components/common";
-import { FontAwesome5 } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Dimensions,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
-import { CardPayment, CryptoPayment, PaymentModal } from "@/components/common";
-import { router } from "expo-router";
+import {
+  ANIMATIONS,
+  BORDER_RADIUS,
+  COLORS,
+  FONTS,
+  FONT_SIZES,
+  GRADIENTS,
+  SHADOWS,
+  SPACING,
+} from "@/app/theme";
+import {
+  Button,
+  CardPayment,
+  CryptoPayment,
+  PaymentModal,
+  ThemeToggle,
+} from "@/components/common";
+import { useTheme } from "@/contexts/ThemeContext";
+
+const PremiumHeaderImage = require("@/assets/images/premium_onboarding.png");
+const { width, height } = Dimensions.get("window");
+
+// Custom light theme secondary color
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 const PremiumSubscriptionScreen = () => {
+  const { isDarkMode } = useTheme();
+
   // Subscription plans data
   const subscriptionPlans: SubscriptionPlan[] = [
     {
@@ -78,7 +106,7 @@ const PremiumSubscriptionScreen = () => {
     },
   ];
 
-  // State for selected plan (default to biannual which is index 3 now with the free option added)
+  // State for selected plan (default to biannual)
   const [selectedPlanId, setSelectedPlanId] = useState<string>(
     subscriptionPlans[3].id
   );
@@ -92,6 +120,123 @@ const PremiumSubscriptionScreen = () => {
 
   // State for current payment flow
   const [paymentFlow, setPaymentFlow] = useState<string | null>(null);
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(30)).current;
+  const cardScale = useRef(new Animated.Value(0.97)).current;
+  const buttonScale = useRef(new Animated.Value(0)).current;
+
+  // Particle animations for the background
+  const particles = Array(6)
+    .fill(0)
+    .map(() => ({
+      x: useRef(new Animated.Value(Math.random() * width)).current,
+      y: useRef(new Animated.Value(Math.random() * height * 0.4)).current,
+      scale: useRef(new Animated.Value(Math.random() * 0.4 + 0.3)).current,
+      opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
+      speed: Math.random() * 3000 + 2000,
+    }));
+
+  // Run animations when component mounts
+  useEffect(() => {
+    const animationDelay = Platform.OS === "ios" ? 200 : 300;
+
+    // Main elements fade in
+    setTimeout(() => {
+      Animated.parallel([
+        // Fade in entire view
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: ANIMATIONS.MEDIUM,
+          useNativeDriver: true,
+        }),
+        // Slide up animation
+        Animated.spring(translateY, {
+          toValue: 0,
+          tension: 60,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        // Card scale animation
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Button animation
+      Animated.sequence([
+        Animated.delay(animationDelay),
+        Animated.spring(buttonScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Start particle animations
+      animateParticles();
+    }, 100);
+  }, []);
+
+  // Continuous animation for floating particles
+  const animateParticles = () => {
+    particles.forEach((particle) => {
+      // Animate vertical position
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+        ])
+      ).start();
+
+      // Animate scale
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Animate opacity
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+  };
 
   // Handle plan selection
   const handlePlanSelect = (plan: SubscriptionPlan) => {
@@ -143,7 +288,7 @@ const PremiumSubscriptionScreen = () => {
 
       // Navigate to next screen
       console.log("Payment successful, navigating to home screen");
-      // navigation.navigate("HomeScreen");
+      router.push("/onboarding/congratulationsSetup");
     } else {
       // Handle payment failure
       setPaymentFlow(null);
@@ -158,14 +303,12 @@ const PremiumSubscriptionScreen = () => {
 
   // Handle skipping subscription
   const handleSkip = () => {
-    console.log("Subscription skipped, navigating to home screen");
-    // navigation.navigate("HomeScreen");
+    router.push("/onboarding/congratulationsSetup");
   };
 
   // Handle back button
   const handleBack = () => {
-    console.log("Navigate back to step 3");
-    // navigation.goBack();
+    router.back();
   };
 
   // Get the selected plan
@@ -173,24 +316,48 @@ const PremiumSubscriptionScreen = () => {
     (plan) => plan.id === selectedPlanId
   );
 
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  // Render particles for background effect
+  const renderParticles = () => {
+    return particles.map((particle, index) => (
+      <Animated.View
+        key={`particle-${index}`}
+        style={[
+          styles.particle,
+          {
+            transform: [
+              { translateX: particle.x },
+              { translateY: particle.y },
+              { scale: particle.scale },
+            ],
+            opacity: particle.opacity,
+            backgroundColor: isDarkMode
+              ? `rgba(${127 + Math.floor(Math.random() * 128)}, ${Math.floor(
+                  Math.random() * 100
+                )}, ${Math.floor(Math.random() * 255)}, 0.7)`
+              : `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(
+                  Math.random() * 255
+                )}, ${Math.floor(Math.random() * 255)}, 0.5)`,
+          },
+        ]}
+      />
+    ));
+  };
+
   // If in a payment flow, render the appropriate payment component
   if (paymentFlow === "card") {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar style="light" />
-        <LinearGradient
-          colors={["#7F00FF", "#E100FF"]}
-          style={styles.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <CardPayment
-            amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
-            planTitle={selectedPlan?.title || ""}
-            onPaymentComplete={handlePaymentComplete}
-            onBack={handleBackFromPayment}
-          />
-        </LinearGradient>
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+        <CardPayment
+          amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+          planTitle={selectedPlan?.title || ""}
+          onPaymentComplete={handlePaymentComplete}
+          onBack={handleBackFromPayment}
+        />
       </SafeAreaView>
     );
   }
@@ -198,231 +365,378 @@ const PremiumSubscriptionScreen = () => {
   if (paymentFlow === "crypto") {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar style="light" />
-        <LinearGradient
-          colors={["#7F00FF", "#E100FF"]}
-          style={styles.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <CryptoPayment
-            amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
-            planTitle={selectedPlan?.title || ""}
-            onPaymentComplete={handlePaymentComplete}
-            onBack={handleBackFromPayment}
-          />
-        </LinearGradient>
+        <StatusBar style={isDarkMode ? "light" : "dark"} />
+        <CryptoPayment
+          amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+          planTitle={selectedPlan?.title || ""}
+          onPaymentComplete={handlePaymentComplete}
+          onBack={handleBackFromPayment}
+        />
       </SafeAreaView>
     );
   }
 
   // Main subscription screen
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={["#7F00FF", "#E100FF"]}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
+      ]}
+    >
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+
+      {/* Theme toggle button */}
+      <View style={styles.themeToggle}>
+        <ThemeToggle />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={handleBack}
-              accessibilityLabel="Go back"
+          {/* Header Image Section */}
+          <View style={styles.headerImageContainer}>
+            <Image
+              source={PremiumHeaderImage}
+              style={styles.headerImage}
+              resizeMode="cover"
+            />
+
+            {/* Add floating particles for fun effect */}
+            {renderParticles()}
+
+            {/* Overlay gradient for readability */}
+            <LinearGradient
+              colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0)"]}
+              style={styles.imageOverlay}
+            />
+          </View>
+
+          {/* Bottom Half with Animated Background */}
+          <View style={styles.bottomHalf}>
+            <LinearGradient
+              colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+              style={styles.bottomGradient}
+            />
+
+            {/* Content Card */}
+            <Animated.View
+              style={[
+                styles.cardContainer,
+                {
+                  transform: [{ translateY: translateY }, { scale: cardScale }],
+                  opacity: fadeAnim,
+                },
+              ]}
             >
-              <FontAwesome5 name="arrow-left" size={16} color="white" />
-            </TouchableOpacity>
-
-            <View style={styles.header}>
-              <View style={styles.premiumBadge}>
-                <LinearGradient
-                  colors={["#FF9500", "#FF0099"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.premiumGradient}
-                >
-                  <FontAwesome5
-                    name="crown"
-                    size={14}
-                    color="white"
-                    style={styles.crownIcon}
-                  />
-                  <Text style={styles.premiumText}>PREMIUM</Text>
-                </LinearGradient>
-              </View>
-
-              <Text style={styles.title}>Upgrade to Premium</Text>
-              <Text style={styles.subtitle}>
-                Unlock all features and enhance your experience
-              </Text>
-            </View>
-
-            <View style={styles.featuresContainer}>
-              <View style={styles.featureItem}>
-                <View style={styles.featureIconContainer}>
-                  <FontAwesome5
-                    name="check-circle"
-                    size={20}
-                    color="#FF0099"
-                    solid
-                  />
-                </View>
-                <Text style={styles.featureText}>
-                  Unlimited access to all features
-                </Text>
-              </View>
-
-              <View style={styles.featureItem}>
-                <View style={styles.featureIconContainer}>
-                  <FontAwesome5
-                    name="check-circle"
-                    size={20}
-                    color="#FF0099"
-                    solid
-                  />
-                </View>
-                <Text style={styles.featureText}>
-                  Create events without KYC verification
-                </Text>
-              </View>
-
-              <View style={styles.featureItem}>
-                <View style={styles.featureIconContainer}>
-                  <FontAwesome5
-                    name="check-circle"
-                    size={20}
-                    color="#FF0099"
-                    solid
-                  />
-                </View>
-                <Text style={styles.featureText}>
-                  Review the competing applications
-                </Text>
-              </View>
-
-              <View style={styles.featureItem}>
-                <View style={styles.featureIconContainer}>
-                  <FontAwesome5
-                    name="check-circle"
-                    size={20}
-                    color="#FF0099"
-                    solid
-                  />
-                </View>
-                <Text style={styles.featureText}>
-                  Priority customer support
-                </Text>
-              </View>
-
-              <View style={styles.featureItem}>
-                <View style={styles.featureIconContainer}>
-                  <FontAwesome5
-                    name="check-circle"
-                    size={20}
-                    color="#FF0099"
-                    solid
-                  />
-                </View>
-                <Text style={styles.featureText}>
-                  Exclusive premium content
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.subscriptionContainer}>
-              <Text style={styles.subscriptionTitle}>Choose your plan</Text>
-
-              <MembershipRadioGroup
-                plans={subscriptionPlans}
-                selectedPlanId={selectedPlanId}
-                onPlanSelect={handlePlanSelect}
-              />
-            </View>
-
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.subscribeButton}
-                onPress={handleSubscribe}
-                disabled={loading}
+              <BlurView
+                intensity={isDarkMode ? 40 : 30}
+                tint={isDarkMode ? "dark" : "light"}
+                style={styles.cardBlur}
               >
                 <LinearGradient
-                  colors={["#FF0099", "#7F00FF"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.subscribeButtonGradient}
+                  colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+                  style={styles.cardGradient}
                 >
-                  {loading ? (
-                    <View style={styles.loadingContainer}>
-                      <Text style={styles.subscribeButtonText}>Processing</Text>
-                      <View style={styles.loadingDots}>
-                        <Text style={styles.loadingDot}>.</Text>
-                        <Text style={styles.loadingDot}>.</Text>
-                        <Text style={styles.loadingDot}>.</Text>
+                  {/* Accent Bar */}
+                  <View
+                    style={[
+                      styles.cardAccentBar,
+                      {
+                        backgroundColor: getAccentColor(),
+                      },
+                    ]}
+                  />
+
+                  <View style={styles.cardContent}>
+                    <Text
+                      style={[
+                        styles.welcomeText,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_PRIMARY
+                            : COLORS.LIGHT_TEXT_PRIMARY,
+                        },
+                      ]}
+                    >
+                      Upgrade to Premium
+                    </Text>
+                    <Text
+                      style={[
+                        styles.subtitleText,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_SECONDARY
+                            : COLORS.LIGHT_TEXT_SECONDARY,
+                        },
+                      ]}
+                    >
+                      Unlock all features and enhance your experience
+                    </Text>
+
+                    {/* Premium Features */}
+                    <View
+                      style={[
+                        styles.featuresContainer,
+                        {
+                          backgroundColor: isDarkMode
+                            ? "rgba(40, 45, 55, 0.5)"
+                            : "rgba(255, 255, 255, 0.5)",
+                          borderColor: isDarkMode
+                            ? "rgba(255, 255, 255, 0.1)"
+                            : "rgba(0, 0, 0, 0.05)",
+                        },
+                      ]}
+                    >
+                      <View style={styles.featureItem}>
+                        <View
+                          style={[
+                            styles.featureIconContainer,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(255, 0, 153, 0.2)"
+                                : "rgba(255, 0, 153, 0.1)",
+                            },
+                          ]}
+                        >
+                          <FontAwesome
+                            name="check-circle"
+                            size={18}
+                            color={getAccentColor()}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.featureText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Unlimited access to all features
+                        </Text>
+                      </View>
+
+                      <View style={styles.featureItem}>
+                        <View
+                          style={[
+                            styles.featureIconContainer,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(255, 0, 153, 0.2)"
+                                : "rgba(255, 0, 153, 0.1)",
+                            },
+                          ]}
+                        >
+                          <FontAwesome
+                            name="check-circle"
+                            size={18}
+                            color={getAccentColor()}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.featureText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Create events without KYC verification
+                        </Text>
+                      </View>
+
+                      <View style={styles.featureItem}>
+                        <View
+                          style={[
+                            styles.featureIconContainer,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(255, 0, 153, 0.2)"
+                                : "rgba(255, 0, 153, 0.1)",
+                            },
+                          ]}
+                        >
+                          <FontAwesome
+                            name="check-circle"
+                            size={18}
+                            color={getAccentColor()}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.featureText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Priority customer support
+                        </Text>
                       </View>
                     </View>
-                  ) : (
-                    <View style={styles.buttonContent}>
-                      <Text style={styles.subscribeButtonText}>
-                        {selectedPlan?.isFree
-                          ? "Continue with Free Plan"
-                          : `Subscribe for ${
-                              selectedPlan?.priceLabel.split(" ")[0]
-                            }`}
+
+                    {/* Subscription Plan Selection */}
+                    <View style={styles.subscriptionContainer}>
+                      <Text
+                        style={[
+                          styles.subscriptionTitle,
+                          {
+                            color: isDarkMode
+                              ? COLORS.DARK_TEXT_PRIMARY
+                              : COLORS.LIGHT_TEXT_PRIMARY,
+                          },
+                        ]}
+                      >
+                        Choose your plan
                       </Text>
-                      <FontAwesome5
-                        name="arrow-right"
-                        size={14}
-                        color="white"
-                        style={styles.buttonIcon}
+
+                      <MembershipRadioGroup
+                        plans={subscriptionPlans}
+                        selectedPlanId={selectedPlanId}
+                        onPlanSelect={handlePlanSelect}
                       />
                     </View>
-                  )}
+
+                    {/* Progress Indicator */}
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressHeader}>
+                        <Text
+                          style={[
+                            styles.progressText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          Membership Setup
+                        </Text>
+                        <Text
+                          style={[
+                            styles.progressStep,
+                            {
+                              color: getAccentColor(),
+                            },
+                          ]}
+                        >
+                          Step 4 of 4
+                        </Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.progressBarContainer,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(255, 255, 255, 0.1)"
+                              : "rgba(0, 0, 0, 0.05)",
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              width: "100%", // 4 of 4 steps
+                            },
+                          ]}
+                        >
+                          <LinearGradient
+                            colors={
+                              isDarkMode
+                                ? GRADIENTS.PRIMARY
+                                : ["#FF0099", "#FF6D00"]
+                            }
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.progressGradient}
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Subscribe Button */}
+                    <Animated.View
+                      style={{
+                        width: "100%",
+                        transform: [{ scale: buttonScale }],
+                        marginTop: SPACING.M,
+                      }}
+                    >
+                      <Button
+                        title={
+                          loading
+                            ? "Processing..."
+                            : selectedPlan?.isFree
+                            ? "Continue with Free Plan"
+                            : `Subscribe for ${
+                                selectedPlan?.priceLabel.split(" ")[0]
+                              }`
+                        }
+                        onPress={handleSubscribe}
+                        loading={loading}
+                        variant={isDarkMode ? "primary" : "secondary"}
+                        small={false}
+                        icon={
+                          !loading && (
+                            <FontAwesome5
+                              name="arrow-right"
+                              size={14}
+                              color="white"
+                              style={{ marginLeft: SPACING.S }}
+                            />
+                          )
+                        }
+                        iconPosition="right"
+                      />
+                    </Animated.View>
+
+                    {/* Terms Text */}
+                    <Text
+                      style={[
+                        styles.termsText,
+                        {
+                          color: isDarkMode
+                            ? "rgba(255, 255, 255, 0.4)"
+                            : "rgba(0, 0, 0, 0.4)",
+                        },
+                      ]}
+                    >
+                      By subscribing, you agree to our Terms of Service and
+                      Privacy Policy. Subscriptions automatically renew unless
+                      auto-renew is turned off at least 24 hours before the end
+                      of the current period.
+                    </Text>
+                  </View>
                 </LinearGradient>
-              </TouchableOpacity>
+              </BlurView>
+            </Animated.View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
-              <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-                <Text style={styles.skipButtonText}>Skip for now</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.termsContainer}>
-              <Text style={styles.termsText}>
-                By subscribing, you agree to our Terms of Service and Privacy
-                Policy. Subscriptions automatically renew unless auto-renew is
-                turned off at least 24 hours before the end of the current
-                period.
-              </Text>
-            </View>
-
-            <View style={styles.progressContainer}>
-              <View style={styles.progressLine}>
-                <View style={styles.progressFilled} />
-              </View>
-              <View style={styles.progressTextContainer}>
-                <Text style={styles.progressText}>Step 4 of 4</Text>
-              </View>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-
-        {/* Payment Method Selection Modal */}
-        <PaymentModal
-          visible={paymentModalVisible}
-          onClose={() => setPaymentModalVisible(false)}
-          onSelectPaymentMethod={handleSelectPaymentMethod}
-          amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
-          planTitle={selectedPlan?.title || ""}
-        />
-      </LinearGradient>
+      {/* Payment Method Selection Modal */}
+      <PaymentModal
+        visible={paymentModalVisible}
+        onClose={() => setPaymentModalVisible(false)}
+        onSelectPaymentMethod={handleSelectPaymentMethod}
+        amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+        planTitle={selectedPlan?.title || ""}
+      />
     </SafeAreaView>
   );
 };
@@ -431,182 +745,170 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
-  },
   keyboardAvoidingView: {
     flex: 1,
   },
-  scrollContent: {
+  scrollContainer: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
   },
-  backButton: {
-    marginTop: 40,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  header: {
-    marginTop: 20,
-    marginBottom: 30,
-    alignItems: "center",
-  },
-  premiumBadge: {
-    marginBottom: 16,
+  headerImageContainer: {
+    height: height * 0.4,
+    width: "100%",
     overflow: "hidden",
-    borderRadius: 20,
+    position: "relative",
   },
-  premiumGradient: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  headerImage: {
+    width: "100%",
+    height: "100%",
   },
-  crownIcon: {
-    marginRight: 6,
+  particle: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  premiumText: {
-    color: "white",
-    fontSize: 14,
-    fontFamily: "Montserrat-Bold",
-    letterSpacing: 1,
+  imageOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    top: 0,
+    left: 0,
   },
-  title: {
-    fontSize: 28,
-    color: "white",
-    textAlign: "center",
-    fontFamily: "Montserrat-Bold",
-    marginBottom: 8,
+  bottomHalf: {
+    minHeight: height * 0.75,
+    width: "100%",
+    position: "relative",
+    paddingBottom: SPACING.XL,
   },
-  subtitle: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
-    textAlign: "center",
-    fontFamily: "Montserrat-Regular",
+  bottomGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cardContainer: {
+    position: "relative",
+    top: -height * 0.06,
+    marginHorizontal: width * 0.05,
+    width: width * 0.9,
+    zIndex: 10,
+    height: "auto",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+    ...SHADOWS.MEDIUM,
+  },
+  cardBlur: {
+    width: "100%",
+    height: "100%",
+  },
+  cardGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+  },
+  cardAccentBar: {
+    height: 6,
+    width: "100%",
+    borderTopLeftRadius: BORDER_RADIUS.XXL,
+    borderTopRightRadius: BORDER_RADIUS.XXL,
+  },
+  cardContent: {
+    padding: SPACING.M,
+  },
+  welcomeText: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.XL,
+    marginBottom: SPACING.XS,
+  },
+  subtitleText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.M,
   },
   featuresContainer: {
-    marginBottom: 30,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 16,
-    padding: 20,
+    padding: SPACING.M,
+    borderRadius: BORDER_RADIUS.L,
+    borderWidth: 0.5,
+    marginBottom: SPACING.M,
   },
   featureItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: SPACING.S,
   },
   featureIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 0, 153, 0.2)",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: SPACING.S,
   },
   featureText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
     flex: 1,
   },
   subscriptionContainer: {
-    marginBottom: 30,
+    marginBottom: SPACING.M,
   },
   subscriptionTitle: {
-    fontSize: 18,
-    color: "white",
-    fontFamily: "Montserrat-SemiBold",
-    marginBottom: 16,
-  },
-  buttonContainer: {
-    marginBottom: 16,
-  },
-  subscribeButton: {
-    borderRadius: 12,
-    height: 56,
-    overflow: "hidden",
-    marginBottom: 16,
-  },
-  subscribeButtonGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  buttonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  subscribeButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
-  },
-  buttonIcon: {
-    marginLeft: 8,
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  loadingDots: {
-    flexDirection: "row",
-    marginLeft: 4,
-  },
-  loadingDot: {
-    color: "white",
-    fontSize: 18,
-    marginLeft: 2,
-    fontFamily: "Montserrat-Bold",
-  },
-  skipButton: {
-    alignItems: "center",
-    padding: 12,
-  },
-  skipButtonText: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 14,
-    fontFamily: "Montserrat-Medium",
-  },
-  termsContainer: {
-    marginBottom: 30,
-  },
-  termsText: {
-    color: "rgba(255, 255, 255, 0.5)",
-    fontSize: 12,
-    fontFamily: "Montserrat-Regular",
-    textAlign: "center",
-    lineHeight: 18,
+    fontFamily: FONTS.SEMIBOLD,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.S,
   },
   progressContainer: {
-    marginBottom: 16,
+    marginTop: SPACING.M,
+    marginBottom: SPACING.S,
   },
-  progressLine: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFilled: {
-    width: "100%", // 4 of 4 steps
-    height: "100%",
-    backgroundColor: "white",
-    borderRadius: 2,
-  },
-  progressTextContainer: {
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: SPACING.XS,
   },
   progressText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 12,
-    fontFamily: "Montserrat-Medium",
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+  },
+  progressStep: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.XS,
+  },
+  progressBarContainer: {
+    height: 6,
+    borderRadius: BORDER_RADIUS.S,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+  },
+  progressGradient: {
+    flex: 1,
+  },
+  skipButton: {
+    alignSelf: "center",
+    marginTop: SPACING.M,
+    padding: SPACING.S,
+  },
+  skipButtonText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+  },
+  termsText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
+    textAlign: "center",
+    marginTop: SPACING.M,
+    lineHeight: 16,
+  },
+  themeToggle: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 40,
+    right: 20,
+    zIndex: 100,
   },
 });
 

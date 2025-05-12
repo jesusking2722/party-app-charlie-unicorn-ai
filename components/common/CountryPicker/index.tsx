@@ -1,4 +1,4 @@
-import { COLORS, FONTS, THEME } from "@/app/theme";
+import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,8 +10,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from "react-native";
 import { CountryPicker } from "react-native-country-codes-picker";
+
+// Custom light theme secondary color - to match Input
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 // Country type interface
 export interface CountryType {
@@ -25,9 +29,9 @@ interface CustomCountryPickerProps {
   placeholder?: string;
   value?: CountryType | null;
   onSelect: (item: CountryType) => void;
-  containerStyle?: any;
-  labelStyle?: any;
+  containerStyle?: ViewStyle;
   error?: string;
+  isDarkMode?: boolean; // Allow overriding the theme context
 }
 
 const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
@@ -36,16 +40,19 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
   value = null,
   onSelect,
   containerStyle,
-  labelStyle,
   error,
+  isDarkMode: forceDarkMode,
 }) => {
+  const { isDarkMode: contextDarkMode } = useTheme();
+  const isDarkMode =
+    forceDarkMode !== undefined ? forceDarkMode : contextDarkMode;
+
   const [showModal, setShowModal] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
-
-  // Get theme context
-  const { isDarkMode } = useTheme();
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
   // Run animations when error state changes
   useEffect(() => {
@@ -86,6 +93,7 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
       flag: item.flag,
     });
     setShowModal(false);
+    setIsFocused(false);
   };
 
   // Format display text
@@ -94,23 +102,57 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
     return `${value.flag} ${value.name}`;
   };
 
-  // Setup custom headers and modals components
-  const GradientBackground = () => (
-    <LinearGradient
-      colors={theme.GRADIENT as any}
-      style={styles.gradientBackground}
-      start={{ x: 0, y: 0 }}
-      end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
-    />
-  );
+  // Theme-based styles (matching Input component)
+  const getTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
 
+  const getPlaceholderColor = () =>
+    isDarkMode ? "rgba(255, 255, 255, 0.5)" : "rgba(0, 0, 0, 0.35)";
+
+  const getLabelColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  const getBackgroundColor = () =>
+    isDarkMode
+      ? isFocused
+        ? "rgba(40, 45, 55, 0.65)"
+        : "rgba(30, 35, 45, 0.5)"
+      : isFocused
+      ? "rgba(255, 255, 255, 0.65)"
+      : "rgba(255, 255, 255, 0.5)";
+
+  const getBorderColor = () =>
+    isDarkMode
+      ? isFocused
+        ? COLORS.SECONDARY
+        : "rgba(255, 255, 255, 0.1)"
+      : isFocused
+      ? LIGHT_THEME_ACCENT
+      : "rgba(0, 0, 0, 0.05)";
+
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  // Setup custom headers for modal
   const ListHeaderComponent = () => (
     <View style={styles.listHeaderContainer}>
-      <GradientBackground />
+      <LinearGradient
+        colors={isDarkMode ? ["#111827", "#1F2937"] : ["#FF0099", "#FF6D00"]}
+        style={styles.gradientBackground}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+      />
       <View
-        style={[styles.modalHeader, { borderBottomColor: theme.BORDER_COLOR }]}
+        style={[
+          styles.modalHeader,
+          {
+            borderBottomColor: isDarkMode
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0, 0, 0, 0.1)",
+          },
+        ]}
       >
-        <Text style={[styles.modalTitle, { color: theme.TEXT_COLOR }]}>
+        <Text style={[styles.modalTitle, { color: COLORS.WHITE }]}>
           Select a Country
         </Text>
       </View>
@@ -118,57 +160,99 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
   );
 
   // Background color for the modal
-  const modalBgColor = isDarkMode
-    ? "#1F2937" // Dark gray for dark mode
-    : "#7F00FF"; // Purple for light mode
+  const modalBgColor = isDarkMode ? COLORS.DARK_BG_SECONDARY : "#FFFFFF";
+
+  const handleModalOpen = () => {
+    setIsFocused(true);
+    setShowModal(true);
+  };
+
+  const handleModalClose = () => {
+    setIsFocused(false);
+    setShowModal(false);
+  };
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View style={[styles.inputContainer, containerStyle]}>
       {label && (
-        <Text style={[styles.label, { color: theme.TEXT_COLOR }, labelStyle]}>
+        <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
           {label}
         </Text>
       )}
 
-      <TouchableOpacity
+      <View
         style={[
-          styles.pickerContainer,
+          styles.inputWrapper,
           {
-            backgroundColor: theme.BUTTON_BG,
-            borderColor: theme.BORDER_COLOR,
+            backgroundColor: getBackgroundColor(),
+            borderColor: getBorderColor(),
+            borderWidth: isFocused ? 1 : 0.5,
           },
-          error && styles.pickerContainerError,
+          error && styles.inputWrapperError,
         ]}
-        onPress={() => setShowModal(true)}
       >
-        <Text
-          style={[
-            styles.selectedText,
-            { color: theme.TEXT_COLOR },
-            !value && {
-              color: isDarkMode
-                ? "rgba(255, 255, 255, 0.6)"
-                : "rgba(255, 255, 255, 0.6)",
-            },
-          ]}
+        <View style={styles.iconContainer}>
+          <FontAwesome
+            name="globe"
+            size={16}
+            color={
+              isDarkMode
+                ? COLORS.DARK_TEXT_SECONDARY
+                : COLORS.LIGHT_TEXT_SECONDARY
+            }
+          />
+        </View>
+
+        <TouchableOpacity
+          style={styles.pickerTouchable}
+          onPress={handleModalOpen}
+          activeOpacity={0.7}
         >
-          {getSelectedCountryName()}
-        </Text>
-        <FontAwesome name="chevron-down" size={14} color={theme.TEXT_COLOR} />
-      </TouchableOpacity>
+          <Text
+            style={[
+              styles.selectedText,
+              {
+                color: value ? getTextColor() : getPlaceholderColor(),
+              },
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {getSelectedCountryName()}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.chevronContainer}
+          onPress={handleModalOpen}
+          activeOpacity={0.7}
+        >
+          <FontAwesome
+            name="chevron-down"
+            size={12}
+            color={
+              isDarkMode
+                ? COLORS.DARK_TEXT_SECONDARY
+                : COLORS.LIGHT_TEXT_SECONDARY
+            }
+          />
+        </TouchableOpacity>
+
+        {/* Accent indicator for focused state */}
+        {isFocused && (
+          <View
+            style={[
+              styles.focusAccent,
+              {
+                backgroundColor: getAccentColor(),
+              },
+            ]}
+          />
+        )}
+      </View>
 
       {error && (
-        <Animated.Text
-          style={[
-            styles.errorText,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          {error}
-        </Animated.Text>
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
       )}
 
       {/* Country Picker Modal */}
@@ -177,7 +261,7 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
         show={showModal}
         enableModalAvoiding={true}
         pickerButtonOnPress={(item) => handleSelect(item)}
-        onBackdropPress={() => setShowModal(false)}
+        onBackdropPress={handleModalClose}
         inputPlaceholder="Search countries..."
         searchMessage="No countries found"
         ListHeaderComponent={ListHeaderComponent}
@@ -195,36 +279,44 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
           },
           // Input line
           line: {
-            backgroundColor: theme.BORDER_COLOR,
+            backgroundColor: isDarkMode
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0, 0, 0, 0.1)",
             height: 1,
           },
           // Text input
           textInput: {
             backgroundColor: isDarkMode
-              ? "rgba(55, 65, 81, 0.7)"
-              : "rgba(255, 255, 255, 0.1)",
-            color: theme.TEXT_COLOR,
-            borderRadius: 8,
+              ? "rgba(40, 45, 55, 0.65)"
+              : "rgba(255, 255, 255, 0.8)",
+            color: isDarkMode
+              ? COLORS.DARK_TEXT_PRIMARY
+              : COLORS.LIGHT_TEXT_PRIMARY,
+            borderRadius: BORDER_RADIUS.M,
             marginHorizontal: 16,
             marginVertical: 16,
             paddingHorizontal: 16,
             height: 40,
             fontFamily: FONTS.REGULAR,
-            fontSize: 16,
+            fontSize: FONT_SIZES.S,
           },
           // Country button
           countryButtonStyles: {
             backgroundColor: "transparent",
             borderBottomWidth: 1,
-            borderBottomColor: theme.BORDER_COLOR,
-            height: 60,
+            borderBottomColor: isDarkMode
+              ? "rgba(255, 255, 255, 0.1)"
+              : "rgba(0, 0, 0, 0.05)",
+            height: 50,
             paddingHorizontal: 16,
           },
           // Search message
           searchMessageText: {
-            color: theme.TEXT_COLOR,
+            color: isDarkMode
+              ? COLORS.DARK_TEXT_SECONDARY
+              : COLORS.LIGHT_TEXT_SECONDARY,
             fontFamily: FONTS.REGULAR,
-            fontSize: 16,
+            fontSize: FONT_SIZES.S,
             textAlign: "center",
             padding: 20,
           },
@@ -235,16 +327,20 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
           },
           // Dial code
           dialCode: {
-            color: theme.TEXT_SECONDARY,
+            color: isDarkMode
+              ? COLORS.DARK_TEXT_SECONDARY
+              : COLORS.LIGHT_TEXT_SECONDARY,
             fontFamily: FONTS.REGULAR,
-            fontSize: 14,
+            fontSize: FONT_SIZES.XS,
             marginLeft: 8,
           },
           // Country name
           countryName: {
-            color: theme.TEXT_COLOR,
+            color: isDarkMode
+              ? COLORS.DARK_TEXT_PRIMARY
+              : COLORS.LIGHT_TEXT_PRIMARY,
             fontFamily: FONTS.MEDIUM,
-            fontSize: 16,
+            fontSize: FONT_SIZES.S,
           },
           // Items list
           itemsList: {
@@ -261,63 +357,87 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
+  inputContainer: {
+    marginBottom: SPACING.M,
     width: "100%",
   },
-  label: {
-    fontSize: 16,
+  inputLabel: {
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
-    marginBottom: 8,
+    marginBottom: SPACING.XS,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  pickerContainer: {
-    borderRadius: 12,
-    height: 56,
-    paddingHorizontal: 16,
+  inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    borderWidth: 1,
+    height: 40,
+    borderRadius: BORDER_RADIUS.L,
+    overflow: "hidden",
+    position: "relative",
   },
-  pickerContainerError: {
+  focusAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
+    height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
+  },
+  inputWrapperError: {
     borderWidth: 1,
     borderColor: COLORS.ERROR,
   },
-  selectedText: {
+  iconContainer: {
+    paddingHorizontal: SPACING.M,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  pickerTouchable: {
     flex: 1,
-    fontSize: 16,
+    height: "100%",
+    justifyContent: "center",
+  },
+  selectedText: {
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
+  },
+  chevronContainer: {
+    paddingHorizontal: SPACING.M,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
-    color: COLORS.ERROR,
-    fontSize: 12,
-    marginTop: 4,
-    paddingHorizontal: 4,
+    fontSize: FONT_SIZES.XS,
+    marginTop: SPACING.XS,
+    paddingHorizontal: SPACING.XS,
     fontFamily: FONTS.REGULAR,
   },
-  // Gradient and header styles
+  // Modal styles
   gradientBackground: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    height: 56,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
   listHeaderContainer: {
     width: "100%",
     position: "relative",
-    zIndex: 10, // Added to ensure header content is above gradient
   },
   modalHeader: {
-    paddingVertical: 16,
+    paddingVertical: SPACING.M,
     alignItems: "center",
     justifyContent: "center",
     borderBottomWidth: 1,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: FONT_SIZES.M,
     fontFamily: FONTS.BOLD,
   },
 });

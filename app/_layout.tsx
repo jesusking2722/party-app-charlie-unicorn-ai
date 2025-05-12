@@ -12,6 +12,7 @@ SplashScreen.preventAutoHideAsync();
 
 const NAVIGATION_HIDDEN_ROUTES = [
   "/auth",
+  "/start",
   "/onboarding",
   "/login",
   "/signup",
@@ -83,8 +84,9 @@ export default function RootLayout() {
         >
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
-            <Stack.Screen name="auth" options={{ headerShown: false }} />
-            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+            <Stack.Screen name="start" />
+            <Stack.Screen name="auth" />
+            <Stack.Screen name="onboarding" />
             <Stack.Screen name="main" />
           </Stack>
         </View>

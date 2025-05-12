@@ -1,66 +1,39 @@
 import {
-  ANIMATIONS,
   BORDER_RADIUS,
   COLORS,
-  FONT_SIZES,
   FONTS,
+  FONT_SIZES,
   GRADIENTS,
   SHADOWS,
 } from "@/app/theme";
-import { BlurView } from "expo-blur";
+import { useTheme } from "@/contexts/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import {
   ActivityIndicator,
   Animated,
-  ColorValue,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextStyle,
-  TouchableOpacityProps,
   View,
   ViewStyle,
 } from "react-native";
 
-// Extended button variants including new modern designs
-type ButtonVariant =
-  | "primary"
-  | "secondary"
-  | "accent"
-  | "outline"
-  | "ghost"
-  | "glass"
-  | "google"
-  | "apple"
-  | "success"
-  | "danger"
-  | "warning"
-  | "info"
-  | "dark"
-  | "indigo"
-  | "neomorphic"
-  | "frosted"; // New frosted glass variant
+// Simplified button variants
+type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
 
-// Expanded props interface
-interface ButtonProps extends Omit<TouchableOpacityProps, "style"> {
+interface ButtonProps {
   title?: string;
   onPress: () => void;
   variant?: ButtonVariant;
   icon?: React.ReactNode;
   iconPosition?: "left" | "right";
   loading?: boolean;
-  pill?: boolean; // For rounded pill-shaped buttons
-  small?: boolean; // For smaller buttons
-  elevated?: boolean; // For shadow effect
+  disabled?: boolean;
+  small?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
-  gradientColors?: readonly [ColorValue, ColorValue, ...ColorValue[]];
-  gradientStart?: { x: number; y: number };
-  gradientEnd?: { x: number; y: number };
-  animated?: boolean; // Added to enable/disable animations
-  isDark?: boolean; // Added for theme support
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -71,175 +44,42 @@ const Button: React.FC<ButtonProps> = ({
   iconPosition = "left",
   disabled = false,
   loading = false,
-  pill = false,
   small = false,
-  elevated = true, // Default to elevated for more premium feel
   style = {},
   textStyle = {},
-  gradientColors,
-  gradientStart = { x: 0, y: 0 },
-  gradientEnd = { x: 1, y: 0 },
-  animated = true,
-  isDark = false,
-  ...restProps
 }) => {
-  // Animation references
+  const { isDarkMode } = useTheme();
+
+  // Animation values
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const opacityAnim = useRef(new Animated.Value(1)).current;
-  const pressAnim = useRef(new Animated.Value(0)).current;
 
-  // Create derived animations for button press effect
-  const buttonScale = pressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.96],
-  });
-
-  const shadowOpacity = pressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.2, 0.1],
-  });
-
-  // Mount animation
-  useEffect(() => {
-    if (animated) {
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 1.05,
-          duration: ANIMATIONS.FAST,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: ANIMATIONS.FAST,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, []);
-
-  // ===== THEME COLOR PALETTES =====
-
-  // Default gradient colors (purple-pink) - use theme constants
-  const primaryGradientColors = GRADIENTS.PRIMARY;
-
-  // Teal to blue gradient
-  const secondaryGradientColors: readonly [ColorValue, ColorValue] = [
-    "#0EA5E9",
-    "#2563EB",
-  ];
-
-  // Vibrant orange to red
-  const accentGradientColors: readonly [ColorValue, ColorValue] = [
-    "#F59E0B",
-    "#EF4444",
-  ];
-
-  // Success gradient (green to teal)
-  const successGradientColors: readonly [ColorValue, ColorValue] = [
-    "#10B981",
-    "#059669",
-  ];
-
-  // Danger gradient (red to crimson)
-  const dangerGradientColors: readonly [ColorValue, ColorValue] = [
-    "#F87171",
-    "#DC2626",
-  ];
-
-  // Warning gradient (yellow to orange)
-  const warningGradientColors: readonly [ColorValue, ColorValue] = [
-    "#FBBF24",
-    "#F59E0B",
-  ];
-
-  // Info gradient (light blue to indigo)
-  const infoGradientColors: readonly [ColorValue, ColorValue] = [
-    "#60A5FA",
-    "#4F46E5",
-  ];
-
-  // Dark gradient (dark gray to black)
-  const darkGradientColors = GRADIENTS.DARK_BG;
-
-  // Indigo gradient (deep indigo to purple)
-  const indigoGradientColors: readonly [ColorValue, ColorValue] = [
-    "#4338CA",
-    "#5B21B6",
-  ];
-
-  // Google brand colors
-  const googleGradientColors: readonly [ColorValue, ColorValue] = [
-    "#4285F4",
-    "#34A853",
-  ];
-
-  // Apple colors (dark mode)
-  const appleGradientColors: readonly [ColorValue, ColorValue] = [
-    "#333333",
-    "#000000",
-  ];
-
-  // Disabled state color
-  const disabledGradientColors = GRADIENTS.DISABLED;
-
-  // Glass effect colors - using theme constants
-  const glassGradientColors = isDark
-    ? ["rgba(31, 41, 55, 0.6)", "rgba(31, 41, 55, 0.4)"]
-    : ["rgba(255, 255, 255, 0.3)", "rgba(255, 255, 255, 0.15)"];
-
-  // Frosted glass effect colors
-  const frostedGradientColors = isDark
-    ? GRADIENTS.DARK_CARD
-    : GRADIENTS.LIGHT_CARD;
-
-  // Determine which colors to use based on variant and state
+  // Get gradient colors based on variant and theme
   const getGradientColors = () => {
-    if (disabled) return disabledGradientColors;
-    if (gradientColors) return gradientColors;
+    if (disabled) return GRADIENTS.DISABLED;
 
     switch (variant) {
       case "primary":
-        return primaryGradientColors;
+        return GRADIENTS.PRIMARY;
       case "secondary":
-        return secondaryGradientColors;
-      case "accent":
-        return accentGradientColors;
-      case "success":
-        return successGradientColors;
-      case "danger":
-        return dangerGradientColors;
-      case "warning":
-        return warningGradientColors;
-      case "info":
-        return infoGradientColors;
-      case "dark":
-        return darkGradientColors;
-      case "indigo":
-        return indigoGradientColors;
-      case "google":
-        return googleGradientColors;
-      case "apple":
-        return appleGradientColors;
-      case "glass":
-        return glassGradientColors;
-      case "frosted":
-        return frostedGradientColors;
+        // Custom secondary gradient for light theme
+        if (!isDarkMode) {
+          return ["#FF0099", "#FF6D00"]; // Custom secondary gradient for light theme
+        }
+        return GRADIENTS.SECONDARY;
       default:
-        return primaryGradientColors;
+        return GRADIENTS.PRIMARY;
     }
   };
 
-  // Get text color based on variant
+  // Get text color based on variant and theme
   const getTextColor = () => {
     switch (variant) {
       case "outline":
       case "ghost":
-        return isDark ? COLORS.DARK_TEXT_PRIMARY : COLORS.WHITE;
-      case "warning":
-        return "#1F2937"; // Dark text for light background
-      case "frosted":
-      case "glass":
-        return isDark ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
+        return isDarkMode
+          ? COLORS.DARK_TEXT_PRIMARY
+          : COLORS.LIGHT_TEXT_PRIMARY;
       default:
         return COLORS.WHITE;
     }
@@ -247,46 +87,58 @@ const Button: React.FC<ButtonProps> = ({
 
   // Get border color for outlined buttons
   const getBorderColor = () => {
-    return isDark ? COLORS.DARK_BORDER : COLORS.TRANSPARENT_WHITE_BORDER;
+    return isDarkMode ? COLORS.DARK_BORDER : COLORS.LIGHT_BORDER;
   };
 
   // Determine if we should show gradient
   const shouldShowGradient = () => {
-    return !["outline", "ghost", "neomorphic"].includes(variant);
+    return !["outline", "ghost"].includes(variant);
   };
 
-  // Handle button press animations
+  // Handle press animations
   const handlePressIn = () => {
-    if (animated) {
-      Animated.spring(pressAnim, {
-        toValue: 1,
+    Animated.parallel([
+      Animated.timing(scaleAnim, {
+        toValue: 0.96,
+        duration: 100,
         useNativeDriver: true,
-        speed: 50,
-        bounciness: 4,
-      }).start();
-    }
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 0.9,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const handlePressOut = () => {
-    if (animated) {
-      Animated.spring(pressAnim, {
-        toValue: 0,
+    Animated.parallel([
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 200,
+        friction: 20,
         useNativeDriver: true,
-        speed: 50,
-        bounciness: 4,
-      }).start();
-    }
+      }),
+      Animated.timing(opacityAnim, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  // Handle the onPress event with animation
+  const handlePress = () => {
+    // Add a slight delay to make the animation visible
+    setTimeout(() => {
+      onPress();
+    }, 100);
   };
 
   // Render button content (text and/or loading indicator)
   const renderContent = () => {
     if (loading) {
-      return (
-        <ActivityIndicator
-          color={getTextColor()}
-          size={small ? "small" : "small"}
-        />
-      );
+      return <ActivityIndicator color={getTextColor()} size="small" />;
     }
 
     return (
@@ -311,70 +163,36 @@ const Button: React.FC<ButtonProps> = ({
     );
   };
 
-  // Render the frosted glass effect button
-  if (variant === "frosted" && Platform.OS !== "web") {
-    return (
-      <Animated.View
-        style={[
-          styles.button,
-          pill && styles.pillButton,
-          small && styles.smallButton,
-          elevated && styles.premiumShadow,
-          { transform: [{ scale: buttonScale }] },
-          style,
-        ]}
-      >
-        <Pressable
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          disabled={disabled || loading}
-          style={styles.pressableContainer}
-        >
-          <BlurView
-            intensity={isDark ? 30 : 50}
-            tint={isDark ? "dark" : "light"}
-            style={styles.blurContainer}
-          >
-            {renderContent()}
-          </BlurView>
-        </Pressable>
-      </Animated.View>
-    );
-  }
-
   // Button with gradient background
   if (shouldShowGradient()) {
     return (
       <Animated.View
         style={[
-          elevated &&
-            (variant === "glass" ? styles.glassShadow : styles.premiumShadow),
+          styles.shadowContainer,
+          small && styles.smallShadow,
           {
-            transform: [{ scale: buttonScale }],
+            transform: [{ scale: scaleAnim }],
             opacity: opacityAnim,
-            shadowOpacity: elevated ? shadowOpacity : 0,
           },
         ]}
       >
         <Pressable
           style={[
             styles.button,
-            pill && styles.pillButton,
             small && styles.smallButton,
+            disabled && styles.disabledButton,
             style,
           ]}
-          onPress={onPress}
+          onPress={handlePress}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}
           disabled={disabled || loading}
-          android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: false }}
         >
           <LinearGradient
             colors={getGradientColors() as any}
-            start={gradientStart}
-            end={gradientEnd}
-            style={[styles.gradient, pill && styles.pillGradient]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.gradient}
           >
             {renderContent()}
           </LinearGradient>
@@ -383,60 +201,32 @@ const Button: React.FC<ButtonProps> = ({
     );
   }
 
-  // Non-gradient buttons (outline, ghost, neomorphic)
-  let buttonStyle: ViewStyle = {};
-
-  switch (variant) {
-    case "outline":
-      buttonStyle = {
-        ...styles.outlineButton,
-        borderColor: getBorderColor(),
-      };
-      break;
-    case "ghost":
-      buttonStyle = styles.ghostButton;
-      break;
-    case "neomorphic":
-      buttonStyle = isDark
-        ? styles.neomorphicButtonDark
-        : styles.neomorphicButtonLight;
-      break;
-    default:
-      buttonStyle = {};
-  }
+  // Non-gradient buttons (outline, ghost)
+  const buttonStyle: ViewStyle =
+    variant === "outline"
+      ? { ...styles.outlineButton, borderColor: getBorderColor() }
+      : styles.ghostButton;
 
   return (
     <Animated.View
-      style={[
-        elevated &&
-          variant !== "ghost" &&
-          (variant === "neomorphic" ? {} : styles.premiumShadow),
-        {
-          transform: [{ scale: buttonScale }],
-          opacity: opacityAnim,
-          shadowOpacity:
-            elevated && variant !== "neomorphic" ? shadowOpacity : 0,
-        },
-      ]}
+      style={{
+        transform: [{ scale: scaleAnim }],
+        opacity: opacityAnim,
+        width: "100%",
+      }}
     >
       <Pressable
         style={[
           styles.button,
           buttonStyle,
-          pill && styles.pillButton,
           small && styles.smallButton,
           disabled && styles.disabledButton,
           style,
         ]}
-        onPress={onPress}
+        onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={disabled || loading}
-        android_ripple={{
-          color:
-            variant === "outline" ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
-          borderless: false,
-        }}
       >
         {renderContent()}
       </Pressable>
@@ -445,6 +235,12 @@ const Button: React.FC<ButtonProps> = ({
 };
 
 const styles = StyleSheet.create({
+  shadowContainer: {
+    ...SHADOWS.MEDIUM,
+  },
+  smallShadow: {
+    ...SHADOWS.SMALL,
+  },
   button: {
     borderRadius: BORDER_RADIUS.L,
     height: 56,
@@ -453,40 +249,9 @@ const styles = StyleSheet.create({
     width: "100%",
     overflow: "hidden",
   },
-  pressableContainer: {
-    width: "100%",
-    height: "100%",
-  },
-  blurContainer: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: BORDER_RADIUS.L,
-    overflow: "hidden",
-  },
   smallButton: {
     height: 40,
     borderRadius: BORDER_RADIUS.M,
-  },
-  pillButton: {
-    borderRadius: 28, // Half of height 56px
-  },
-  pillGradient: {
-    borderRadius: 28,
-  },
-  premiumShadow: {
-    ...SHADOWS.PREMIUM,
-  },
-  glassShadow: {
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 10,
   },
   gradient: {
     width: "100%",
@@ -507,7 +272,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   buttonText: {
-    color: COLORS.WHITE,
     fontSize: FONT_SIZES.M,
     fontWeight: "600",
     fontFamily: FONTS.SEMIBOLD,
@@ -521,32 +285,6 @@ const styles = StyleSheet.create({
   },
   ghostButton: {
     backgroundColor: "transparent",
-  },
-  neomorphicButtonLight: {
-    backgroundColor: "#F0F2F5",
-    borderWidth: 1,
-    borderColor: "#FFFFFF",
-    shadowColor: "#FFFFFF",
-    shadowOffset: {
-      width: -5,
-      height: -5,
-    },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  neomorphicButtonDark: {
-    backgroundColor: "#2A2D3E",
-    borderWidth: 1,
-    borderColor: "#333853",
-    shadowColor: "#1E2132",
-    shadowOffset: {
-      width: 5,
-      height: 5,
-    },
-    shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 10,
   },
   disabledButton: {
     opacity: 0.5,

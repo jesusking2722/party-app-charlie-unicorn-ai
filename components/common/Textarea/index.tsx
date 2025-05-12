@@ -1,5 +1,6 @@
-import { FONTS } from "@/app/theme";
-import React, { useRef } from "react";
+import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
+import { useTheme } from "@/contexts/ThemeContext";
+import React, { useRef, useState } from "react";
 import {
   Animated,
   StyleSheet,
@@ -38,9 +39,49 @@ const TextArea: React.FC<TextAreaProps> = ({
   showCharCount = false,
   ...restProps
 }) => {
+  const { isDarkMode } = useTheme();
+  const [isFocused, setIsFocused] = useState<boolean>(false);
+
   // Animation for error text
   const fadeAnim = useRef(new Animated.Value(error ? 1 : 0)).current;
   const slideAnim = useRef(new Animated.Value(error ? 0 : 20)).current;
+
+  // Custom light theme accent color (matching the Input component)
+  const LIGHT_THEME_ACCENT = "#FF0099";
+
+  // Theme-based styles
+  const getTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
+  const getPlaceholderColor = () =>
+    isDarkMode ? "rgba(255, 255, 255, 0.5)" : "rgba(0, 0, 0, 0.35)";
+  const getLabelColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+  const getBackgroundColor = () =>
+    isDarkMode
+      ? isFocused
+        ? "rgba(40, 45, 55, 0.65)"
+        : "rgba(30, 35, 45, 0.5)"
+      : isFocused
+      ? "rgba(255, 255, 255, 0.65)"
+      : "rgba(255, 255, 255, 0.5)";
+  const getBorderColor = () =>
+    isDarkMode
+      ? isFocused
+        ? COLORS.SECONDARY
+        : "rgba(255, 255, 255, 0.1)"
+      : isFocused
+      ? LIGHT_THEME_ACCENT
+      : "rgba(0, 0, 0, 0.05)";
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+  const getCharCountColor = () => {
+    if (remainingChars !== null && remainingChars < 20) {
+      return COLORS.ERROR;
+    }
+    return isDarkMode ? "rgba(255, 255, 255, 0.7)" : "rgba(0, 0, 0, 0.5)";
+  };
+  const getCharCountBgColor = () =>
+    isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)";
 
   // Update animation when error state changes
   React.useEffect(() => {
@@ -76,25 +117,40 @@ const TextArea: React.FC<TextAreaProps> = ({
   // Calculate remaining characters
   const remainingChars = maxLength ? maxLength - (value?.length || 0) : null;
 
+  const handleFocus = () => setIsFocused(true);
+  const handleBlur = () => setIsFocused(false);
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: getLabelColor() }, labelStyle]}>
+          {label}
+        </Text>
+      )}
 
       <View
         style={[
           styles.textAreaWrapper,
+          {
+            backgroundColor: getBackgroundColor(),
+            borderColor: getBorderColor(),
+            borderWidth: isFocused ? 1 : 0.5,
+            minHeight,
+          },
           error && styles.textAreaWrapperError,
-          { minHeight },
         ]}
       >
         <TextInput
           style={[
             styles.textArea,
-            { minHeight: minHeight - 16 }, // Account for padding
+            {
+              color: getTextColor(),
+              minHeight: minHeight - SPACING.M * 2, // Account for padding
+            },
             textAreaStyle,
           ]}
           placeholder={placeholder}
-          placeholderTextColor="rgba(255, 255, 255, 0.6)"
+          placeholderTextColor={getPlaceholderColor()}
           value={value}
           onChangeText={onChangeText}
           multiline
@@ -102,22 +158,36 @@ const TextArea: React.FC<TextAreaProps> = ({
           autoCapitalize={autoCapitalize}
           keyboardType={keyboardType}
           maxLength={maxLength}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           {...restProps}
         />
 
         {showCharCount && maxLength && (
-          <View style={styles.charCountContainer}>
+          <View
+            style={[
+              styles.charCountContainer,
+              { backgroundColor: getCharCountBgColor() },
+            ]}
+          >
             <Text
-              style={[
-                styles.charCountText,
-                remainingChars !== null && remainingChars < 20
-                  ? styles.charCountWarning
-                  : undefined,
-              ]}
+              style={[styles.charCountText, { color: getCharCountColor() }]}
             >
               {remainingChars}
             </Text>
           </View>
+        )}
+
+        {/* Accent indicator for focused state */}
+        {isFocused && (
+          <View
+            style={[
+              styles.focusAccent,
+              {
+                backgroundColor: getAccentColor(),
+              },
+            ]}
+          />
         )}
       </View>
 
@@ -128,6 +198,7 @@ const TextArea: React.FC<TextAreaProps> = ({
             {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }],
+              color: COLORS.ERROR,
             },
           ]}
         >
@@ -140,56 +211,58 @@ const TextArea: React.FC<TextAreaProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: SPACING.M,
     width: "100%",
   },
   label: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
-    color: "white",
-    marginBottom: 8,
+    marginBottom: SPACING.XS,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   textAreaWrapper: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.L,
     position: "relative",
     overflow: "hidden",
   },
+  focusAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
+    height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
+  },
   textAreaWrapperError: {
     borderWidth: 1,
-    borderColor: "rgba(255, 100, 100, 0.7)",
+    borderColor: COLORS.ERROR,
   },
   textArea: {
-    color: "white",
-    fontSize: 16,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
-    padding: 16,
+    padding: SPACING.M,
     textAlignVertical: "top",
     width: "100%",
   },
   errorText: {
-    color: "rgba(255, 100, 100, 0.9)",
-    fontSize: 12,
-    marginTop: 4,
-    paddingHorizontal: 4,
+    fontSize: FONT_SIZES.XS,
+    marginTop: SPACING.XS,
+    paddingHorizontal: SPACING.XS,
     fontFamily: FONTS.REGULAR,
   },
   charCountContainer: {
     position: "absolute",
-    bottom: 8,
-    right: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
-    borderRadius: 12,
+    bottom: SPACING.XS,
+    right: SPACING.S,
+    borderRadius: BORDER_RADIUS.M,
     padding: 4,
     paddingHorizontal: 8,
   },
   charCountText: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 12,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
-  },
-  charCountWarning: {
-    color: "rgba(255, 150, 100, 0.9)",
   },
 });
 

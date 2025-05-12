@@ -13,7 +13,7 @@ import {
 } from "react-native";
 
 const { width } = Dimensions.get("window");
-const ITEM_WIDTH = width - 40; // Account for padding
+const ITEM_WIDTH = width - 20; // Account for padding
 const ITEM_HEIGHT = 220;
 
 const Slider = () => {

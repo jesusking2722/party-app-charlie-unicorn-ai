@@ -1,229 +1,441 @@
-import { FONTS } from "@/app/theme";
-import { Button } from "@/components/common";
-import { FontAwesome5 } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import LottieView from "lottie-react-native";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
   Dimensions,
+  Image,
+  Platform,
   SafeAreaView,
   StyleSheet,
+  Text,
   View,
 } from "react-native";
 
-// Get screen dimensions
+import {
+  ANIMATIONS,
+  BORDER_RADIUS,
+  COLORS,
+  FONTS,
+  FONT_SIZES,
+  GRADIENTS,
+  SHADOWS,
+  SPACING,
+} from "@/app/theme";
+import { Button, ThemeToggle } from "@/components/common";
+import { useTheme } from "@/contexts/ThemeContext";
+
+const CelebrateImage = require("@/assets/images/congratulations.png");
+const LogoImage = require("@/assets/images/logo.png");
+
 const { width, height } = Dimensions.get("window");
 
+// Custom light theme secondary color
+const LIGHT_THEME_ACCENT = "#FF0099";
+
 const CongratulationsScreen = () => {
-  // Animation refs
+  const { isDarkMode } = useTheme();
+
+  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-  const titleAnim = useRef(new Animated.Value(0)).current;
-  const subtitleAnim = useRef(new Animated.Value(0)).current;
-  const messageAnim = useRef(new Animated.Value(0)).current;
-  const buttonAnim = useRef(new Animated.Value(0)).current;
-  const confettiRef = useRef<any>(null);
-  const flowersRef = useRef<any>(null);
+  const translateY = useRef(new Animated.Value(30)).current;
+  const cardScale = useRef(new Animated.Value(0.97)).current;
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const buttonScale = useRef(new Animated.Value(0)).current;
+  const checkmarkScale = useRef(new Animated.Value(0)).current;
 
-  // Run animation sequence on component mount
+  // Particle animations for the background
+  const particles = Array(6)
+    .fill(0)
+    .map(() => ({
+      x: useRef(new Animated.Value(Math.random() * width)).current,
+      y: useRef(new Animated.Value(Math.random() * height * 0.4)).current,
+      scale: useRef(new Animated.Value(Math.random() * 0.4 + 0.3)).current,
+      opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
+      speed: Math.random() * 3000 + 2000,
+    }));
+
+  // Run animations when component mounts
   useEffect(() => {
-    // Start both confetti and flower animations
-    if (confettiRef.current) {
-      confettiRef.current.play();
-    }
-    if (flowersRef.current) {
-      flowersRef.current.play();
-    }
+    const animationDelay = Platform.OS === "ios" ? 200 : 300;
 
-    // Create a beautiful staggered animation sequence
-    Animated.sequence([
-      // First animate the check icon
+    // Main elements fade in
+    setTimeout(() => {
       Animated.parallel([
+        // Fade in entire view
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 800,
+          duration: ANIMATIONS.MEDIUM,
           useNativeDriver: true,
         }),
-        Animated.timing(scaleAnim, {
+        // Slide up animation
+        Animated.spring(translateY, {
+          toValue: 0,
+          tension: 60,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        // Card scale animation
+        Animated.spring(cardScale, {
           toValue: 1,
-          duration: 1000,
+          tension: 60,
+          friction: 6,
           useNativeDriver: true,
         }),
-      ]),
+        // Logo animation with bounce
+        Animated.spring(logoScale, {
+          toValue: 1,
+          tension: 70,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-      // Then animate the title
-      Animated.timing(titleAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+      // Checkmark animation
+      Animated.sequence([
+        Animated.delay(animationDelay / 2),
+        Animated.spring(checkmarkScale, {
+          toValue: 1,
+          tension: 80,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-      // Then animate subtitle
-      Animated.timing(subtitleAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+      // Button animation
+      Animated.sequence([
+        Animated.delay(animationDelay),
+        Animated.spring(buttonScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-      // Then animate message
-      Animated.timing(messageAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-
-      // Finally animate button
-      Animated.timing(buttonAnim, {
-        toValue: 1,
-        duration: 700,
-        useNativeDriver: true,
-      }),
-    ]).start();
+      // Start particle animations
+      animateParticles();
+    }, 100);
   }, []);
+
+  // Continuous animation for floating particles
+  const animateParticles = () => {
+    particles.forEach((particle) => {
+      // Animate vertical position
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+        ])
+      ).start();
+
+      // Animate scale
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Animate opacity
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+  };
+
+  const renderParticles = () => {
+    return particles.map((particle, index) => (
+      <Animated.View
+        key={`particle-${index}`}
+        style={[
+          styles.particle,
+          {
+            transform: [
+              { translateX: particle.x },
+              { translateY: particle.y },
+              { scale: particle.scale },
+            ],
+            opacity: particle.opacity,
+            backgroundColor: isDarkMode
+              ? `rgba(${127 + Math.floor(Math.random() * 128)}, ${Math.floor(
+                  Math.random() * 100
+                )}, ${Math.floor(Math.random() * 255)}, 0.7)`
+              : `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(
+                  Math.random() * 255
+                )}, ${Math.floor(Math.random() * 255)}, 0.5)`,
+          },
+        ]}
+      />
+    ));
+  };
+
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
   // Handle navigation to the home screen
   const handleJoinNow = () => {
+    // Button press animation
+    Animated.sequence([
+      Animated.timing(buttonScale, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(buttonScale, {
+        toValue: 1,
+        tension: 200,
+        friction: 20,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
     router.push("/main");
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <LinearGradient
-        colors={["#7F00FF", "#E100FF"]}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        {/* Background decorative elements */}
-        <View style={styles.decorativeCircle1} />
-        <View style={styles.decorativeCircle2} />
-        <View style={styles.decorativeCircle3} />
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
+      ]}
+    >
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
 
-        {/* Confetti animation */}
-        <LottieView
-          ref={confettiRef}
-          source={require("@/assets/animations/confetti.json")}
-          style={styles.confettiAnimation}
-          loop={false}
-          autoPlay={false}
+      {/* Theme toggle button */}
+      <View style={styles.themeToggle}>
+        <ThemeToggle />
+      </View>
+
+      {/* Top Half - Image Section */}
+      <View style={styles.imageContainer}>
+        <Image
+          source={CelebrateImage}
+          style={styles.celebrateImage}
           resizeMode="cover"
         />
 
-        <View style={styles.contentContainer}>
-          {/* Success Icon */}
-          <Animated.View
-            style={[
-              styles.iconContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
+        {/* Add floating particles for fun effect */}
+        {renderParticles()}
+
+        {/* Overlay gradient for readability */}
+        <LinearGradient
+          colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0)"]}
+          style={styles.imageOverlay}
+        />
+      </View>
+
+      {/* Bottom Half with Card and Content */}
+      <View style={styles.bottomHalf}>
+        <LinearGradient
+          colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+          style={styles.bottomGradient}
+        />
+
+        {/* Congratulations Card */}
+        <Animated.View
+          style={[
+            styles.cardContainer,
+            {
+              transform: [{ translateY: translateY }, { scale: cardScale }],
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <BlurView
+            intensity={isDarkMode ? 40 : 30}
+            tint={isDarkMode ? "dark" : "light"}
+            style={styles.cardBlur}
           >
             <LinearGradient
-              colors={["#FF9500", "#FF0099"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.iconGradient}
+              colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+              style={styles.cardGradient}
             >
-              <FontAwesome5 name="check-circle" size={40} color="white" solid />
+              {/* Accent Bar */}
+              <View
+                style={[
+                  styles.cardAccentBar,
+                  {
+                    backgroundColor: getAccentColor(),
+                  },
+                ]}
+              />
+
+              <View style={styles.cardContent}>
+                {/* Success Icon */}
+                <Animated.View
+                  style={[
+                    styles.checkIconContainer,
+                    {
+                      transform: [{ scale: checkmarkScale }],
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.checkIconGradient}
+                  >
+                    <FontAwesome name="trophy" size={24} color="white" solid />
+                  </LinearGradient>
+                </Animated.View>
+
+                <Text
+                  style={[
+                    styles.congratsTitle,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  Congratulations!
+                </Text>
+                <Text
+                  style={[
+                    styles.congratsSubtitle,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  You've successfully completed the onboarding
+                </Text>
+
+                {/* Message */}
+                <Text
+                  style={[
+                    styles.congratsMessage,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  You're all set to explore our platform and discover all the
+                  amazing features we have to offer
+                </Text>
+
+                {/* Progress Indicator */}
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressHeader}>
+                    <Text
+                      style={[
+                        styles.progressText,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_SECONDARY
+                            : COLORS.LIGHT_TEXT_SECONDARY,
+                        },
+                      ]}
+                    >
+                      Onboarding Complete
+                    </Text>
+                    <Text
+                      style={[
+                        styles.progressStep,
+                        {
+                          color: getAccentColor(),
+                        },
+                      ]}
+                    >
+                      4 of 4
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.progressBarContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "rgba(0, 0, 0, 0.05)",
+                      },
+                    ]}
+                  >
+                    <View style={styles.progressFill}>
+                      <LinearGradient
+                        colors={
+                          isDarkMode
+                            ? GRADIENTS.PRIMARY
+                            : ["#FF0099", "#FF6D00"]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.progressGradient}
+                      />
+                    </View>
+                  </View>
+                </View>
+
+                {/* Join Now Button */}
+                <Animated.View
+                  style={{
+                    width: "100%",
+                    transform: [{ scale: buttonScale }],
+                    marginTop: SPACING.M,
+                  }}
+                >
+                  <Button
+                    title="Join Now"
+                    onPress={handleJoinNow}
+                    variant={isDarkMode ? "primary" : "secondary"}
+                    icon={
+                      <FontAwesome5
+                        name="arrow-right"
+                        size={14}
+                        color="white"
+                        style={{ marginLeft: SPACING.S }}
+                      />
+                    }
+                    iconPosition="right"
+                  />
+                </Animated.View>
+              </View>
             </LinearGradient>
-          </Animated.View>
-
-          {/* Title with staggered animation */}
-          <Animated.Text
-            style={[
-              styles.congratsTitle,
-              {
-                opacity: titleAnim,
-                transform: [
-                  {
-                    translateY: titleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [20, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            Congratulations!
-          </Animated.Text>
-
-          {/* Subtitle with staggered animation */}
-          <Animated.Text
-            style={[
-              styles.congratsSubtitle,
-              {
-                opacity: subtitleAnim,
-                transform: [
-                  {
-                    translateY: subtitleAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [15, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            You've successfully completed the onboarding
-          </Animated.Text>
-
-          {/* Message with staggered animation */}
-          <Animated.Text
-            style={[
-              styles.congratsMessage,
-              {
-                opacity: messageAnim,
-                transform: [
-                  {
-                    translateY: messageAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [15, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            You're all set to explore our platform and discover all the amazing
-            features we have to offer
-          </Animated.Text>
-
-          {/* Join Now Button with animation */}
-          <Animated.View
-            style={[
-              styles.buttonContainer,
-              {
-                opacity: buttonAnim,
-                transform: [
-                  {
-                    translateY: buttonAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [30, 0],
-                    }),
-                  },
-                  {
-                    scale: buttonAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.95, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <Button
-              title="Join now"
-              variant="primary"
-              onPress={handleJoinNow}
-            />
-          </Animated.View>
-        </View>
-      </LinearGradient>
+          </BlurView>
+        </Animated.View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -232,142 +444,142 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-    overflow: "hidden",
-  },
-  confettiAnimation: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10,
-    pointerEvents: "none",
-  },
-  flowersAnimation: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 5,
-    pointerEvents: "none",
-  },
-  contentContainer: {
+  imageContainer: {
+    height: height * 0.4,
     width: "100%",
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 20,
-  },
-  iconContainer: {
-    marginBottom: 32,
-    borderRadius: 50,
     overflow: "hidden",
-    elevation: 10,
-    shadowColor: "#FF0099",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    position: "relative",
   },
-  iconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  celebrateImage: {
+    width: "100%",
+    height: "100%",
+  },
+  particle: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  imageOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    top: 0,
+    left: 0,
+  },
+  bottomHalf: {
+    minHeight: height * 0.6,
+    width: "100%",
+    position: "relative",
+    paddingBottom: SPACING.XL,
+  },
+  bottomGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cardContainer: {
+    position: "relative",
+    top: -height * 0.06,
+    marginHorizontal: width * 0.05,
+    width: width * 0.9,
+    zIndex: 10,
+    height: "auto",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+    ...SHADOWS.MEDIUM,
+  },
+  cardBlur: {
+    width: "100%",
+    height: "100%",
+  },
+  cardGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+  },
+  cardAccentBar: {
+    height: 6,
+    width: "100%",
+    borderTopLeftRadius: BORDER_RADIUS.XXL,
+    borderTopRightRadius: BORDER_RADIUS.XXL,
+  },
+  cardContent: {
+    padding: SPACING.L,
+    alignItems: "center",
+  },
+  checkIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: "hidden",
+    marginBottom: SPACING.M,
+    ...SHADOWS.MEDIUM,
+  },
+  checkIconGradient: {
+    width: "100%",
+    height: "100%",
     justifyContent: "center",
     alignItems: "center",
   },
   congratsTitle: {
-    fontSize: 42,
     fontFamily: FONTS.BOLD,
-    color: "white",
-    marginBottom: 16,
+    fontSize: FONT_SIZES.XL,
+    marginBottom: SPACING.XS,
     textAlign: "center",
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
   congratsSubtitle: {
-    fontSize: 18,
-    fontFamily: FONTS.SEMIBOLD,
-    color: "white",
-    marginBottom: 12,
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.M,
     textAlign: "center",
   },
   congratsMessage: {
-    fontSize: 16,
     fontFamily: FONTS.REGULAR,
-    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: FONT_SIZES.S,
     textAlign: "center",
-    lineHeight: 24,
-    maxWidth: "85%",
-    marginBottom: 40,
+    marginBottom: SPACING.M,
+    lineHeight: 22,
   },
-  buttonContainer: {
+  progressContainer: {
     width: "100%",
-    alignItems: "center",
-    marginTop: 20,
+    marginTop: SPACING.S,
+    marginBottom: SPACING.M,
   },
-  joinButton: {
-    borderRadius: 16,
-    height: 60,
-    width: "100%",
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  joinButtonGradient: {
-    width: "100%",
-    height: "100%",
+  progressHeader: {
     flexDirection: "row",
-    justifyContent: "center",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: SPACING.XS,
   },
-  joinButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontFamily: FONTS.SEMIBOLD,
+  progressText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
   },
-  buttonIcon: {
-    marginLeft: 10,
+  progressStep: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.XS,
   },
-  // Decorative elements
-  decorativeCircle1: {
+  progressBarContainer: {
+    height: 6,
+    borderRadius: BORDER_RADIUS.S,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    width: "100%",
+  },
+  progressGradient: {
+    flex: 1,
+  },
+  themeToggle: {
     position: "absolute",
-    width: width * 0.7,
-    height: width * 0.7,
-    borderRadius: width * 0.35,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    top: -width * 0.2,
-    right: -width * 0.2,
-    zIndex: 1,
-  },
-  decorativeCircle2: {
-    position: "absolute",
-    width: width * 0.5,
-    height: width * 0.5,
-    borderRadius: width * 0.25,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    bottom: -width * 0.1,
-    left: -width * 0.1,
-    zIndex: 1,
-  },
-  decorativeCircle3: {
-    position: "absolute",
-    width: width * 0.3,
-    height: width * 0.3,
-    borderRadius: width * 0.15,
-    backgroundColor: "rgba(255, 0, 153, 0.08)",
-    top: height * 0.15,
-    left: width * 0.1,
-    zIndex: 1,
+    top: Platform.OS === "ios" ? 50 : 40,
+    right: 20,
+    zIndex: 100,
   },
 });
 

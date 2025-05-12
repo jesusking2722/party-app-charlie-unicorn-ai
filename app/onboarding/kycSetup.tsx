@@ -1,6 +1,7 @@
 import { AnimationType, VerificationAnimation } from "@/animations";
-import { FontAwesome5 } from "@expo/vector-icons";
-import { ResizeMode, Video } from "expo-av";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
+import { Video } from "expo-av";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -9,15 +10,39 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+
+import {
+  ANIMATIONS,
+  BORDER_RADIUS,
+  COLORS,
+  FONTS,
+  FONT_SIZES,
+  GRADIENTS,
+  SHADOWS,
+  SPACING,
+} from "@/app/theme";
+import { Button, ThemeToggle } from "@/components/common";
+import { useTheme } from "@/contexts/ThemeContext";
+
+const KYCHeaderImage = require("@/assets/images/verify.png");
+const { width, height } = Dimensions.get("window");
+
+// Custom light theme secondary color
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 // Define verification status types
 enum VerificationStatus {
@@ -28,6 +53,8 @@ enum VerificationStatus {
 }
 
 const KYCVerificationScreen = () => {
+  const { isDarkMode } = useTheme();
+
   // State for verification status
   const [verificationStatus, setVerificationStatus] =
     useState<VerificationStatus>(VerificationStatus.NOT_STARTED);
@@ -44,9 +71,126 @@ const KYCVerificationScreen = () => {
   // Video reference
   const videoRef = useRef<Video>(null);
 
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(30)).current;
+  const cardScale = useRef(new Animated.Value(0.97)).current;
+  const buttonScale = useRef(new Animated.Value(0)).current;
+
+  // Particle animations for the background
+  const particles = Array(6)
+    .fill(0)
+    .map(() => ({
+      x: useRef(new Animated.Value(Math.random() * width)).current,
+      y: useRef(new Animated.Value(Math.random() * height * 0.4)).current,
+      scale: useRef(new Animated.Value(Math.random() * 0.4 + 0.3)).current,
+      opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
+      speed: Math.random() * 3000 + 2000,
+    }));
+
   // Mock third-party KYC service URL
   const KYC_SESSION_URL =
     "https://verify.didit.me/session/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NDYyMjY0NDcsImV4cCI6MTc0NjgzMTI0Nywic2Vzc2lvbl9pZCI6Ijk2M2ViZWRiLTYxMmUtNGYyMS1iMWY1LWFkN2RjODU4M2RhMCJ9.L1xR8FFxNSmjPE2k3uAk9G0dejYIRA_fH4OhYGhN-dY?step=start";
+
+  // Run animations when component mounts
+  useEffect(() => {
+    const animationDelay = Platform.OS === "ios" ? 200 : 300;
+
+    // Main elements fade in
+    setTimeout(() => {
+      Animated.parallel([
+        // Fade in entire view
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: ANIMATIONS.MEDIUM,
+          useNativeDriver: true,
+        }),
+        // Slide up animation
+        Animated.spring(translateY, {
+          toValue: 0,
+          tension: 60,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        // Card scale animation
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Button animation
+      Animated.sequence([
+        Animated.delay(animationDelay),
+        Animated.spring(buttonScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Start particle animations
+      animateParticles();
+    }, 100);
+  }, []);
+
+  // Continuous animation for floating particles
+  const animateParticles = () => {
+    particles.forEach((particle) => {
+      // Animate vertical position
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+        ])
+      ).start();
+
+      // Animate scale
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Animate opacity
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+  };
 
   // Mock function to check verification status from your backend
   const checkVerificationStatus = async () => {
@@ -202,11 +346,6 @@ const KYCVerificationScreen = () => {
     );
   };
 
-  // Go back to previous step
-  const handleBack = () => {
-    router.back();
-  };
-
   // Format time for countdown display (MM:SS)
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -214,20 +353,69 @@ const KYCVerificationScreen = () => {
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  // Render content based on verification status
-  const renderContent = () => {
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  // Render particles for background effect
+  const renderParticles = () => {
+    return particles.map((particle, index) => (
+      <Animated.View
+        key={`particle-${index}`}
+        style={[
+          styles.particle,
+          {
+            transform: [
+              { translateX: particle.x },
+              { translateY: particle.y },
+              { scale: particle.scale },
+            ],
+            opacity: particle.opacity,
+            backgroundColor: isDarkMode
+              ? `rgba(${127 + Math.floor(Math.random() * 128)}, ${Math.floor(
+                  Math.random() * 100
+                )}, ${Math.floor(Math.random() * 255)}, 0.7)`
+              : `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(
+                  Math.random() * 255
+                )}, ${Math.floor(Math.random() * 255)}, 0.5)`,
+          },
+        ]}
+      />
+    ));
+  };
+
+  // Content for each verification state
+  const renderVerificationContent = () => {
     switch (verificationStatus) {
       case VerificationStatus.NOT_STARTED:
         return (
-          <View style={styles.contentContainer}>
-            <Text style={styles.verificationTitle}>Identity Verification</Text>
-            <Text style={styles.verificationDescription}>
-              We need to verify your identity to comply with regulations and
-              keep your account secure.
+          <>
+            <Text
+              style={[
+                styles.welcomeText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
+                },
+              ]}
+            >
+              Identity Verification
+            </Text>
+            <Text
+              style={[
+                styles.subtitleText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY,
+                },
+              ]}
+            >
+              We need to verify your identity to comply with regulations
             </Text>
 
-            {/* Intro video */}
-            <View style={styles.videoContainer}>
+            {/* <View style={styles.videoContainer}>
               <Video
                 ref={videoRef}
                 style={styles.video}
@@ -238,203 +426,582 @@ const KYCVerificationScreen = () => {
                 shouldPlay
                 isMuted={false}
               />
-            </View>
+            </View> */}
 
             <View style={styles.infoContainer}>
               <View style={styles.infoItem}>
-                <FontAwesome5
-                  name="id-card"
-                  size={24}
-                  color="white"
-                  style={styles.infoIcon}
-                />
-                <Text style={styles.infoText}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome5
+                    name="id-card"
+                    size={16}
+                    color={
+                      isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY
+                    }
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
                   Have your ID card or passport ready
                 </Text>
               </View>
 
               <View style={styles.infoItem}>
-                <FontAwesome5
-                  name="video"
-                  size={24}
-                  color="white"
-                  style={styles.infoIcon}
-                />
-                <Text style={styles.infoText}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome
+                    name="video-camera"
+                    size={16}
+                    color={
+                      isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY
+                    }
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
                   Find a well-lit area for video verification
                 </Text>
               </View>
 
               <View style={styles.infoItem}>
-                <FontAwesome5
-                  name="clock"
-                  size={24}
-                  color="white"
-                  style={styles.infoIcon}
-                />
-                <Text style={styles.infoText}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome5
+                    name="clock"
+                    size={16}
+                    color={
+                      isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY
+                    }
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
                   The process takes about 2-3 minutes
                 </Text>
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startVerification}
-              disabled={loading}
-            >
-              <LinearGradient
-                colors={["#FF0099", "#7F00FF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startButtonGradient}
+            {/* Progress Indicator */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeader}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  Verification Process
+                </Text>
+                <Text
+                  style={[
+                    styles.progressStep,
+                    {
+                      color: getAccentColor(),
+                    },
+                  ]}
+                >
+                  Step 3 of 4
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.progressBarContainer,
+                  {
+                    backgroundColor: isDarkMode
+                      ? "rgba(255, 255, 255, 0.1)"
+                      : "rgba(0, 0, 0, 0.05)",
+                  },
+                ]}
               >
-                {loading ? (
-                  <ActivityIndicator color="white" size="small" />
-                ) : (
-                  <View style={styles.buttonContent}>
-                    <Text style={styles.startButtonText}>
-                      Start Verification
-                    </Text>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: "75%", // 3 of 4 steps
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.progressGradient}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Buttons */}
+            <Animated.View
+              style={{
+                width: "100%",
+                transform: [{ scale: buttonScale }],
+                marginTop: SPACING.M,
+              }}
+            >
+              <Button
+                title={loading ? "Loading..." : "Start Verification"}
+                onPress={startVerification}
+                loading={loading}
+                variant={isDarkMode ? "primary" : "secondary"}
+                small={true}
+                icon={
+                  !loading && (
                     <FontAwesome5
                       name="arrow-right"
                       size={14}
                       color="white"
-                      style={styles.buttonIcon}
+                      style={{ marginLeft: SPACING.S }}
                     />
-                  </View>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                  )
+                }
+                iconPosition="right"
+              />
+            </Animated.View>
 
             <TouchableOpacity
               style={styles.skipButton}
               onPress={skipVerification}
             >
-              <Text style={styles.skipButtonText}>Skip for now</Text>
+              <Text
+                style={[
+                  styles.skipButtonText,
+                  {
+                    color: isDarkMode
+                      ? "rgba(255, 255, 255, 0.6)"
+                      : "rgba(0, 0, 0, 0.5)",
+                  },
+                ]}
+              >
+                Skip for now
+              </Text>
             </TouchableOpacity>
-          </View>
+          </>
         );
 
       case VerificationStatus.PENDING:
         return (
-          <View style={styles.contentContainer}>
-            <VerificationAnimation
-              type={AnimationType.PENDING}
-              style={styles.lottieAnimation}
-              loop={true}
-              speed={1}
-            />
+          <>
+            <View style={styles.animationContainer}>
+              <VerificationAnimation
+                type={AnimationType.PENDING}
+                loop={true}
+                speed={1}
+                style={styles.animation}
+              />
+            </View>
 
-            <Text style={styles.verificationTitle}>
+            <Text
+              style={[
+                styles.welcomeText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
+                },
+              ]}
+            >
               Verification in Progress
             </Text>
-            <Text style={styles.verificationDescription}>
-              We're waiting for your verification to complete. This may take a
-              few moments.
+            <Text
+              style={[
+                styles.subtitleText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY,
+                },
+              ]}
+            >
+              We're waiting for your verification to complete
             </Text>
 
             <View style={styles.pendingContainer}>
-              <Text style={styles.pendingText}>
+              <ActivityIndicator
+                color={getAccentColor()}
+                size="large"
+                style={styles.pendingIndicator}
+              />
+              <Text
+                style={[
+                  styles.pendingText,
+                  {
+                    color: isDarkMode
+                      ? COLORS.DARK_TEXT_SECONDARY
+                      : COLORS.LIGHT_TEXT_SECONDARY,
+                  },
+                ]}
+              >
                 Please wait while we process your verification...
               </Text>
             </View>
-          </View>
+
+            {/* Progress Indicator */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeader}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  Verification Process
+                </Text>
+                <Text
+                  style={[
+                    styles.progressStep,
+                    {
+                      color: getAccentColor(),
+                    },
+                  ]}
+                >
+                  Step 3 of 4
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.progressBarContainer,
+                  {
+                    backgroundColor: isDarkMode
+                      ? "rgba(255, 255, 255, 0.1)"
+                      : "rgba(0, 0, 0, 0.05)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: "75%", // 3 of 4 steps
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.progressGradient}
+                  />
+                </View>
+              </View>
+            </View>
+          </>
         );
 
       case VerificationStatus.COMPLETED:
         return (
-          <View style={styles.contentContainer}>
-            <VerificationAnimation
-              type={AnimationType.SUCCESS}
-              style={styles.lottieAnimation}
-              loop={false}
-              speed={0.8}
-            />
+          <>
+            <View style={styles.animationContainer}>
+              <VerificationAnimation
+                type={AnimationType.SUCCESS}
+                loop={false}
+                speed={0.8}
+                style={styles.animation}
+              />
+            </View>
 
-            <Text style={styles.verificationTitle}>
+            <Text
+              style={[
+                styles.welcomeText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
+                },
+              ]}
+            >
               Verification Successful
             </Text>
-            <Text style={styles.verificationDescription}>
-              Congratulations! Your identity has been successfully verified.
+            <Text
+              style={[
+                styles.subtitleText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY,
+                },
+              ]}
+            >
+              Your identity has been successfully verified
             </Text>
 
             <View style={styles.successContainer}>
-              <Text style={styles.successText}>
-                You'll be redirected to the next step in{" "}
-                {formatTime(redirectCountdown)}
-              </Text>
-
-              <TouchableOpacity
-                style={styles.continueButton}
-                onPress={navigateToNextStep}
+              <Text
+                style={[
+                  styles.successText,
+                  {
+                    color: isDarkMode
+                      ? COLORS.DARK_TEXT_SECONDARY
+                      : COLORS.LIGHT_TEXT_SECONDARY,
+                  },
+                ]}
               >
-                <LinearGradient
-                  colors={["#FF0099", "#7F00FF"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.continueButtonGradient}
-                >
-                  <View style={styles.buttonContent}>
-                    <Text style={styles.continueButtonText}>Continue Now</Text>
-                    <FontAwesome5
-                      name="arrow-right"
-                      size={14}
-                      color="white"
-                      style={styles.buttonIcon}
-                    />
-                  </View>
-                </LinearGradient>
-              </TouchableOpacity>
+                You'll be redirected in {formatTime(redirectCountdown)}
+              </Text>
             </View>
-          </View>
+
+            {/* Progress Indicator */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeader}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  Verification Process
+                </Text>
+                <Text
+                  style={[
+                    styles.progressStep,
+                    {
+                      color: getAccentColor(),
+                    },
+                  ]}
+                >
+                  Step 3 of 4
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.progressBarContainer,
+                  {
+                    backgroundColor: isDarkMode
+                      ? "rgba(255, 255, 255, 0.1)"
+                      : "rgba(0, 0, 0, 0.05)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: "75%", // 3 of 4 steps
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.progressGradient}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Continue Button */}
+            <Animated.View
+              style={{
+                width: "100%",
+                transform: [{ scale: buttonScale }],
+                marginTop: SPACING.M,
+              }}
+            >
+              <Button
+                title="Continue Now"
+                onPress={navigateToNextStep}
+                variant={isDarkMode ? "primary" : "secondary"}
+                small={true}
+                icon={
+                  <FontAwesome5
+                    name="arrow-right"
+                    size={14}
+                    color="white"
+                    style={{ marginLeft: SPACING.S }}
+                  />
+                }
+                iconPosition="right"
+              />
+            </Animated.View>
+          </>
         );
 
       case VerificationStatus.FAILED:
         return (
-          <View style={styles.contentContainer}>
-            <VerificationAnimation
-              type={AnimationType.FAILED}
-              style={styles.lottieAnimation}
-              loop={false}
-              speed={1}
-            />
+          <>
+            <View style={styles.animationContainer}>
+              <VerificationAnimation
+                type={AnimationType.FAILED}
+                loop={false}
+                speed={1}
+                style={styles.animation}
+              />
+            </View>
 
-            <Text style={styles.verificationTitle}>Verification Failed</Text>
-            <Text style={styles.verificationDescription}>
-              We couldn't verify your identity. Please try again or skip for
-              now.
+            <Text
+              style={[
+                styles.welcomeText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
+                },
+              ]}
+            >
+              Verification Failed
+            </Text>
+            <Text
+              style={[
+                styles.subtitleText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY,
+                },
+              ]}
+            >
+              We couldn't verify your identity. Please try again.
             </Text>
 
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={startVerification}
-            >
-              <LinearGradient
-                colors={["#FF0099", "#7F00FF"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.retryButtonGradient}
+            {/* Progress Indicator */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeader}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  Verification Process
+                </Text>
+                <Text
+                  style={[
+                    styles.progressStep,
+                    {
+                      color: getAccentColor(),
+                    },
+                  ]}
+                >
+                  Step 3 of 4
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.progressBarContainer,
+                  {
+                    backgroundColor: isDarkMode
+                      ? "rgba(255, 255, 255, 0.1)"
+                      : "rgba(0, 0, 0, 0.05)",
+                  },
+                ]}
               >
-                <View style={styles.buttonContent}>
-                  <Text style={styles.retryButtonText}>Try Again</Text>
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: "75%", // 3 of 4 steps
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.progressGradient}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Retry Button */}
+            <Animated.View
+              style={{
+                width: "100%",
+                transform: [{ scale: buttonScale }],
+                marginTop: SPACING.M,
+              }}
+            >
+              <Button
+                title="Try Again"
+                onPress={startVerification}
+                variant={isDarkMode ? "primary" : "secondary"}
+                small={true}
+                icon={
                   <FontAwesome5
                     name="redo"
                     size={14}
                     color="white"
-                    style={styles.buttonIcon}
+                    style={{ marginLeft: SPACING.S }}
                   />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+                }
+                iconPosition="right"
+              />
+            </Animated.View>
 
             <TouchableOpacity
               style={styles.skipButton}
               onPress={skipVerification}
             >
-              <Text style={styles.skipButtonText}>Skip for now</Text>
+              <Text
+                style={[
+                  styles.skipButtonText,
+                  {
+                    color: isDarkMode
+                      ? "rgba(255, 255, 255, 0.6)"
+                      : "rgba(0, 0, 0, 0.5)",
+                  },
+                ]}
+              >
+                Skip for now
+              </Text>
             </TouchableOpacity>
-          </View>
+          </>
         );
 
       default:
@@ -443,83 +1010,198 @@ const KYCVerificationScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={["#7F00FF", "#E100FF"]}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
+      ]}
+    >
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+
+      {/* Theme toggle button */}
+      <View style={styles.themeToggle}>
+        <ThemeToggle />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          accessibilityLabel="Go back"
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <FontAwesome5 name="arrow-left" size={16} color="white" />
-        </TouchableOpacity>
+          {/* Top Image Section */}
+          <View style={styles.headerImageContainer}>
+            <Image
+              source={KYCHeaderImage}
+              style={styles.headerImage}
+              resizeMode="cover"
+            />
 
-        {renderContent()}
+            {/* Add floating particles for fun effect */}
+            {renderParticles()}
 
-        <View style={styles.progressContainer}>
-          <View style={styles.progressLine}>
-            <View style={styles.progressFilled} />
+            {/* Overlay gradient for readability */}
+            <LinearGradient
+              colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0)"]}
+              style={styles.imageOverlay}
+            />
           </View>
-          <View style={styles.progressTextContainer}>
-            <Text style={styles.progressText}>Step 3 of 4</Text>
-          </View>
-        </View>
 
-        {/* Android Modal for browser redirection */}
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={modalVisible}
-          onRequestClose={() => setModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-              <LinearGradient
-                colors={["#7F00FF", "#E100FF"]}
-                style={styles.modalGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+          {/* Bottom Half with Animated Background */}
+          <View style={styles.bottomHalf}>
+            <LinearGradient
+              colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+              style={styles.bottomGradient}
+            />
+
+            {/* Content Card */}
+            <Animated.View
+              style={[
+                styles.cardContainer,
+                {
+                  transform: [{ translateY: translateY }, { scale: cardScale }],
+                  opacity: fadeAnim,
+                },
+              ]}
+            >
+              <BlurView
+                intensity={isDarkMode ? 40 : 30}
+                tint={isDarkMode ? "dark" : "light"}
+                style={styles.cardBlur}
               >
-                <Text style={styles.modalTitle}>Complete Verification</Text>
-                <Text style={styles.modalDescription}>
-                  You'll be redirected to our verification partner to complete
-                  your identity verification.
-                </Text>
+                <LinearGradient
+                  colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+                  style={styles.cardGradient}
+                >
+                  {/* Accent Bar */}
+                  <View
+                    style={[
+                      styles.cardAccentBar,
+                      {
+                        backgroundColor: getAccentColor(),
+                      },
+                    ]}
+                  />
 
-                <View style={styles.modalButtonContainer}>
-                  <TouchableOpacity
-                    style={styles.modalButton}
-                    onPress={openExternalBrowser}
+                  <View style={styles.cardContent}>
+                    {renderVerificationContent()}
+                  </View>
+                </LinearGradient>
+              </BlurView>
+            </Animated.View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Android Modal for browser redirection */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+        presentationStyle="overFullScreen"
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              {
+                transform: [{ translateY: modalVisible ? 0 : 100 }],
+              },
+            ]}
+          >
+            <BlurView
+              intensity={isDarkMode ? 40 : 30}
+              tint={isDarkMode ? "dark" : "light"}
+              style={styles.modalBlur}
+            >
+              <LinearGradient
+                colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+                style={styles.modalGradient}
+              >
+                {/* Handle for draggable modal */}
+                <View>
+                  <View
+                    style={[
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(255, 255, 255, 0.3)"
+                          : "rgba(0, 0, 0, 0.2)",
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Modal Accent Bar */}
+                <View
+                  style={[
+                    styles.modalAccentBar,
+                    {
+                      backgroundColor: getAccentColor(),
+                    },
+                  ]}
+                />
+
+                <View style={styles.modalContent}>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
+                      },
+                    ]}
                   >
-                    <LinearGradient
-                      colors={["#FF0099", "#7F00FF"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.modalButtonGradient}
-                    >
-                      <Text style={styles.modalButtonText}>
-                        Continue to Verification
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
+                    Complete Verification
+                  </Text>
+                  <Text
+                    style={[
+                      styles.modalDescription,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_SECONDARY
+                          : COLORS.LIGHT_TEXT_SECONDARY,
+                      },
+                    ]}
+                  >
+                    You'll be redirected to our verification partner to complete
+                    your identity verification.
+                  </Text>
+
+                  <Button
+                    title="Continue to Verification"
+                    onPress={openExternalBrowser}
+                    variant={isDarkMode ? "primary" : "secondary"}
+                    small={true}
+                  />
 
                   <TouchableOpacity
                     style={styles.modalCancelButton}
                     onPress={() => setModalVisible(false)}
                   >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
+                    <Text
+                      style={[
+                        styles.modalCancelText,
+                        {
+                          color: isDarkMode
+                            ? "rgba(255, 255, 255, 0.6)"
+                            : "rgba(0, 0, 0, 0.5)",
+                        },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
-            </View>
-          </View>
-        </Modal>
-      </LinearGradient>
+            </BlurView>
+          </Animated.View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -528,256 +1210,257 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
+  keyboardAvoidingView: {
     flex: 1,
-    paddingHorizontal: 24,
   },
-  backButton: {
-    marginTop: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
+  scrollContainer: {
+    flexGrow: 1,
   },
-  contentContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 20,
+  headerImageContainer: {
+    height: height * 0.4,
+    width: "100%",
+    overflow: "hidden",
+    position: "relative",
+  },
+  headerImage: {
+    width: "100%",
+    height: "100%",
+  },
+  particle: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  imageOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    top: 0,
+    left: 0,
+  },
+  bottomHalf: {
+    minHeight: height * 0.75,
+    width: "100%",
+    position: "relative",
+    paddingBottom: SPACING.XL,
+  },
+  bottomGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cardContainer: {
+    position: "relative",
+    top: -height * 0.06,
+    marginHorizontal: width * 0.05,
+    width: width * 0.9,
+    zIndex: 10,
+    height: "auto",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+    ...SHADOWS.MEDIUM,
+  },
+  cardBlur: {
+    width: "100%",
+    height: "100%",
+  },
+  cardGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+  },
+  cardAccentBar: {
+    height: 6,
+    width: "100%",
+    borderTopLeftRadius: BORDER_RADIUS.XXL,
+    borderTopRightRadius: BORDER_RADIUS.XXL,
+  },
+  cardContent: {
+    padding: SPACING.M,
+  },
+  welcomeText: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.XL,
+    marginBottom: SPACING.XS,
+  },
+  subtitleText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.M,
   },
   videoContainer: {
     width: "100%",
-    height: 200,
-    marginBottom: 24,
-    borderRadius: 12,
+    height: 160,
+    borderRadius: BORDER_RADIUS.L,
     overflow: "hidden",
-    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    marginBottom: SPACING.M,
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
   },
   video: {
     width: "100%",
     height: "100%",
   },
-  lottieAnimation: {
-    width: 200,
-    height: 200,
-    marginBottom: 24,
-  },
-  verificationTitle: {
-    fontSize: 28,
-    color: "white",
-    textAlign: "center",
-    fontFamily: "Montserrat-Bold",
-    marginBottom: 12,
-  },
-  verificationDescription: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
-    textAlign: "center",
-    fontFamily: "Montserrat-Regular",
-    marginBottom: 30,
-    lineHeight: 24,
-  },
   infoContainer: {
     width: "100%",
-    marginBottom: 30,
+    marginBottom: SPACING.M,
   },
   infoItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: SPACING.S,
   },
-  infoIcon: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  iconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-    textAlign: "center",
-    lineHeight: 40,
-    marginRight: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginRight: SPACING.S,
   },
   infoText: {
-    fontSize: 16,
-    color: "white",
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
     flex: 1,
   },
-  startButton: {
-    width: "100%",
-    borderRadius: 12,
-    height: 56,
-    overflow: "hidden",
-    marginBottom: 16,
+  progressContainer: {
+    marginTop: SPACING.M,
+    marginBottom: SPACING.S,
   },
-  startButtonGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  buttonContent: {
+  progressHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: SPACING.XS,
   },
-  startButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
+  progressText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
   },
-  buttonIcon: {
-    marginLeft: 8,
+  progressStep: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.XS,
+  },
+  progressBarContainer: {
+    height: 6,
+    borderRadius: BORDER_RADIUS.S,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+  },
+  progressGradient: {
+    flex: 1,
   },
   skipButton: {
-    padding: 12,
+    alignSelf: "center",
+    marginTop: SPACING.M,
+    padding: SPACING.S,
   },
   skipButtonText: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 14,
-    fontFamily: "Montserrat-Medium",
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+  },
+  themeToggle: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 40,
+    right: 20,
+    zIndex: 100,
+  },
+  animationContainer: {
+    width: "100%",
+    height: 150,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: SPACING.M,
+  },
+  animation: {
+    width: 150,
+    height: 150,
   },
   pendingContainer: {
+    width: "100%",
     alignItems: "center",
-    marginTop: 30,
+    marginBottom: SPACING.L,
+  },
+  pendingIndicator: {
+    marginBottom: SPACING.S,
   },
   pendingText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
     textAlign: "center",
-    marginTop: 16,
   },
   successContainer: {
     width: "100%",
     alignItems: "center",
-    marginTop: 20,
+    marginBottom: SPACING.L,
   },
   successText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-    fontFamily: "Montserrat-Regular",
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
     textAlign: "center",
-    marginBottom: 24,
-  },
-  continueButton: {
-    width: "100%",
-    borderRadius: 12,
-    height: 56,
-    overflow: "hidden",
-  },
-  continueButtonGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  continueButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
-  },
-  retryButton: {
-    width: "100%",
-    borderRadius: 12,
-    height: 56,
-    overflow: "hidden",
-    marginBottom: 16,
-  },
-  retryButtonGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  retryButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
-  },
-  progressContainer: {
-    marginBottom: 24,
-  },
-  progressLine: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFilled: {
-    width: "75%", // 3 of 4 steps
-    height: "100%",
-    backgroundColor: "white",
-    borderRadius: 2,
-  },
-  progressTextContainer: {
-    alignItems: "center",
-  },
-  progressText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 12,
-    fontFamily: "Montserrat-Medium",
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "flex-end", // Align to bottom for mobile style modal
     alignItems: "center",
     backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   modalContainer: {
-    width: "90%",
-    borderRadius: 20,
+    width: width,
+    maxHeight: height * 0.4, // Limit height to 40% of screen
+    borderTopLeftRadius: BORDER_RADIUS.XXL,
+    borderTopRightRadius: BORDER_RADIUS.XXL,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     overflow: "hidden",
+    ...SHADOWS.MEDIUM,
   },
-  modalGradient: {
-    padding: 20,
-    borderRadius: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    color: "white",
-    textAlign: "center",
-    fontFamily: "Montserrat-Bold",
-    marginBottom: 12,
-  },
-  modalDescription: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
-    textAlign: "center",
-    fontFamily: "Montserrat-Regular",
-    marginBottom: 24,
-    lineHeight: 24,
-  },
-  modalButtonContainer: {
-    alignItems: "center",
-  },
-  modalButton: {
-    width: "100%",
-    borderRadius: 12,
-    height: 50,
-    overflow: "hidden",
-    marginBottom: 12,
-  },
-  modalButtonGradient: {
+  modalBlur: {
     width: "100%",
     height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
   },
-  modalButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: "Montserrat-SemiBold",
+  modalGradient: {
+    width: "100%",
+    height: "100%",
+    borderTopLeftRadius: BORDER_RADIUS.XXL,
+    borderTopRightRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+  },
+  modalAccentBar: {
+    height: 6,
+    width: "100%",
+    borderTopLeftRadius: BORDER_RADIUS.XXL,
+    borderTopRightRadius: BORDER_RADIUS.XXL,
+  },
+  modalContent: {
+    padding: SPACING.M,
+    paddingBottom: Platform.OS === "ios" ? SPACING.L : SPACING.M, // Extra padding for iOS
+  },
+  modalTitle: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.L,
+    marginBottom: SPACING.XS,
+  },
+  modalDescription: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.M,
   },
   modalCancelButton: {
-    padding: 12,
+    alignSelf: "center",
+    marginTop: SPACING.M,
+    padding: SPACING.S,
   },
   modalCancelText: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 14,
-    fontFamily: "Montserrat-Medium",
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
   },
 });
 
