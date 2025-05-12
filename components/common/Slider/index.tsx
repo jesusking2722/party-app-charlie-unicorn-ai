@@ -1,10 +1,10 @@
-import { FONTS } from "@/app/theme";
+import { COLORS, FONTS, FONT_SIZES } from "@/app/theme";
+import { useTheme } from "@/contexts/ThemeContext";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
-  FlatList,
   Image,
   StyleSheet,
   Text,
@@ -12,15 +12,19 @@ import {
   View,
 } from "react-native";
 
-const { width } = Dimensions.get("window");
-const ITEM_WIDTH = width - 20; // Account for padding
-const ITEM_HEIGHT = 220;
+const { width, height } = Dimensions.get("window");
+// Slider height is now set to fill the 35% container from HomeScreen
+const SLIDER_HEIGHT = height * 0.35;
+const ITEM_WIDTH = width;
+
+// Custom light theme accent color
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 const Slider = () => {
+  const { isDarkMode } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
-  const flatListRef = useRef<any>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
 
+  // Slides data
   const slides = [
     {
       image: require("@/assets/images/slides/model1.png"),
@@ -39,113 +43,156 @@ const Slider = () => {
     },
   ];
 
+  // Animated values for each slide to create parallax and fade effects
+  const slideAnimation = useRef(
+    slides.map((_, i) => ({
+      opacity: new Animated.Value(i === 0 ? 1 : 0),
+      translateY: new Animated.Value(i === 0 ? 0 : 20),
+      scale: new Animated.Value(i === 0 ? 1 : 0.95),
+    }))
+  ).current;
+
+  // Auto-scrolling effect
   useEffect(() => {
     const timer = setInterval(() => {
       const nextIndex = (activeIndex + 1) % slides.length;
-      if (flatListRef.current) {
-        flatListRef.current.scrollToIndex({
-          index: nextIndex,
-          animated: true,
-        });
-        setActiveIndex(nextIndex);
-      }
-    }, 4000);
+      animateToSlide(nextIndex);
+    }, 5000);
 
     return () => clearInterval(timer);
   }, [activeIndex]);
 
-  const onViewableItemsChanged = useRef(
-    ({ viewableItems }: { viewableItems: any }) => {
-      if (viewableItems.length > 0) {
-        setActiveIndex(viewableItems[0].index);
-      }
-    }
-  ).current;
+  // Handle animation to a specific slide
+  const animateToSlide = (index: number) => {
+    // Animate slide change
+    Animated.parallel([
+      // Fade out current slide
+      Animated.timing(slideAnimation[activeIndex].opacity, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      // Move current slide down
+      Animated.timing(slideAnimation[activeIndex].translateY, {
+        toValue: 20,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      // Scale current slide down
+      Animated.timing(slideAnimation[activeIndex].scale, {
+        toValue: 0.95,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      // Fade in new slide
+      Animated.timing(slideAnimation[index].opacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      // Move new slide up
+      Animated.timing(slideAnimation[index].translateY, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      // Scale new slide up
+      Animated.timing(slideAnimation[index].scale, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current;
+    setActiveIndex(index);
+  };
 
-  const renderItem = ({ item, index }: { item: any; index: number }) => {
-    return (
-      <View style={styles.slideContainer}>
-        <LinearGradient
-          colors={["rgba(127, 0, 255, 0.7)", "rgba(225, 0, 255, 0.7)"]}
-          style={styles.slideGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.imageContainer}>
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  return (
+    <View style={styles.container}>
+      {/* Background Gradient */}
+      <LinearGradient
+        colors={isDarkMode ? ["#111827", "#1F2937"] : ["#7F00FF", "#E100FF"]}
+        style={styles.backgroundGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      />
+
+      {/* Slides Container */}
+      <View style={styles.slidesContainer}>
+        {slides.map((slide, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.slide,
+              {
+                opacity: slideAnimation[index].opacity,
+                transform: [
+                  { translateY: slideAnimation[index].translateY },
+                  { scale: slideAnimation[index].scale },
+                ],
+                zIndex: activeIndex === index ? 1 : 0,
+              },
+            ]}
+          >
             <Image
-              source={item.image}
+              source={slide.image}
               style={styles.image}
               resizeMode="cover"
             />
+
+            {/* Image Overlay Gradient */}
             <LinearGradient
-              colors={["transparent", "rgba(0, 0, 0, 0.7)"]}
-              style={styles.overlayGradient}
+              colors={["transparent", "rgba(0, 0, 0, 0.8)"]}
+              style={styles.imageOverlay}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
             />
-          </View>
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
-          </View>
-        </LinearGradient>
-      </View>
-    );
-  };
 
-  const renderDots = () => {
-    return (
+            {/* Content Container */}
+            <View style={styles.contentContainer}>
+              <Text style={styles.title}>{slide.title}</Text>
+              <Text style={styles.description}>{slide.description}</Text>
+            </View>
+          </Animated.View>
+        ))}
+      </View>
+
+      {/* Pagination Dots */}
       <View style={styles.pagination}>
-        {slides.map((_, idx) => (
+        {slides.map((_, index) => (
           <TouchableOpacity
-            key={idx}
-            onPress={() => {
-              flatListRef.current?.scrollToIndex({
-                index: idx,
-                animated: true,
-              });
-              setActiveIndex(idx);
-            }}
+            key={index}
+            style={styles.paginationDotContainer}
+            onPress={() => animateToSlide(index)}
+            activeOpacity={0.7}
           >
-            <View
+            <Animated.View
               style={[
                 styles.paginationDot,
-                idx === activeIndex ? styles.paginationDotActive : null,
+                index === activeIndex && styles.paginationDotActive,
+                index === activeIndex && {
+                  backgroundColor: getAccentColor(),
+                },
               ]}
             />
           </TouchableOpacity>
         ))}
       </View>
-    );
-  };
 
-  return (
-    <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
-        data={slides}
-        renderItem={renderItem}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(_, index) => index.toString()}
-        snapToInterval={ITEM_WIDTH}
-        decelerationRate="fast"
-        bounces={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
-        )}
-        scrollEventThrottle={16}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        contentContainerStyle={styles.flatListContent}
+      {/* Bottom Fade Gradient - helps with transition to card */}
+      <LinearGradient
+        colors={[
+          "transparent",
+          isDarkMode ? "rgba(17, 24, 39, 0.9)" : "rgba(248, 249, 252, 0.9)",
+        ]}
+        style={styles.bottomFade}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
       />
-      {renderDots()}
     </View>
   );
 };
@@ -153,81 +200,90 @@ const Slider = () => {
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: ITEM_HEIGHT,
-    marginBottom: 24,
-  },
-  flatListContent: {
-    alignItems: "center",
-  },
-  slideContainer: {
-    width: ITEM_WIDTH,
-    height: ITEM_HEIGHT,
-    borderRadius: 16,
+    height: SLIDER_HEIGHT,
+    position: "relative",
     overflow: "hidden",
   },
-  slideGradient: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  imageContainer: {
+  backgroundGradient: {
     position: "absolute",
     width: "100%",
     height: "100%",
+  },
+  slidesContainer: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  slide: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   image: {
     width: "100%",
     height: "100%",
-  },
-  overlayGradient: {
     position: "absolute",
+  },
+  imageOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+  },
+  contentContainer: {
+    position: "absolute",
+    bottom: 60,
     left: 0,
     right: 0,
-    bottom: 0,
-    height: "70%",
-  },
-  textContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
-    alignItems: "flex-start",
+    paddingHorizontal: 24,
   },
   title: {
-    fontSize: 24,
+    fontSize: FONT_SIZES.XXL,
     fontFamily: FONTS.BOLD,
-    color: "white",
+    color: COLORS.WHITE,
     marginBottom: 8,
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   description: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.M,
     fontFamily: FONTS.REGULAR,
     color: "rgba(255, 255, 255, 0.9)",
     textShadowColor: "rgba(0, 0, 0, 0.75)",
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 2,
+    maxWidth: "80%",
   },
   pagination: {
-    flexDirection: "row",
-    justifyContent: "center",
     position: "absolute",
-    bottom: 16,
-    width: "100%",
+    bottom: 20,
+    left: 24,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  paginationDotContainer: {
+    marginRight: 8,
+    padding: 5, // Increase touch area
   },
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginHorizontal: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    backgroundColor: "rgba(255, 255, 255, 0.6)",
   },
   paginationDotActive: {
-    width: 20,
-    backgroundColor: "white",
+    width: 24,
+    height: 8,
+    borderRadius: 4,
+  },
+  bottomFade: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 50,
   },
 });
 

@@ -1,15 +1,21 @@
-import { FONTS } from "@/app/theme";
+import {
+  BORDER_RADIUS,
+  COLORS,
+  FONTS,
+  FONT_SIZES,
+  SHADOWS,
+  SPACING,
+} from "@/app/theme";
 import { Geo, Party } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import React, { FC, useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Dimensions,
   Easing,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -23,6 +29,9 @@ import MapView, {
   Region,
 } from "react-native-maps";
 
+// Custom light theme accent color
+const LIGHT_THEME_ACCENT = "#FF0099";
+
 // Map props interface
 export interface MapProps {
   parties: Party[];
@@ -33,272 +42,82 @@ export interface MapProps {
   onClick?: (party: Party) => void;
   selectedCountry?: CountryType | null;
   selectedRegion?: RegionType | null;
-  isDarkMode?: boolean; // Added isDarkMode prop
+  isDarkMode?: boolean;
 }
 
-// Theme colors
-const THEME = {
-  LIGHT: {
-    GRADIENT: ["#7F00FF", "#E100FF"] as [string, string],
-    MAP_OVERLAY: ["rgba(127, 0, 255, 0.15)", "rgba(225, 0, 255, 0.15)"] as [
-      string,
-      string
-    ],
-    ACCENT_COLOR: "#FF0099",
-    ACCENT_BG: "rgba(255, 0, 153, 0.2)",
-    ACCENT_BORDER: "rgba(255, 0, 153, 0.4)",
-    CARD_BG: "rgba(0, 0, 0, 0.15)",
-    BUTTON_BG: "rgba(255, 255, 255, 0.15)",
-    BORDER_COLOR: "rgba(255, 255, 255, 0.1)",
-    TEXT_COLOR: "white",
-    TEXT_SECONDARY: "rgba(255, 255, 255, 0.7)",
-    LOCATION_ACTIVE: "rgba(59, 130, 246, 0.5)",
-    LEGEND_BG: "rgba(0, 0, 0, 0.4)",
-  },
-  DARK: {
-    GRADIENT: ["#111827", "#1F2937"] as [string, string],
-    MAP_OVERLAY: ["rgba(17, 24, 39, 0.25)", "rgba(31, 41, 55, 0.25)"] as [
-      string,
-      string
-    ],
-    ACCENT_COLOR: "#4F46E5",
-    ACCENT_BG: "rgba(79, 70, 229, 0.2)",
-    ACCENT_BORDER: "rgba(79, 70, 229, 0.4)",
-    CARD_BG: "rgba(17, 24, 39, 0.95)",
-    BUTTON_BG: "rgba(55, 65, 81, 0.7)",
-    BORDER_COLOR: "rgba(75, 85, 99, 0.3)",
-    TEXT_COLOR: "#F3F4F6",
-    TEXT_SECONDARY: "#D1D5DB",
-    LOCATION_ACTIVE: "rgba(79, 70, 229, 0.5)",
-    LEGEND_BG: "rgba(17, 24, 39, 0.7)",
-  },
-};
-
-// Mapping for party types to colors (matching web version)
-// Use 'as const' to ensure the arrays are properly typed as readonly tuples
+// Mapping for party types to colors with matching theme
 const LIGHT_MARKER_COLORS: Record<string, readonly [string, string]> = {
   birthday: ["#ec4899", "#9333ea"] as const, // pink-500 to purple-600
-  common: ["#f59e0b", "#ea580c"] as const, // amber-500 to orange-600
   wedding: ["#6366f1", "#2563eb"] as const, // indigo-500 to blue-600
   corporate: ["#10b981", "#0d9488"] as const, // emerald-500 to teal-600
   sport: ["#ef4444", "#e11d48"] as const, // red-500 to rose-600
-  default: ["#6b7280", "#475569"] as const, // gray-500 to slate-600
+  music: ["#8b5cf6", "#4f46e5"] as const, // violet-500 to indigo-600
+  default: ["#f59e0b", "#ea580c"] as const, // amber-500 to orange-600
 };
 
 // Darker versions of marker colors for dark mode
 const DARK_MARKER_COLORS: Record<string, readonly [string, string]> = {
   birthday: ["#9D174D", "#6D28D9"] as const, // darker pink to purple
-  common: ["#B45309", "#C2410C"] as const, // darker amber to orange
   wedding: ["#4338CA", "#3730A3"] as const, // darker indigo to blue
   corporate: ["#065F46", "#064E3B"] as const, // darker emerald to teal
   sport: ["#991B1B", "#9F1239"] as const, // darker red to rose
-  default: ["#4B5563", "#374151"] as const, // darker gray to slate
+  music: ["#5B21B6", "#4338CA"] as const, // darker violet to indigo
+  default: ["#B45309", "#C2410C"] as const, // darker amber to orange
 };
 
-// Modern dark theme for Google Maps - matches web version
-const mapStyle: MapStyleElement[] = [
+// Modern dark theme for Google Maps
+const darkMapStyle: MapStyleElement[] = [
   {
     elementType: "geometry",
-    stylers: [
-      {
-        color: "#121a30",
-      },
-    ],
+    stylers: [{ color: "#1a1a2e" }],
   },
   {
     elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#8ec3b9",
-      },
-    ],
+    stylers: [{ color: "#8ec3b9" }],
   },
   {
     elementType: "labels.text.stroke",
-    stylers: [
-      {
-        color: "#1a3646",
-      },
-    ],
+    stylers: [{ color: "#1a3646" }],
   },
   {
     featureType: "administrative.country",
     elementType: "geometry.stroke",
-    stylers: [
-      {
-        color: "#4b6878",
-      },
-    ],
+    stylers: [{ color: "#4b6878" }],
   },
   {
     featureType: "administrative.land_parcel",
     elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#64779e",
-      },
-    ],
+    stylers: [{ color: "#64779e" }],
   },
   {
     featureType: "administrative.province",
     elementType: "geometry.stroke",
-    stylers: [
-      {
-        color: "#4b6878",
-      },
-    ],
+    stylers: [{ color: "#4b6878" }],
   },
   {
     featureType: "landscape.man_made",
     elementType: "geometry.stroke",
-    stylers: [
-      {
-        color: "#334e87",
-      },
-    ],
+    stylers: [{ color: "#334e87" }],
   },
   {
     featureType: "landscape.natural",
     elementType: "geometry",
-    stylers: [
-      {
-        color: "#023e58",
-      },
-    ],
+    stylers: [{ color: "#0e1626" }],
   },
   {
     featureType: "poi",
     elementType: "geometry",
-    stylers: [
-      {
-        color: "#283d6a",
-      },
-    ],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#6f9ba5",
-      },
-    ],
-  },
-  {
-    featureType: "poi",
-    elementType: "labels.text.stroke",
-    stylers: [
-      {
-        color: "#1d2c4d",
-      },
-    ],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "geometry.fill",
-    stylers: [
-      {
-        color: "#023e58",
-      },
-    ],
-  },
-  {
-    featureType: "poi.park",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#3C7680",
-      },
-    ],
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#304a7d",
-      },
-    ],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#98a5be",
-      },
-    ],
-  },
-  {
-    featureType: "road",
-    elementType: "labels.text.stroke",
-    stylers: [
-      {
-        color: "#1d2c4d",
-      },
-    ],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [
-      {
-        color: "#2c6675",
-      },
-    ],
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry.stroke",
-    stylers: [
-      {
-        color: "#255763",
-      },
-    ],
+    stylers: [{ color: "#1f2937" }],
   },
   {
     featureType: "water",
     elementType: "geometry",
-    stylers: [
-      {
-        color: "#0e1626",
-      },
-    ],
-  },
-  {
-    featureType: "water",
-    elementType: "labels.text.fill",
-    stylers: [
-      {
-        color: "#4e6d70",
-      },
-    ],
+    stylers: [{ color: "#0c0d15" }],
   },
 ];
 
-// Light version of map style for light mode
+// Light version of map style
 const lightMapStyle: MapStyleElement[] = [];
-
-// Determine marker colors based on party type (matching web version)
-const getMarkerColor = (
-  partyType: string,
-  isDarkMode: boolean
-): readonly [string, string] => {
-  // Use the appropriate color scheme based on dark mode
-  const markerColors = isDarkMode ? DARK_MARKER_COLORS : LIGHT_MARKER_COLORS;
-
-  // Convert to lowercase and remove any spaces for comparison
-  const normalizedType = partyType.toLowerCase().replace(/\s+/g, "");
-
-  // Check if the normalized type exists in our color mapping
-  for (const type of Object.keys(markerColors)) {
-    if (normalizedType.includes(type)) {
-      return markerColors[type as keyof typeof markerColors];
-    }
-  }
-
-  return markerColors.default;
-};
 
 // Calculate distance between two coordinates in km
 const calculateDistance = (pos1: Geo, pos2: Geo): number => {
@@ -320,13 +139,27 @@ const deg2rad = (deg: number): number => {
   return deg * (Math.PI / 180);
 };
 
+// Determine marker colors based on party type
+const getMarkerColor = (
+  partyType: string,
+  isDarkMode: boolean
+): readonly [string, string] => {
+  const markerColors = isDarkMode ? DARK_MARKER_COLORS : LIGHT_MARKER_COLORS;
+  const normalizedType = partyType.toLowerCase().replace(/\s+/g, "");
+
+  for (const type of Object.keys(markerColors)) {
+    if (normalizedType.includes(type)) {
+      return markerColors[type as keyof typeof markerColors];
+    }
+  }
+
+  return markerColors.default;
+};
+
 // Function to check if coordinates are valid
 const isValidGeoPosition = (position: Geo | null): boolean => {
   if (!position) return false;
-
   const { lat, lng } = position;
-
-  // Check if latitude and longitude are numbers and within valid ranges
   return (
     typeof lat === "number" &&
     typeof lng === "number" &&
@@ -380,7 +213,7 @@ const PartyMarker: FC<{
     const animatePulse = () => {
       const animDuration = isVeryClose ? 1000 : isNearby ? 1500 : 2000;
       const animScale = isVeryClose ? 1.3 : isNearby ? 1.2 : 1.1;
-      const animY = isVeryClose ? -12 : isNearby ? -8 : -5;
+      const animY = isVeryClose ? -10 : isNearby ? -7 : -4;
 
       Animated.parallel([
         Animated.sequence([
@@ -421,16 +254,16 @@ const PartyMarker: FC<{
 
   // Determine marker size based on proximity
   const markerSize = isVeryClose
-    ? 40 // w-10 h-10 equivalent
-    : isNearby
     ? 32 // w-8 h-8 equivalent
-    : 24; // w-6 h-6 equivalent
+    : isNearby
+    ? 24 // w-6 h-6 equivalent
+    : 20; // w-5 h-5 equivalent
 
   const ringSize = isVeryClose
-    ? 60 // -inset-6 equivalent (marker size + 20)
+    ? 48 // marker size + 16
     : isNearby
-    ? 50 // -inset-5 equivalent (marker size + 18)
-    : 36; // -inset-3 equivalent (marker size + 12)
+    ? 36 // marker size + 12
+    : 30; // marker size + 10
 
   return (
     <Marker
@@ -460,26 +293,12 @@ const PartyMarker: FC<{
               width: ringSize,
               height: ringSize,
               borderRadius: ringSize / 2,
-              opacity: isVeryClose ? 0.8 : isNearby ? 0.6 : 0.4,
+              opacity: isVeryClose ? 0.7 : isNearby ? 0.5 : 0.3,
             },
           ]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         />
-
-        {/* Extra glow for very close parties */}
-        {isVeryClose && (
-          <View
-            style={[
-              styles.extraGlow,
-              {
-                width: ringSize + 20,
-                height: ringSize + 20,
-                borderRadius: (ringSize + 20) / 2,
-              },
-            ]}
-          />
-        )}
 
         {/* Inner dot */}
         <LinearGradient
@@ -512,21 +331,27 @@ const PartyMarker: FC<{
             style={[
               styles.distanceIndicator,
               {
-                backgroundColor: isVeryClose
-                  ? isDarkMode
-                    ? "rgba(5, 150, 105, 0.9)"
-                    : "rgba(22, 163, 74, 0.9)" // darkmode: emerald-600/90, lightmode: green-600/90
-                  : isNearby
-                  ? isDarkMode
-                    ? "rgba(67, 56, 202, 0.8)"
-                    : "rgba(59, 130, 246, 0.8)" // darkmode: indigo-700/80, lightmode: blue-500/80
-                  : isDarkMode
-                  ? "rgba(17, 24, 39, 0.7)"
-                  : "rgba(0, 0, 0, 0.7)", // darkmode: gray-900/70, lightmode: black/70
+                backgroundColor: isDarkMode
+                  ? "rgba(31, 41, 55, 0.85)"
+                  : "rgba(255, 255, 255, 0.85)",
+                borderColor: isDarkMode
+                  ? "rgba(55, 65, 81, 0.5)"
+                  : "rgba(0, 0, 0, 0.1)",
               },
             ]}
           >
-            <Text style={styles.distanceText}>{distance.toFixed(1)} km</Text>
+            <Text
+              style={[
+                styles.distanceText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
+                },
+              ]}
+            >
+              {distance.toFixed(1)} km
+            </Text>
           </View>
         )}
       </Animated.View>
@@ -542,14 +367,14 @@ const UserLocationMarker: FC<{
   const pulseAnim = useRef(new Animated.Value(0.5)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Define gradient colors with proper readonly typing - adjusting for dark mode
+  // Define gradient colors
   const outerGradientColors = isDarkMode
-    ? (["#3B82F6", "#4F46E5", "#7C3AED"] as const) // Blue to indigo to purple
-    : (["#00FFFF", "#00CCFF", "#0088FF"] as const); // Cyan to blue
+    ? (["#3B82F6", "#7C3AED"] as const) // Blue to purple
+    : (["#7F00FF", "#E100FF"] as const); // Primary gradient
 
   const innerGradientColors = isDarkMode
-    ? (["#3B82F6", "#4F46E5"] as const)
-    : (["#00FFFF", "#00CCFF"] as const);
+    ? (["#60A5FA", "#8B5CF6"] as const)
+    : (["#9333EA", "#E100FF"] as const);
 
   useEffect(() => {
     // Pulse animation
@@ -629,116 +454,29 @@ const UserLocationMarker: FC<{
             styles.locationLabel,
             {
               backgroundColor: isDarkMode
-                ? "rgba(59, 130, 246, 0.7)" // blue-500/70 in dark mode
-                : "rgba(0, 136, 255, 0.7)", // bright blue in light mode
+                ? "rgba(31, 41, 55, 0.85)"
+                : "rgba(255, 255, 255, 0.85)",
+              borderColor: isDarkMode
+                ? "rgba(55, 65, 81, 0.5)"
+                : "rgba(0, 0, 0, 0.1)",
             },
           ]}
         >
-          <Text style={styles.locationLabelText}>You are here</Text>
+          <Text
+            style={[
+              styles.locationLabelText,
+              {
+                color: isDarkMode
+                  ? COLORS.DARK_TEXT_PRIMARY
+                  : COLORS.LIGHT_TEXT_PRIMARY,
+              },
+            ]}
+          >
+            You are here
+          </Text>
         </View>
       </View>
     </Marker>
-  );
-};
-
-// Map Legend Component
-const MapLegend: FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
-
-  // Define location colors for user location marker
-  const locationColors = isDarkMode
-    ? (["#3B82F6", "#4F46E5"] as const) // Blue to indigo
-    : (["#00FFFF", "#0088FF"] as const); // Cyan to blue
-
-  // Get appropriate marker colors based on dark mode
-  const markerColors = isDarkMode ? DARK_MARKER_COLORS : LIGHT_MARKER_COLORS;
-
-  return (
-    <View
-      style={[
-        styles.legendContainer,
-        {
-          backgroundColor: theme.LEGEND_BG,
-          borderColor: theme.BORDER_COLOR,
-        },
-      ]}
-    >
-      <Text style={[styles.legendTitle, { color: theme.TEXT_COLOR }]}>
-        Map Legend
-      </Text>
-
-      <View style={styles.legendItem}>
-        <LinearGradient
-          colors={locationColors}
-          style={styles.legendColorDot}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Text style={[styles.legendText, { color: theme.TEXT_SECONDARY }]}>
-          Your Location
-        </Text>
-      </View>
-
-      <View style={styles.legendItem}>
-        <LinearGradient
-          colors={markerColors.birthday}
-          style={styles.legendColorDot}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Text style={[styles.legendText, { color: theme.TEXT_SECONDARY }]}>
-          Birthday Party
-        </Text>
-      </View>
-
-      <View style={styles.legendItem}>
-        <LinearGradient
-          colors={markerColors.common}
-          style={styles.legendColorDot}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Text style={[styles.legendText, { color: theme.TEXT_SECONDARY }]}>
-          Common Party
-        </Text>
-      </View>
-
-      <View style={styles.legendItem}>
-        <LinearGradient
-          colors={markerColors.wedding}
-          style={styles.legendColorDot}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Text style={[styles.legendText, { color: theme.TEXT_SECONDARY }]}>
-          Wedding
-        </Text>
-      </View>
-
-      <View style={styles.legendItem}>
-        <LinearGradient
-          colors={markerColors.corporate}
-          style={styles.legendColorDot}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Text style={[styles.legendText, { color: theme.TEXT_SECONDARY }]}>
-          Corporate Event
-        </Text>
-      </View>
-
-      <View style={styles.legendItem}>
-        <LinearGradient
-          colors={markerColors.sport}
-          style={styles.legendColorDot}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Text style={[styles.legendText, { color: theme.TEXT_SECONDARY }]}>
-          Sport Event
-        </Text>
-      </View>
-    </View>
   );
 };
 
@@ -748,27 +486,48 @@ const MapControls: FC<{
   onCenterLocation: () => void;
   centeringOnLocation: boolean;
   isDarkMode: boolean;
-}> = ({ myGeo, onCenterLocation, centeringOnLocation, isDarkMode }) => {
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
+  onToggleLegend: () => void;
+  showLegend: boolean;
+}> = ({
+  myGeo,
+  onCenterLocation,
+  centeringOnLocation,
+  isDarkMode,
+  onToggleLegend,
+  showLegend,
+}) => {
   const hasValidMyGeo = isValidGeoPosition(myGeo);
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
   return (
     <View style={styles.controlsContainer}>
-      {/* Search button */}
+      {/* Legend toggle button */}
       <TouchableOpacity
         style={[
           styles.controlButton,
           {
-            backgroundColor: theme.BUTTON_BG,
-            borderColor: theme.BORDER_COLOR,
+            backgroundColor: isDarkMode
+              ? "rgba(31, 41, 55, 0.85)"
+              : "rgba(255, 255, 255, 0.85)",
+            borderColor: isDarkMode
+              ? "rgba(55, 65, 81, 0.5)"
+              : "rgba(230, 234, 240, 0.8)",
           },
         ]}
         activeOpacity={0.7}
+        onPress={onToggleLegend}
       >
-        <MaterialCommunityIcons
-          name="map-search"
-          size={20}
-          color={theme.TEXT_COLOR}
+        <FontAwesome
+          name="info"
+          size={16}
+          color={
+            showLegend
+              ? getAccentColor()
+              : isDarkMode
+              ? COLORS.DARK_TEXT_PRIMARY
+              : COLORS.LIGHT_TEXT_PRIMARY
+          }
         />
       </TouchableOpacity>
 
@@ -778,19 +537,27 @@ const MapControls: FC<{
           style={[
             styles.controlButton,
             {
-              backgroundColor: centeringOnLocation
-                ? theme.LOCATION_ACTIVE
-                : theme.BUTTON_BG,
-              borderColor: theme.BORDER_COLOR,
+              backgroundColor: isDarkMode
+                ? "rgba(31, 41, 55, 0.85)"
+                : "rgba(255, 255, 255, 0.85)",
+              borderColor: isDarkMode
+                ? "rgba(55, 65, 81, 0.5)"
+                : "rgba(230, 234, 240, 0.8)",
             },
           ]}
           activeOpacity={0.7}
           onPress={onCenterLocation}
         >
-          <MaterialCommunityIcons
-            name="crosshairs-gps"
-            size={20}
-            color={theme.TEXT_COLOR}
+          <FontAwesome5
+            name="crosshairs"
+            size={16}
+            color={
+              centeringOnLocation
+                ? getAccentColor()
+                : isDarkMode
+                ? COLORS.DARK_TEXT_PRIMARY
+                : COLORS.LIGHT_TEXT_PRIMARY
+            }
           />
         </TouchableOpacity>
       )}
@@ -798,8 +565,82 @@ const MapControls: FC<{
   );
 };
 
+// Simplified Map Legend Component
+// const MapLegend: FC<{ isDarkMode: boolean }> = ({ isDarkMode }) => {
+//   const getAccentColor = () =>
+//     isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+//   // Get appropriate marker colors based on dark mode
+//   const markerColors = isDarkMode ? DARK_MARKER_COLORS : LIGHT_MARKER_COLORS;
+
+//   return (
+//     <BlurView
+//       intensity={isDarkMode ? 40 : 30}
+//       tint={isDarkMode ? "dark" : "light"}
+//       style={styles.legendContainer}
+//     >
+//       <View
+//         style={[
+//           styles.legendContent,
+//           {
+//             backgroundColor: isDarkMode
+//               ? "rgba(31, 41, 55, 0.5)"
+//               : "rgba(255, 255, 255, 0.5)",
+//             borderColor: isDarkMode ? COLORS.DARK_BORDER : COLORS.LIGHT_BORDER,
+//           },
+//         ]}
+//       >
+//         <Text
+//           style={[
+//             styles.legendTitle,
+//             {
+//               color: getAccentColor(),
+//               borderBottomColor: isDarkMode
+//                 ? "rgba(55, 65, 81, 0.5)"
+//                 : "rgba(230, 234, 240, 0.8)",
+//             },
+//           ]}
+//         >
+//           Event Types
+//         </Text>
+
+//         <View style={styles.legendItemsContainer}>
+//           {Object.entries({
+//             music: "Music Festival",
+//             birthday: "Birthday Party",
+//             wedding: "Wedding",
+//             corporate: "Corporate Event",
+//             sport: "Sport Event",
+//           }).map(([key, label]) => (
+//             <View key={key} style={styles.legendItem}>
+//               <LinearGradient
+//                 colors={markerColors[key as keyof typeof markerColors]}
+//                 style={styles.legendDot}
+//                 start={{ x: 0, y: 0 }}
+//                 end={{ x: 1, y: 1 }}
+//               />
+//               <Text
+//                 style={[
+//                   styles.legendText,
+//                   {
+//                     color: isDarkMode
+//                       ? COLORS.DARK_TEXT_SECONDARY
+//                       : COLORS.LIGHT_TEXT_SECONDARY,
+//                   },
+//                 ]}
+//               >
+//                 {label}
+//               </Text>
+//             </View>
+//           ))}
+//         </View>
+//       </View>
+//     </BlurView>
+//   );
+// };
+
 // Enhanced Google Maps Component
-const AdvancedMapComponent: FC<MapProps> = ({
+const Map: FC<MapProps> = ({
   parties = [],
   center = null,
   zoom = 2,
@@ -808,9 +649,8 @@ const AdvancedMapComponent: FC<MapProps> = ({
   onClick = () => {},
   selectedCountry,
   selectedRegion,
-  isDarkMode = false, // Default to light mode
+  isDarkMode = false,
 }) => {
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
   const mapRef = useRef<MapView>(null);
   const [mapRegion, setMapRegion] = useState<Region>({
     latitude: center?.lat || 37.78825,
@@ -822,14 +662,18 @@ const AdvancedMapComponent: FC<MapProps> = ({
   const [locationPermission, setLocationPermission] = useState<boolean>(false);
   const [centeringOnLocation, setCenteringOnLocation] =
     useState<boolean>(false);
+  const [showLegend, setShowLegend] = useState<boolean>(false);
   const mapOpacityAnim = useRef(new Animated.Value(0)).current;
+
+  // Get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
   // Calculate appropriate delta values based on zoom level
   const zoomToDelta = (
     zoomLevel: number | null
   ): { latitudeDelta: number; longitudeDelta: number } => {
     if (!zoomLevel) return { latitudeDelta: 50, longitudeDelta: 50 };
-    // Convert zoom level to appropriate delta values (exponential)
     const delta = 180 / Math.pow(2, zoomLevel);
     return {
       latitudeDelta: delta,
@@ -959,255 +803,195 @@ const AdvancedMapComponent: FC<MapProps> = ({
     }
   };
 
+  // Toggle legend visibility
+  const handleToggleLegend = () => {
+    setShowLegend(!showLegend);
+  };
+
   const hasValidMyGeo = isValidGeoPosition(userLocation);
 
   return (
     <View style={styles.container}>
-      <BlurView
-        intensity={10}
-        tint={isDarkMode ? "dark" : "light"}
-        style={styles.blurContainer}
-      >
+      <Animated.View style={[styles.mapWrapper, { opacity: mapOpacityAnim }]}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          provider={PROVIDER_GOOGLE}
+          initialRegion={mapRegion}
+          customMapStyle={isDarkMode ? darkMapStyle : lightMapStyle}
+          showsUserLocation={false}
+          showsMyLocationButton={false}
+          showsCompass={false}
+          showsScale={false}
+          showsTraffic={false}
+          showsBuildings={false}
+          showsIndoors={false}
+          rotateEnabled={true}
+          scrollEnabled={true}
+          zoomEnabled={true}
+          pitchEnabled={true}
+          onRegionChangeComplete={onRegionChangeComplete}
+          mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+        >
+          {/* User location radius circle */}
+          {hasValidMyGeo && userLocation && (
+            <Circle
+              center={{
+                latitude: userLocation.lat,
+                longitude: userLocation.lng,
+              }}
+              radius={5000} // 5km radius
+              strokeColor={getAccentColor()}
+              strokeWidth={1}
+              fillColor={
+                isDarkMode
+                  ? "rgba(127, 0, 255, 0.05)"
+                  : "rgba(255, 0, 153, 0.05)"
+              }
+            />
+          )}
+
+          {/* User location marker */}
+          {hasValidMyGeo && userLocation && (
+            <UserLocationMarker
+              position={userLocation}
+              isDarkMode={isDarkMode}
+            />
+          )}
+
+          {/* Party markers */}
+          {parties.map((party) => (
+            <PartyMarker
+              key={party._id}
+              party={party}
+              myGeo={userLocation}
+              onClick={onClick}
+              isDarkMode={isDarkMode}
+            />
+          ))}
+        </MapView>
+
+        {/* Map Controls */}
+        <MapControls
+          myGeo={userLocation}
+          onCenterLocation={handleCenterOnLocation}
+          centeringOnLocation={centeringOnLocation}
+          isDarkMode={isDarkMode}
+          onToggleLegend={handleToggleLegend}
+          showLegend={showLegend}
+        />
+
+        {/* Map Legend (conditional) */}
+        {/* {showLegend && <MapLegend isDarkMode={isDarkMode} />} */}
+
+        {/* Event count badge */}
         <View
           style={[
-            styles.overlayBackground,
+            styles.countBadge,
             {
               backgroundColor: isDarkMode
-                ? "rgba(17, 24, 39, 0.7)"
-                : "rgba(0, 0, 0, 0.1)",
+                ? "rgba(31, 41, 55, 0.85)"
+                : "rgba(255, 255, 255, 0.85)",
+              borderColor: isDarkMode
+                ? "rgba(55, 65, 81, 0.5)"
+                : "rgba(230, 234, 240, 0.8)",
             },
           ]}
         >
-          <View style={styles.mapHeader}>
-            <View style={styles.headerLeft}>
-              <Text style={[styles.mapTitle, { color: theme.TEXT_COLOR }]}>
-                Party Locations
-              </Text>
-              {selectedCountry && (
-                <View
-                  style={[
-                    styles.locationTag,
-                    {
-                      backgroundColor: theme.BUTTON_BG,
-                      borderColor: theme.BORDER_COLOR,
-                    },
-                  ]}
-                >
-                  <FontAwesome5
-                    name="map-marker-alt"
-                    size={12}
-                    color={theme.ACCENT_COLOR}
-                  />
-                  <Text
-                    style={[styles.locationText, { color: theme.TEXT_COLOR }]}
-                  >
-                    {selectedCountry?.name}
-                    {selectedRegion ? `, ${selectedRegion.name}` : ""}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          <Animated.View
-            style={[styles.mapContainer, { opacity: mapOpacityAnim }]}
-          >
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              initialRegion={mapRegion}
-              customMapStyle={isDarkMode ? mapStyle : lightMapStyle}
-              showsUserLocation={false}
-              showsMyLocationButton={false}
-              showsCompass={false}
-              showsScale={false}
-              showsTraffic={false}
-              showsBuildings={false}
-              showsIndoors={false}
-              rotateEnabled={true}
-              scrollEnabled={true}
-              zoomEnabled={true}
-              pitchEnabled={true}
-              onRegionChangeComplete={onRegionChangeComplete}
-              mapPadding={{ top: 0, right: 0, bottom: 20, left: 0 }}
-            >
-              {/* User location radius circle */}
-              {hasValidMyGeo && userLocation && (
-                <Circle
-                  center={{
-                    latitude: userLocation.lat,
-                    longitude: userLocation.lng,
-                  }}
-                  radius={5000} // 5km radius
-                  strokeColor={isDarkMode ? "#3B82F6" : "#4dabf7"}
-                  strokeWidth={1}
-                  fillColor={
-                    isDarkMode
-                      ? "rgba(59, 130, 246, 0.05)"
-                      : "rgba(77, 171, 247, 0.05)"
-                  }
-                />
-              )}
-
-              {/* User location marker */}
-              {hasValidMyGeo && userLocation && (
-                <UserLocationMarker
-                  position={userLocation}
-                  isDarkMode={isDarkMode}
-                />
-              )}
-
-              {/* Party markers */}
-              {parties.map((party) => (
-                <PartyMarker
-                  key={party._id}
-                  party={party}
-                  myGeo={userLocation}
-                  onClick={onClick}
-                  isDarkMode={isDarkMode}
-                />
-              ))}
-            </MapView>
-
-            {/* Map Controls */}
-            <MapControls
-              myGeo={userLocation}
-              onCenterLocation={handleCenterOnLocation}
-              centeringOnLocation={centeringOnLocation}
-              isDarkMode={isDarkMode}
-            />
-
-            {/* Map Legend */}
-            <MapLegend isDarkMode={isDarkMode} />
-          </Animated.View>
-
-          <View
+          <FontAwesome5
+            name="map-marker-alt"
+            size={12}
+            color={getAccentColor()}
+          />
+          <Text
             style={[
-              styles.statsContainer,
+              styles.countText,
               {
-                borderTopColor: theme.BORDER_COLOR,
+                color: isDarkMode
+                  ? COLORS.DARK_TEXT_PRIMARY
+                  : COLORS.LIGHT_TEXT_PRIMARY,
               },
             ]}
           >
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.TEXT_COLOR }]}>
-                {parties.length}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.TEXT_SECONDARY }]}>
-                Events
-              </Text>
-            </View>
-            <View
+            {parties.length} Events
+          </Text>
+        </View>
+
+        {/* Location badge - only shown when country/region selected */}
+        {selectedCountry && (
+          <View
+            style={[
+              styles.locationBadge,
+              {
+                backgroundColor: isDarkMode
+                  ? "rgba(31, 41, 55, 0.85)"
+                  : "rgba(255, 255, 255, 0.85)",
+                borderColor: isDarkMode
+                  ? "rgba(55, 65, 81, 0.5)"
+                  : "rgba(230, 234, 240, 0.8)",
+              },
+            ]}
+          >
+            <FontAwesome5
+              name="globe-americas"
+              size={12}
+              color={getAccentColor()}
+            />
+            <Text
               style={[
-                styles.statDivider,
+                styles.locationText,
                 {
-                  backgroundColor: theme.BORDER_COLOR,
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
                 },
               ]}
-            />
-            <View style={styles.statItem}>
-              <Text style={[styles.statValue, { color: theme.TEXT_COLOR }]}>
-                {selectedCountry ? selectedCountry.name : "Worldwide"}
-              </Text>
-              <Text style={[styles.statLabel, { color: theme.TEXT_SECONDARY }]}>
-                Location
-              </Text>
-            </View>
+            >
+              {selectedCountry?.name}
+              {selectedRegion ? `, ${selectedRegion.name}` : ""}
+            </Text>
           </View>
-        </View>
-      </BlurView>
+        )}
+      </Animated.View>
     </View>
   );
 };
 
+const { width } = Dimensions.get("window");
+
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    height: 450, // Increased map height
-    borderRadius: 16,
+    height: 400,
+    borderRadius: BORDER_RADIUS.L,
     overflow: "hidden",
-    marginBottom: 24,
+    ...SHADOWS.SMALL,
   },
-  blurContainer: {
-    flex: 1,
-    overflow: "hidden",
-  },
-  overlayBackground: {
-    flex: 1,
-    padding: 16,
-  },
-  mapHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    flex: 1,
-  },
-  mapTitle: {
-    fontSize: 18,
-    fontFamily: FONTS.BOLD,
-    marginRight: 12,
-  },
-  locationTag: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: Platform.OS === "ios" ? 0 : 4,
-    borderWidth: 1,
-  },
-  locationText: {
-    fontFamily: FONTS.MEDIUM,
-    fontSize: 12,
-    marginLeft: 5,
-  },
-  mapContainer: {
-    flex: 1,
-    borderRadius: 12,
+  mapWrapper: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BORDER_RADIUS.L,
     overflow: "hidden",
     position: "relative",
   },
   map: {
     ...StyleSheet.absoluteFillObject,
   },
-  mapOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    pointerEvents: "none",
-  },
   // Party Marker Styles
   markerContainer: {
     alignItems: "center",
     justifyContent: "center",
-    width: 30,
-    height: 30,
   },
   markerDot: {
-    width: 20,
-    height: 20,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 2,
+    ...SHADOWS.SMALL,
   },
   markerRing: {
     position: "absolute",
-    width: 40,
-    height: 40,
-    borderRadius: 20,
     opacity: 0.4,
     zIndex: 1,
-  },
-  extraGlow: {
-    position: "absolute",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    opacity: 0.5,
-    zIndex: 0,
   },
   markerIcon: {
     textShadowColor: "rgba(0, 0, 0, 0.5)",
@@ -1222,16 +1006,17 @@ const styles = StyleSheet.create({
   },
   distanceIndicator: {
     position: "absolute",
-    bottom: -30,
-    paddingHorizontal: 8,
+    bottom: -20,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.M,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 0.5,
+    ...SHADOWS.SMALL,
   },
   distanceText: {
-    color: "white",
-    fontSize: 10,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
   },
   // User Location Marker Styles
@@ -1242,9 +1027,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   userMarkerRing: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     position: "absolute",
@@ -1263,6 +1048,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "white",
     zIndex: 2,
+    ...SHADOWS.SMALL,
   },
   userMarkerInnerGradient: {
     width: "100%",
@@ -1270,93 +1056,112 @@ const styles = StyleSheet.create({
   },
   locationLabel: {
     position: "absolute",
-    top: 30,
-    paddingHorizontal: 8,
+    top: 25,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 10,
+    borderRadius: BORDER_RADIUS.M,
+    borderWidth: 0.5,
+    ...SHADOWS.SMALL,
   },
   locationLabelText: {
-    color: "white",
-    fontSize: 10,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
   },
   // Map Controls Styles
   controlsContainer: {
     position: "absolute",
-    top: 16,
-    right: 16,
+    top: SPACING.S,
+    right: SPACING.S,
     zIndex: 20,
     flexDirection: "column",
-    gap: 10,
+    gap: SPACING.XS,
   },
   controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    borderWidth: 0.5,
+    ...SHADOWS.SMALL,
   },
   // Legend Styles
   legendContainer: {
     position: "absolute",
-    bottom: 16,
-    left: 16,
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
+    bottom: SPACING.S,
+    left: SPACING.S,
+    borderRadius: BORDER_RADIUS.M,
+    overflow: "hidden",
     zIndex: 20,
+    maxWidth: width * 0.5,
+    ...SHADOWS.SMALL,
+  },
+  legendContent: {
+    borderRadius: BORDER_RADIUS.M,
+    borderWidth: 0.5,
+    padding: SPACING.XS,
   },
   legendTitle: {
-    fontSize: 12,
-    fontFamily: FONTS.MEDIUM,
-    marginBottom: 6,
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.SEMIBOLD,
+    textAlign: "center",
+    paddingBottom: SPACING.XS,
+    marginBottom: SPACING.XS,
+    borderBottomWidth: 0.5,
+  },
+  legendItemsContainer: {
+    gap: 4,
   },
   legendItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
   },
-  legendColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SPACING.XS,
   },
   legendText: {
-    fontSize: 10,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
   },
-  // Stats Container Styles
-  statsContainer: {
+  // Count Badge
+  countBadge: {
+    position: "absolute",
+    top: SPACING.S,
+    left: SPACING.S,
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
-    marginTop: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
+    paddingHorizontal: SPACING.S,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.M,
+    borderWidth: 0.5,
+    ...SHADOWS.SMALL,
   },
-  statItem: {
+  countText: {
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.SEMIBOLD,
+    marginLeft: 4,
+  },
+  // Location Badge
+  locationBadge: {
+    position: "absolute",
+    bottom: SPACING.S,
+    right: SPACING.S,
+    flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: SPACING.S,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.M,
+    borderWidth: 0.5,
+    ...SHADOWS.SMALL,
   },
-  statValue: {
-    fontFamily: FONTS.BOLD,
-    fontSize: 18,
-  },
-  statLabel: {
-    fontFamily: FONTS.REGULAR,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
+  locationText: {
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.SEMIBOLD,
+    marginLeft: 4,
   },
 });
 
-export default AdvancedMapComponent;
+export default Map;

@@ -1,4 +1,4 @@
-import { THEME } from "@/app/theme";
+import { BORDER_RADIUS, GRADIENTS, SHADOWS } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +16,9 @@ import {
 } from "react-native";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
+
+// Custom light theme accent color
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 interface DrawerProps {
   visible: boolean;
@@ -42,6 +45,7 @@ const Drawer: React.FC<DrawerProps> = ({
     new Animated.Value(position === "right" ? SCREEN_WIDTH : -SCREEN_WIDTH)
   ).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.97)).current;
 
   // Track whether animation is running to avoid interruptions
   const animationRunning = useRef(false);
@@ -51,7 +55,6 @@ const Drawer: React.FC<DrawerProps> = ({
 
   // Get theme context
   const { isDarkMode } = useTheme();
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
   // Handle component mounting/unmounting based on visibility
   useEffect(() => {
@@ -75,22 +78,30 @@ const Drawer: React.FC<DrawerProps> = ({
     // If drawer is visible, animate in
     if (visible) {
       animationRunning.current = true;
-      StatusBar.setBarStyle("light-content");
+      StatusBar.setBarStyle(isDarkMode ? "light-content" : "dark-content");
 
       // Reset position to ensure proper animation
       translateX.setValue(position === "right" ? SCREEN_WIDTH : -SCREEN_WIDTH);
       backdropOpacity.setValue(0);
+      scale.setValue(0.97);
 
       // Start animation
       Animated.parallel([
-        Animated.timing(translateX, {
+        Animated.spring(translateX, {
           toValue: 0,
-          duration: 250,
+          tension: 60,
+          friction: 7,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
-          toValue: 0.7,
-          duration: 250,
+          toValue: 0.6,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
           useNativeDriver: true,
         }),
       ]).start(() => {
@@ -105,12 +116,17 @@ const Drawer: React.FC<DrawerProps> = ({
       Animated.parallel([
         Animated.timing(translateX, {
           toValue: position === "right" ? SCREEN_WIDTH : -SCREEN_WIDTH,
-          duration: 250,
+          duration: 300,
           useNativeDriver: true,
         }),
         Animated.timing(backdropOpacity, {
           toValue: 0,
-          duration: 250,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scale, {
+          toValue: 0.97,
+          duration: 300,
           useNativeDriver: true,
         }),
       ]).start(() => {
@@ -125,7 +141,15 @@ const Drawer: React.FC<DrawerProps> = ({
         });
       });
     }
-  }, [visible, position, mounted, translateX, backdropOpacity]);
+  }, [
+    visible,
+    position,
+    mounted,
+    translateX,
+    backdropOpacity,
+    scale,
+    isDarkMode,
+  ]);
 
   // Don't render anything if not mounted
   if (!mounted) {
@@ -136,12 +160,12 @@ const Drawer: React.FC<DrawerProps> = ({
   const borderRadiusStyle: ViewStyle =
     position === "right"
       ? {
-          borderTopLeftRadius: 20,
-          borderBottomLeftRadius: 20,
+          borderTopLeftRadius: BORDER_RADIUS.XXL,
+          borderBottomLeftRadius: BORDER_RADIUS.XXL,
         }
       : {
-          borderTopRightRadius: 20,
-          borderBottomRightRadius: 20,
+          borderTopRightRadius: BORDER_RADIUS.XXL,
+          borderBottomRightRadius: BORDER_RADIUS.XXL,
         };
 
   return (
@@ -176,35 +200,37 @@ const Drawer: React.FC<DrawerProps> = ({
       <Animated.View
         style={[
           styles.drawer,
-          { width, [position]: 0 },
+          { width: typeof width === "string" ? width : width },
           borderRadiusStyle,
           {
-            transform: [{ translateX }],
+            transform: [{ translateX }, { scale }],
+            ...SHADOWS.MEDIUM,
           },
+          position === "right" ? { right: 0 } : { left: 0 },
         ]}
         pointerEvents={visible ? "auto" : "none"}
       >
-        <LinearGradient
-          colors={theme.GRADIENT as [string, string]}
-          style={styles.drawerGradient}
-          start={{ x: 0, y: 0 }}
-          end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+        <BlurView
+          intensity={isDarkMode ? 40 : 30}
+          tint={isDarkMode ? "dark" : "light"}
+          style={styles.blurContainer}
         >
-          <BlurView
-            intensity={isDarkMode ? 25 : 10}
-            tint="dark"
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={[styles.content, contentContainerStyle]}>
-            {children}
-          </View>
-        </LinearGradient>
+          <LinearGradient
+            colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+            style={styles.drawerGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+          >
+            <View style={[styles.content, contentContainerStyle]}>
+              {children}
+            </View>
+          </LinearGradient>
+        </BlurView>
       </Animated.View>
     </View>
   );
 };
 
-// Optimize styles
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
@@ -224,18 +250,16 @@ const styles = StyleSheet.create({
     height: "100%",
     zIndex: 2,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: -2, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 20,
+  },
+  blurContainer: {
+    flex: 1,
   },
   drawerGradient: {
     flex: 1,
   },
   content: {
     flex: 1,
-    paddingTop: Platform.OS === "ios" ? 40 : StatusBar.currentHeight,
+    paddingTop: Platform.OS === "ios" ? 40 : StatusBar.currentHeight || 0,
   },
 });
 

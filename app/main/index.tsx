@@ -1,21 +1,30 @@
-import { FONTS, THEME } from "@/app/theme";
 import { FontAwesome5 } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  Easing,
+  Dimensions,
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 
-// Import components
+import {
+  ANIMATIONS,
+  BORDER_RADIUS,
+  COLORS,
+  FONTS,
+  FONT_SIZES,
+  GRADIENTS,
+  SHADOWS,
+  SPACING,
+} from "@/app/theme";
 import {
   Button,
   CountryPicker,
@@ -28,6 +37,11 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 import { Geo, Party } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
+
+const { width, height } = Dimensions.get("window");
+
+// Custom light theme accent color
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 // Sample party data for demo purposes
 const sampleParties: Party[] = [
@@ -75,15 +89,12 @@ const sampleParties: Party[] = [
 
 const HomeScreen = () => {
   const { isDarkMode } = useTheme();
-  // Get the appropriate theme based on isDarkMode
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const fabScaleAnim = useRef(new Animated.Value(0)).current;
-  const fabRotateAnim = useRef(new Animated.Value(0)).current;
-  const fabPulseAnim = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(30)).current;
+  const cardScale = useRef(new Animated.Value(0.97)).current;
+  const buttonScale = useRef(new Animated.Value(0)).current;
 
   // State for filters
   const [isFilterVisible, setIsFilterVisible] = useState<boolean>(false);
@@ -104,6 +115,17 @@ const HomeScreen = () => {
   // Map center state
   const [mapCenter, setMapCenter] = useState<Geo | null>(myLocation);
 
+  // Particle animations for the background
+  const particles = Array(6)
+    .fill(0)
+    .map(() => ({
+      x: useRef(new Animated.Value(Math.random() * width)).current,
+      y: useRef(new Animated.Value(Math.random() * height * 0.35)).current,
+      scale: useRef(new Animated.Value(Math.random() * 0.4 + 0.3)).current,
+      opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
+      speed: Math.random() * 3000 + 2000,
+    }));
+
   // Party type options for dropdown
   const partyTypeOptions = [
     { label: "All Events", value: "all" },
@@ -117,74 +139,104 @@ const HomeScreen = () => {
     { label: "Sports Events", value: "sport" },
   ];
 
-  // Animation on component mount
+  // Run animations when component mounts
   useEffect(() => {
-    // Animate main content
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.back(1.5)),
-      }),
-    ]).start();
+    const animationDelay = Platform.OS === "ios" ? 200 : 300;
 
-    // Animate FAB with delay and attention-grabbing effect
+    // Main elements fade in
     setTimeout(() => {
-      Animated.sequence([
-        // Pop in
-        Animated.spring(fabScaleAnim, {
-          toValue: 1.2,
-          useNativeDriver: true,
-          friction: 5,
-          tension: 200,
-        }),
-        // Settle to normal size
-        Animated.spring(fabScaleAnim, {
+      Animated.parallel([
+        // Fade in entire view
+        Animated.timing(fadeAnim, {
           toValue: 1,
+          duration: ANIMATIONS.MEDIUM,
           useNativeDriver: true,
-          friction: 5,
-          tension: 100,
+        }),
+        // Slide up animation
+        Animated.spring(translateY, {
+          toValue: 0,
+          tension: 60,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        // Card scale animation
+        Animated.spring(cardScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
+          useNativeDriver: true,
         }),
       ]).start();
 
-      // Add rotation animation
-      Animated.timing(fabRotateAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }).start();
+      // Button animation
+      Animated.sequence([
+        Animated.delay(animationDelay),
+        Animated.spring(buttonScale, {
+          toValue: 1,
+          tension: 60,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
 
-      // Start continuous pulse animation
-      startPulseAnimation();
-    }, 1000);
+      // Start particle animations
+      animateParticles();
+    }, 100);
   }, []);
 
-  // Continuous pulse animation for FAB
-  const startPulseAnimation = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(fabPulseAnim, {
-          toValue: 1.1,
-          duration: 1500,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        Animated.timing(fabPulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-          easing: Easing.inOut(Easing.sin),
-        }),
-      ])
-    ).start();
+  // Continuous animation for floating particles
+  const animateParticles = () => {
+    particles.forEach((particle) => {
+      // Animate vertical position
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+          Animated.timing(particle.y, {
+            toValue: Math.random() * (height * 0.3) + height * 0.05,
+            duration: particle.speed,
+            useNativeDriver: true,
+            easing: (t) => Math.sin(t * Math.PI),
+          }),
+        ])
+      ).start();
+
+      // Animate scale
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.scale, {
+            toValue: Math.random() * 0.3 + 0.4,
+            duration: particle.speed * 1.1,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Animate opacity
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+          Animated.timing(particle.opacity, {
+            toValue: Math.random() * 0.2 + 0.2,
+            duration: particle.speed * 0.8,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
   };
 
   // Filter parties based on selections
@@ -247,407 +299,598 @@ const HomeScreen = () => {
     setFilteredParties(sampleParties);
     setMapCenter(myLocation);
     setZoom(12);
-
-    // Add a little bounce animation for feedback
-    Animated.sequence([
-      Animated.timing(slideAnim, {
-        toValue: 10,
-        duration: 150,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.elastic(1.5)),
-      }),
-    ]).start();
   };
 
   // Handle party marker click
   const handlePartyClick = (party: Party) => {
     console.log("Party clicked:", party);
-    // You could show details, navigate to a detail screen, etc.
-
     // Center the map on the clicked party
     setMapCenter(party.geo);
     setZoom(14); // Zoom in closer
   };
 
-  // Create rotation interpolation
-  const fabRotate = fabRotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
   // Helper function to get gradient colors for event cards based on type
   const getEventGradient = (type: string) => {
+    const theme = isDarkMode ? "DARK" : "LIGHT";
+
     switch (type) {
       case "music":
-        return theme.MUSIC_GRADIENT;
+        return isDarkMode ? ["#4338CA", "#3730A3"] : ["#6366f1", "#2563eb"];
       case "corporate":
-        return theme.CORPORATE_GRADIENT;
+        return isDarkMode ? ["#065F46", "#064E3B"] : ["#10b981", "#0d9488"];
       case "birthday":
-        return theme.BIRTHDAY_GRADIENT;
+        return isDarkMode ? ["#9D174D", "#6D28D9"] : ["#ec4899", "#9333ea"];
       case "wedding":
-        return theme.WEDDING_GRADIENT;
+        return isDarkMode ? ["#4338CA", "#3730A3"] : ["#6366f1", "#2563eb"];
       case "sport":
-        return theme.SPORT_GRADIENT;
+        return isDarkMode ? ["#991B1B", "#9F1239"] : ["#ef4444", "#e11d48"];
       default:
-        return theme.DEFAULT_GRADIENT;
+        return isDarkMode ? ["#B45309", "#C2410C"] : ["#f59e0b", "#ea580c"];
     }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Set StatusBar properties BEFORE the LinearGradient */}
-      <StatusBar
-        translucent={true}
-        backgroundColor="transparent"
-        barStyle="light-content"
+  // Render particles for background effect
+  const renderParticles = () => {
+    return particles.map((particle, index) => (
+      <Animated.View
+        key={`particle-${index}`}
+        style={[
+          styles.particle,
+          {
+            transform: [
+              { translateX: particle.x },
+              { translateY: particle.y },
+              { scale: particle.scale },
+            ],
+            opacity: particle.opacity,
+            backgroundColor: isDarkMode
+              ? `rgba(${127 + Math.floor(Math.random() * 128)}, ${Math.floor(
+                  Math.random() * 100
+                )}, ${Math.floor(Math.random() * 255)}, 0.7)`
+              : `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(
+                  Math.random() * 255
+                )}, ${Math.floor(Math.random() * 255)}, 0.5)`,
+          },
+        ]}
       />
+    ));
+  };
 
-      <LinearGradient
-        colors={theme.GRADIENT as [string, string]}
-        style={styles.gradient}
-        start={isDarkMode ? { x: 0, y: 0 } : { x: 0, y: 0 }}
-        end={isDarkMode ? { x: 0, y: 1 } : { x: 1, y: 1 }}
+  return (
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
+      ]}
+    >
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
       >
-        <SafeAreaView style={styles.safeArea}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Animated container for better entrance */}
-            <Animated.View
-              style={{
+        {/* Slider Section (Top 35%) */}
+        <View style={styles.sliderContainer}>
+          <Slider />
+
+          {/* Add floating particles for fun effect */}
+          {renderParticles()}
+
+          {/* Overlay gradient for readability */}
+          <LinearGradient
+            colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0)"]}
+            style={styles.imageOverlay}
+          />
+        </View>
+
+        {/* Bottom Content Section */}
+        <View style={styles.bottomHalf}>
+          <LinearGradient
+            colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+            style={styles.bottomGradient}
+          />
+
+          {/* Content Card */}
+          <Animated.View
+            style={[
+              styles.cardContainer,
+              {
+                transform: [{ translateY: translateY }, { scale: cardScale }],
                 opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              }}
+              },
+            ]}
+          >
+            <BlurView
+              intensity={isDarkMode ? 40 : 30}
+              tint={isDarkMode ? "dark" : "light"}
+              style={styles.cardBlur}
             >
-              {/* Image Slider Component */}
-              <Slider />
-
-              {/* Filter Toggle Button */}
-              <View style={styles.filterToggleContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.filterToggleButton,
-                    {
-                      backgroundColor: isDarkMode
-                        ? "rgba(31, 41, 55, 0.7)"
-                        : "rgba(0, 0, 0, 0.2)",
-                      borderColor: isDarkMode
-                        ? "rgba(75, 85, 99, 0.3)"
-                        : "rgba(255, 255, 255, 0.15)",
-                    },
-                  ]}
-                  onPress={toggleFilters}
-                  activeOpacity={0.8}
-                >
-                  <FontAwesome5
-                    name={isFilterVisible ? "times" : "sliders-h"}
-                    size={16}
-                    color={theme.TEXT_COLOR}
-                  />
-                  <Text
-                    style={[
-                      styles.filterToggleText,
-                      { color: theme.TEXT_COLOR },
-                    ]}
-                  >
-                    {isFilterVisible ? "Hide Filters" : "Show Filters"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Filter section - no animation */}
-              {isFilterVisible && (
+              <LinearGradient
+                colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
+                style={styles.cardGradient}
+              >
+                {/* Accent Bar */}
                 <View
                   style={[
-                    styles.filterContainerWrapper,
-                    styles.filterContainer,
+                    styles.cardAccentBar,
                     {
-                      backgroundColor: theme.FILTER_BG,
-                      borderColor: theme.BORDER_COLOR,
+                      backgroundColor: getAccentColor(),
                     },
                   ]}
-                >
-                  <View style={styles.filterHeader}>
-                    <Text
-                      style={[styles.filterTitle, { color: theme.TEXT_COLOR }]}
-                    >
-                      Filter Events
-                    </Text>
+                />
+
+                <View style={styles.cardContent}>
+                  <Text
+                    style={[
+                      styles.welcomeText,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
+                      },
+                    ]}
+                  >
+                    Discover Events
+                  </Text>
+                  <Text
+                    style={[
+                      styles.subtitleText,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_SECONDARY
+                          : COLORS.LIGHT_TEXT_SECONDARY,
+                      },
+                    ]}
+                  >
+                    Find and join amazing events around you
+                  </Text>
+
+                  {/* Filter Toggle Button */}
+                  <View style={styles.filterToggleContainer}>
                     <TouchableOpacity
                       style={[
-                        styles.resetButton,
+                        styles.filterToggleButton,
                         {
-                          backgroundColor: theme.ACCENT_BG,
-                          borderColor: theme.ACCENT_COLOR,
+                          backgroundColor: isDarkMode
+                            ? "rgba(31, 41, 55, 0.7)"
+                            : "rgba(255, 255, 255, 0.7)",
+                          borderColor: isDarkMode
+                            ? COLORS.DARK_BORDER
+                            : COLORS.LIGHT_BORDER,
                         },
                       ]}
-                      onPress={handleReset}
-                      activeOpacity={0.7}
+                      onPress={toggleFilters}
+                      activeOpacity={0.8}
                     >
                       <FontAwesome5
-                        name="sync-alt"
-                        size={12}
-                        color={theme.TEXT_COLOR}
-                        style={styles.resetIcon}
+                        name={isFilterVisible ? "times" : "sliders-h"}
+                        size={16}
+                        color={
+                          isDarkMode
+                            ? COLORS.DARK_TEXT_PRIMARY
+                            : COLORS.LIGHT_TEXT_PRIMARY
+                        }
                       />
                       <Text
-                        style={[styles.resetText, { color: theme.TEXT_COLOR }]}
+                        style={[
+                          styles.filterToggleText,
+                          {
+                            color: isDarkMode
+                              ? COLORS.DARK_TEXT_PRIMARY
+                              : COLORS.LIGHT_TEXT_PRIMARY,
+                          },
+                        ]}
                       >
-                        Reset All
+                        {isFilterVisible ? "Hide Filters" : "Show Filters"}
                       </Text>
                     </TouchableOpacity>
                   </View>
 
-                  <View style={styles.filtersWrapper}>
-                    <View style={styles.filterItem}>
-                      <CountryPicker
-                        label="Country"
-                        placeholder="Select Country"
-                        onSelect={(selectedCountry) => {
-                          setCountry(selectedCountry);
-                          setRegion(null);
-                        }}
-                      />
-                    </View>
-
-                    <View style={styles.filterItem}>
-                      <RegionPicker
-                        label="Region"
-                        placeholder="Select Region"
-                        value={region}
-                        onSelect={(selectedRegion) => {
-                          setRegion(selectedRegion);
-                        }}
-                        countryCode={country?.code}
-                      />
-                    </View>
-
-                    <View style={styles.filterItem}>
-                      <Dropdown
-                        label="Party Type"
-                        placeholder="Select Party Type"
-                        value={partyType}
-                        onSelect={setPartyType}
-                        options={partyTypeOptions}
-                      />
-                    </View>
-                  </View>
-                </View>
-              )}
-
-              {/* Party Count and Map Section */}
-              <View style={styles.mapSectionContainer}>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionTitleContainer}>
-                    <Text
-                      style={[styles.sectionTitle, { color: theme.TEXT_COLOR }]}
-                    >
-                      Global Events
-                    </Text>
+                  {/* Filter section */}
+                  {isFilterVisible && (
                     <View
                       style={[
-                        styles.countBadge,
+                        styles.filterContainer,
                         {
-                          backgroundColor: theme.ACCENT_BG,
-                          borderColor: theme.ACCENT_COLOR,
+                          backgroundColor: isDarkMode
+                            ? "rgba(40, 45, 55, 0.5)"
+                            : "rgba(255, 255, 255, 0.5)",
+                          borderColor: isDarkMode
+                            ? COLORS.DARK_BORDER
+                            : COLORS.LIGHT_BORDER,
                         },
                       ]}
                     >
-                      <Text
-                        style={[styles.countText, { color: theme.TEXT_COLOR }]}
-                      >
-                        {filteredParties.length}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.viewAllButton,
-                      {
-                        backgroundColor: theme.BUTTON_BG,
-                        borderColor: theme.BORDER_COLOR,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.viewAllText, { color: theme.TEXT_COLOR }]}
-                    >
-                      View All
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Advanced Map Component */}
-                <Map
-                  parties={filteredParties}
-                  center={mapCenter}
-                  zoom={zoom}
-                  myGeo={myLocation}
-                  setZoom={setZoom}
-                  onClick={handlePartyClick}
-                  selectedCountry={country}
-                  selectedRegion={region}
-                  isDarkMode={isDarkMode}
-                />
-              </View>
-
-              {/* Event List Section */}
-              <View style={styles.eventsSectionContainer}>
-                <View style={styles.sectionHeader}>
-                  <Text
-                    style={[styles.sectionTitle, { color: theme.TEXT_COLOR }]}
-                  >
-                    Upcoming Events
-                  </Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.viewAllButton,
-                      {
-                        backgroundColor: theme.BUTTON_BG,
-                        borderColor: theme.BORDER_COLOR,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.viewAllText, { color: theme.TEXT_COLOR }]}
-                    >
-                      View All
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Event Cards (preview) */}
-                {filteredParties.slice(0, 3).map((party) => (
-                  <TouchableOpacity
-                    key={party._id}
-                    style={[
-                      styles.eventCard,
-                      {
-                        backgroundColor: theme.CARD_BG,
-                        borderColor: theme.BORDER_COLOR,
-                      },
-                    ]}
-                    activeOpacity={0.9}
-                  >
-                    <LinearGradient
-                      colors={getEventGradient(party.type) as [string, string]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.eventCardAccent}
-                    />
-
-                    <View style={styles.eventCardContent}>
-                      <View style={styles.eventCardHeader}>
+                      <View style={styles.filterHeader}>
                         <Text
                           style={[
-                            styles.eventCardTitle,
-                            { color: theme.TEXT_COLOR },
+                            styles.filterTitle,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
                           ]}
                         >
-                          {party.name}
+                          Filter Events
+                        </Text>
+                        <TouchableOpacity
+                          style={[
+                            styles.resetButton,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(255, 0, 153, 0.2)"
+                                : "rgba(255, 0, 153, 0.1)",
+                              borderColor: isDarkMode
+                                ? "rgba(255, 0, 153, 0.4)"
+                                : "rgba(255, 0, 153, 0.3)",
+                            },
+                          ]}
+                          onPress={handleReset}
+                          activeOpacity={0.7}
+                        >
+                          <FontAwesome5
+                            name="sync-alt"
+                            size={12}
+                            color={getAccentColor()}
+                            style={styles.resetIcon}
+                          />
+                          <Text
+                            style={[
+                              styles.resetText,
+                              { color: getAccentColor() },
+                            ]}
+                          >
+                            Reset All
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      <View style={styles.filtersWrapper}>
+                        <View style={styles.filterItem}>
+                          <CountryPicker
+                            label="Country"
+                            placeholder="Select Country"
+                            onSelect={(selectedCountry) => {
+                              setCountry(selectedCountry);
+                              setRegion(null);
+                            }}
+                          />
+                        </View>
+
+                        <View style={styles.filterItem}>
+                          <RegionPicker
+                            label="Region"
+                            placeholder="Select Region"
+                            value={region}
+                            onSelect={(selectedRegion) => {
+                              setRegion(selectedRegion);
+                            }}
+                            countryCode={country?.code}
+                          />
+                        </View>
+
+                        <View style={styles.filterItem}>
+                          <Dropdown
+                            label="Party Type"
+                            placeholder="Select Party Type"
+                            value={partyType}
+                            onSelect={setPartyType}
+                            options={partyTypeOptions}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Map Section with Event Count */}
+                  <View style={styles.mapSectionContainer}>
+                    <View style={styles.sectionHeader}>
+                      <View style={styles.sectionTitleContainer}>
+                        <Text
+                          style={[
+                            styles.sectionTitle,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Global Events
                         </Text>
                         <View
                           style={[
-                            styles.eventCardBadge,
-                            { backgroundColor: theme.BUTTON_BG },
+                            styles.countBadge,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(255, 0, 153, 0.2)"
+                                : "rgba(255, 0, 153, 0.1)",
+                              borderColor: isDarkMode
+                                ? "rgba(255, 0, 153, 0.4)"
+                                : "rgba(255, 0, 153, 0.3)",
+                            },
                           ]}
                         >
                           <Text
                             style={[
-                              styles.eventCardBadgeText,
-                              { color: theme.TEXT_COLOR },
+                              styles.countText,
+                              { color: getAccentColor() },
                             ]}
                           >
-                            {party.type.charAt(0).toUpperCase() +
-                              party.type.slice(1)}
+                            {filteredParties.length}
                           </Text>
                         </View>
                       </View>
 
-                      <View style={styles.eventCardDetails}>
-                        <View style={styles.eventCardDetail}>
-                          <FontAwesome5
-                            name="calendar-alt"
-                            size={14}
-                            color={theme.TEXT_SECONDARY}
-                          />
-                          <Text
-                            style={[
-                              styles.eventCardDetailText,
-                              { color: theme.TEXT_SECONDARY },
-                            ]}
-                          >
-                            {party.date?.toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </Text>
-                        </View>
-
-                        <View style={styles.eventCardDetail}>
-                          <FontAwesome5
-                            name="users"
-                            size={14}
-                            color={theme.TEXT_SECONDARY}
-                          />
-                          <Text
-                            style={[
-                              styles.eventCardDetailText,
-                              { color: theme.TEXT_SECONDARY },
-                            ]}
-                          >
-                            {party.attendees} attendees
-                          </Text>
-                        </View>
-
-                        <View style={styles.eventCardDetail}>
-                          <FontAwesome5
-                            name="map-marker-alt"
-                            size={14}
-                            color={theme.TEXT_SECONDARY}
-                          />
-                          <Text
-                            style={[
-                              styles.eventCardDetailText,
-                              { color: theme.TEXT_SECONDARY },
-                            ]}
-                          >
-                            Paris, France
-                          </Text>
-                        </View>
-                      </View>
+                      <TouchableOpacity
+                        style={[
+                          styles.viewAllButton,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(31, 41, 55, 0.7)"
+                              : "rgba(255, 255, 255, 0.7)",
+                            borderColor: isDarkMode
+                              ? COLORS.DARK_BORDER
+                              : COLORS.LIGHT_BORDER,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.viewAllText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          View All
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
-                ))}
 
-                {/* View More Button */}
-                <Button
-                  title="View More Events"
-                  variant={isDarkMode ? "primary" : "secondary"}
-                  icon={
-                    <FontAwesome5
-                      name="chevron-right"
-                      size={12}
-                      color={theme.TEXT_COLOR}
-                    />
-                  }
-                  iconPosition="right"
-                  onPress={() => {}}
-                />
-              </View>
-            </Animated.View>
-          </ScrollView>
-        </SafeAreaView>
-      </LinearGradient>
-    </View>
+                    {/* Map Component */}
+                    <View style={styles.mapContainer}>
+                      <Map
+                        parties={filteredParties}
+                        center={mapCenter}
+                        zoom={zoom}
+                        myGeo={myLocation}
+                        setZoom={setZoom}
+                        onClick={handlePartyClick}
+                        selectedCountry={country}
+                        selectedRegion={region}
+                        isDarkMode={isDarkMode}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Upcoming Events Section */}
+                  <View style={styles.eventsSectionContainer}>
+                    <View style={styles.sectionHeader}>
+                      <Text
+                        style={[
+                          styles.sectionTitle,
+                          {
+                            color: isDarkMode
+                              ? COLORS.DARK_TEXT_PRIMARY
+                              : COLORS.LIGHT_TEXT_PRIMARY,
+                          },
+                        ]}
+                      >
+                        Upcoming Events
+                      </Text>
+                      <TouchableOpacity
+                        style={[
+                          styles.viewAllButton,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(31, 41, 55, 0.7)"
+                              : "rgba(255, 255, 255, 0.7)",
+                            borderColor: isDarkMode
+                              ? COLORS.DARK_BORDER
+                              : COLORS.LIGHT_BORDER,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.viewAllText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          View All
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Event Cards (preview) */}
+                    {filteredParties.slice(0, 3).map((party) => (
+                      <TouchableOpacity
+                        key={party._id}
+                        style={[
+                          styles.eventCard,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(31, 41, 55, 0.7)"
+                              : "rgba(255, 255, 255, 0.7)",
+                            borderColor: isDarkMode
+                              ? COLORS.DARK_BORDER
+                              : COLORS.LIGHT_BORDER,
+                          },
+                        ]}
+                        activeOpacity={0.9}
+                      >
+                        <LinearGradient
+                          colors={getEventGradient(party.type) as any}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.eventCardAccent}
+                        />
+
+                        <View style={styles.eventCardContent}>
+                          <View style={styles.eventCardHeader}>
+                            <Text
+                              style={[
+                                styles.eventCardTitle,
+                                {
+                                  color: isDarkMode
+                                    ? COLORS.DARK_TEXT_PRIMARY
+                                    : COLORS.LIGHT_TEXT_PRIMARY,
+                                },
+                              ]}
+                            >
+                              {party.name}
+                            </Text>
+                            <View
+                              style={[
+                                styles.eventCardBadge,
+                                {
+                                  backgroundColor: isDarkMode
+                                    ? "rgba(31, 41, 55, 0.7)"
+                                    : "rgba(255, 255, 255, 0.7)",
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.eventCardBadgeText,
+                                  {
+                                    color: isDarkMode
+                                      ? COLORS.DARK_TEXT_PRIMARY
+                                      : COLORS.LIGHT_TEXT_PRIMARY,
+                                  },
+                                ]}
+                              >
+                                {party.type.charAt(0).toUpperCase() +
+                                  party.type.slice(1)}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <View style={styles.eventCardDetails}>
+                            <View style={styles.eventCardDetail}>
+                              <FontAwesome5
+                                name="calendar-alt"
+                                size={14}
+                                color={
+                                  isDarkMode
+                                    ? COLORS.DARK_TEXT_SECONDARY
+                                    : COLORS.LIGHT_TEXT_SECONDARY
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.eventCardDetailText,
+                                  {
+                                    color: isDarkMode
+                                      ? COLORS.DARK_TEXT_SECONDARY
+                                      : COLORS.LIGHT_TEXT_SECONDARY,
+                                  },
+                                ]}
+                              >
+                                {party.date?.toLocaleDateString("en-US", {
+                                  month: "short",
+                                  day: "numeric",
+                                })}
+                              </Text>
+                            </View>
+
+                            <View style={styles.eventCardDetail}>
+                              <FontAwesome5
+                                name="users"
+                                size={14}
+                                color={
+                                  isDarkMode
+                                    ? COLORS.DARK_TEXT_SECONDARY
+                                    : COLORS.LIGHT_TEXT_SECONDARY
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.eventCardDetailText,
+                                  {
+                                    color: isDarkMode
+                                      ? COLORS.DARK_TEXT_SECONDARY
+                                      : COLORS.LIGHT_TEXT_SECONDARY,
+                                  },
+                                ]}
+                              >
+                                {party.attendees} attendees
+                              </Text>
+                            </View>
+
+                            <View style={styles.eventCardDetail}>
+                              <FontAwesome5
+                                name="map-marker-alt"
+                                size={14}
+                                color={
+                                  isDarkMode
+                                    ? COLORS.DARK_TEXT_SECONDARY
+                                    : COLORS.LIGHT_TEXT_SECONDARY
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.eventCardDetailText,
+                                  {
+                                    color: isDarkMode
+                                      ? COLORS.DARK_TEXT_SECONDARY
+                                      : COLORS.LIGHT_TEXT_SECONDARY,
+                                  },
+                                ]}
+                              >
+                                Paris, France
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+
+                    {/* View More Button */}
+                    <Animated.View
+                      style={{
+                        width: "100%",
+                        transform: [{ scale: buttonScale }],
+                        marginTop: SPACING.M,
+                      }}
+                    >
+                      <Button
+                        title="View More Events"
+                        variant={isDarkMode ? "primary" : "secondary"}
+                        icon={
+                          <FontAwesome5
+                            name="arrow-right"
+                            size={14}
+                            color="white"
+                            style={{ marginLeft: SPACING.S }}
+                          />
+                        }
+                        iconPosition="right"
+                        onPress={() => {}}
+                        small={true}
+                      />
+                    </Animated.View>
+                  </View>
+                </View>
+              </LinearGradient>
+            </BlurView>
+          </Animated.View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -655,23 +898,91 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  gradient: {
-    flex: 1,
+  scrollContainer: {
+    flexGrow: 1,
   },
-  safeArea: {
-    flex: 1,
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  sliderContainer: {
+    height: height * 0.35, // 35% of screen height
+    width: "100%",
+    overflow: "hidden",
+    position: "relative",
   },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 20,
+  particle: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  imageOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    top: 0,
+    left: 0,
+  },
+  bottomHalf: {
+    minHeight: height * 0.75,
+    width: "100%",
+    position: "relative",
+    paddingBottom: SPACING.XL,
+  },
+  bottomGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cardContainer: {
+    position: "relative",
+    top: -height * 0.06,
+    marginHorizontal: width * 0.05,
+    width: width * 0.9,
+    zIndex: 10,
+    height: "auto",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+    ...SHADOWS.MEDIUM,
+  },
+  cardBlur: {
+    width: "100%",
+    height: "100%",
+  },
+  cardGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BORDER_RADIUS.XXL,
+    overflow: "hidden",
+  },
+  cardAccentBar: {
+    height: 6,
+    width: "100%",
+    borderTopLeftRadius: BORDER_RADIUS.XXL,
+    borderTopRightRadius: BORDER_RADIUS.XXL,
+  },
+  cardContent: {
+    padding: SPACING.M,
+  },
+  welcomeText: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.XL,
+    marginBottom: SPACING.XS,
+  },
+  subtitleText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.M,
+  },
+  themeToggle: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 40,
+    right: 20,
+    zIndex: 100,
   },
   filterToggleContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: -10,
-    marginBottom: 16,
+    marginBottom: SPACING.M,
   },
   filterToggleButton: {
     flexDirection: "row",
@@ -683,26 +994,24 @@ const styles = StyleSheet.create({
   },
   filterToggleText: {
     fontFamily: FONTS.MEDIUM,
-    fontSize: 14,
+    fontSize: FONT_SIZES.XS,
     marginLeft: 8,
   },
-  filterContainerWrapper: {
-    marginBottom: 16,
-  },
   filterContainer: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: BORDER_RADIUS.L,
+    padding: SPACING.M,
     borderWidth: 1,
+    marginBottom: SPACING.M,
   },
   filterHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: SPACING.M,
   },
   filterTitle: {
-    fontSize: 18,
-    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.M,
+    fontFamily: FONTS.SEMIBOLD,
   },
   resetButton: {
     flexDirection: "row",
@@ -717,33 +1026,30 @@ const styles = StyleSheet.create({
   },
   resetText: {
     fontFamily: FONTS.MEDIUM,
-    fontSize: 12,
+    fontSize: FONT_SIZES.XS,
   },
   filtersWrapper: {
     gap: 10,
   },
   filterItem: {
-    marginBottom: 10,
+    marginBottom: SPACING.S,
   },
   mapSectionContainer: {
-    marginBottom: 24,
-  },
-  eventsSectionContainer: {
-    marginBottom: 24,
+    marginBottom: SPACING.L,
   },
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: SPACING.M,
   },
   sectionTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
   },
   sectionTitle: {
-    fontSize: 22,
-    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.L,
+    fontFamily: FONTS.SEMIBOLD,
   },
   countBadge: {
     borderRadius: 12,
@@ -754,7 +1060,7 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontFamily: FONTS.BOLD,
-    fontSize: 12,
+    fontSize: FONT_SIZES.XS,
   },
   viewAllButton: {
     paddingVertical: 6,
@@ -763,13 +1069,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   viewAllText: {
-    fontSize: 12,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
   },
-  // Event Card Styles
+  mapContainer: {
+    height: 440,
+    width: "100%",
+    borderRadius: BORDER_RADIUS.L,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  eventsSectionContainer: {
+    marginBottom: SPACING.M,
+  },
   eventCard: {
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: BORDER_RADIUS.L,
+    marginBottom: SPACING.M,
     overflow: "hidden",
     borderWidth: 1,
   },
@@ -778,17 +1094,17 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   eventCardContent: {
-    padding: 16,
+    padding: SPACING.M,
   },
   eventCardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: SPACING.S,
   },
   eventCardTitle: {
-    fontSize: 18,
-    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.M,
+    fontFamily: FONTS.SEMIBOLD,
     flex: 1,
     marginRight: 8,
   },
@@ -799,7 +1115,7 @@ const styles = StyleSheet.create({
   },
   eventCardBadgeText: {
     fontFamily: FONTS.MEDIUM,
-    fontSize: 12,
+    fontSize: FONT_SIZES.XS,
   },
   eventCardDetails: {
     gap: 8,
@@ -810,36 +1126,8 @@ const styles = StyleSheet.create({
   },
   eventCardDetailText: {
     fontFamily: FONTS.REGULAR,
-    fontSize: 14,
+    fontSize: FONT_SIZES.XS,
     marginLeft: 8,
-  },
-  // Floating Action Button
-  floatingButton: {
-    position: "absolute",
-    bottom: 30,
-    right: 30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
-    zIndex: 999,
-  },
-  fabTouchable: {
-    width: "100%",
-    height: "100%",
-  },
-  floatingButtonGradient: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
   },
 });
 

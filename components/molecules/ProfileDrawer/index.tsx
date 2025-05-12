@@ -1,7 +1,15 @@
-import { FONTS } from "@/app/theme";
+import {
+  BORDER_RADIUS,
+  COLORS,
+  FONTS,
+  FONT_SIZES,
+  SHADOWS,
+  SPACING,
+} from "@/app/theme";
 import { Button, Drawer, LanguageSelector } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Feather, FontAwesome } from "@expo/vector-icons";
+import { Feather, FontAwesome5 } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -21,7 +29,10 @@ import {
 } from "react-native";
 
 const DEFAULT_AVATAR = require("@/assets/images/bnb.png");
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+
+// Custom light theme accent color
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 interface ProfileDrawerProps {
   visible: boolean;
@@ -72,6 +83,22 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
+
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  // Helper function to get text color based on theme
+  const getTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
+
+  // Helper function to get secondary text color based on theme
+  const getSecondaryTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_SECONDARY : COLORS.LIGHT_TEXT_SECONDARY;
+
+  // Helper function to get icon color based on theme
+  const getIconColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
 
   // Reset state when drawer visibility changes
   useEffect(() => {
@@ -289,26 +316,41 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
       visible={visible}
       onClose={activeSection ? handleCancelEdit : onClose}
       position="right"
+      width={Platform.OS === "ios" ? "85%" : "90%"}
     >
       <SafeAreaView style={{ flex: 1 }}>
         {/* Fixed header with X button */}
         <View style={styles.header}>
           {activeSection ? (
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[
+                styles.closeButton,
+                {
+                  backgroundColor: isDarkMode
+                    ? "rgba(31, 41, 55, 0.7)"
+                    : "rgba(240, 240, 240, 0.9)",
+                },
+              ]}
               onPress={handleCancelEdit}
               activeOpacity={0.7}
               disabled={isSaving}
             >
-              <Feather name="x" size={24} color="white" />
+              <Feather name="x" size={22} color={getIconColor()} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={styles.closeButton}
+              style={[
+                styles.closeButton,
+                {
+                  backgroundColor: isDarkMode
+                    ? "rgba(31, 41, 55, 0.7)"
+                    : "rgba(240, 240, 240, 0.9)",
+                },
+              ]}
               onPress={onClose}
               activeOpacity={0.7}
             >
-              <Feather name="x" size={24} color="white" />
+              <Feather name="x" size={22} color={getIconColor()} />
             </TouchableOpacity>
           )}
         </View>
@@ -327,278 +369,785 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
             bounces={false}
           >
             {/* User Profile Header */}
-            <View style={styles.profileHeader}>
-              <View style={styles.avatarContainer}>
-                <Image
-                  source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
-                  style={styles.avatar}
-                />
-                {activeSection === "profile" && (
-                  <TouchableOpacity
-                    style={styles.changeAvatarButton}
-                    activeOpacity={0.8}
+            {!activeSection ? (
+              // View mode with large avatar
+              <View style={styles.profileHeaderLarge}>
+                <View style={styles.avatarContainerLarge}>
+                  <Image
+                    source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
+                    style={styles.avatarLarge}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={["transparent", "rgba(0, 0, 0, 0.7)"]}
+                    style={styles.avatarGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                  />
+                  <View style={styles.avatarInfoContainer}>
+                    <Text style={styles.userNameLarge}>{userName}</Text>
+                    <Text style={styles.professionalTitleLarge}>
+                      {professionalTitle}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.descriptionContainer}>
+                  <Text
+                    style={[
+                      styles.description,
+                      { color: getSecondaryTextColor() },
+                    ]}
                   >
-                    <View style={styles.changeAvatarIconContainer}>
-                      <Feather name="camera" size={18} color="white" />
-                    </View>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {activeSection === "profile" ? (
-                // Profile Edit Form
-                <View style={styles.formContainer}>
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Name</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        errors.userName ? styles.inputError : null,
-                      ]}
-                      value={editedUserName}
-                      onChangeText={setEditedUserName}
-                      placeholder="Your name"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    />
-                    {errors.userName ? (
-                      <Text style={styles.errorText}>{errors.userName}</Text>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Professional Title</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        errors.professionalTitle ? styles.inputError : null,
-                      ]}
-                      value={editedProfessionalTitle}
-                      onChangeText={setEditedProfessionalTitle}
-                      placeholder="Your professional title"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    />
-                    {errors.professionalTitle ? (
-                      <Text style={styles.errorText}>
-                        {errors.professionalTitle}
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>About You</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        styles.textareaInput,
-                        errors.description ? styles.inputError : null,
-                      ]}
-                      value={editedDescription}
-                      onChangeText={setEditedDescription}
-                      placeholder="Describe yourself"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      multiline
-                      numberOfLines={4}
-                      textAlignVertical="top"
-                    />
-                    {errors.description ? (
-                      <Text style={styles.errorText}>{errors.description}</Text>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.buttonContainer}>
-                    <Button
-                      variant={isDarkMode ? "indigo" : "primary"}
-                      title="Save"
-                      icon={
-                        <FontAwesome name="check" style={styles.saveIcon} />
-                      }
-                      onPress={handleSaveProfile}
-                      loading={isSaving}
-                    />
-                  </View>
-                </View>
-              ) : activeSection === "account" ? (
-                // Account Edit Form
-                <View style={styles.formContainer}>
-                  <View style={styles.inputContainer}>
-                    <Text style={styles.inputLabel}>Email</Text>
-                    <TextInput
-                      style={[
-                        styles.textInput,
-                        errors.email ? styles.inputError : null,
-                      ]}
-                      value={editedEmail}
-                      onChangeText={setEditedEmail}
-                      placeholder="Your email"
-                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                    />
-                    {errors.email ? (
-                      <Text style={styles.errorText}>{errors.email}</Text>
-                    ) : null}
-                  </View>
-
-                  <View style={styles.passwordSection}>
-                    <Text style={styles.sectionTitle}>Change Password</Text>
-
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>Current Password</Text>
-                      <TextInput
-                        style={[
-                          styles.textInput,
-                          errors.currentPassword ? styles.inputError : null,
-                        ]}
-                        value={currentPassword}
-                        onChangeText={setCurrentPassword}
-                        placeholder="Enter current password"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        secureTextEntry
-                      />
-                      {errors.currentPassword ? (
-                        <Text style={styles.errorText}>
-                          {errors.currentPassword}
-                        </Text>
-                      ) : null}
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>New Password</Text>
-                      <TextInput
-                        style={[
-                          styles.textInput,
-                          errors.newPassword ? styles.inputError : null,
-                        ]}
-                        value={newPassword}
-                        onChangeText={setNewPassword}
-                        placeholder="Enter new password"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        secureTextEntry
-                      />
-                      {errors.newPassword ? (
-                        <Text style={styles.errorText}>
-                          {errors.newPassword}
-                        </Text>
-                      ) : null}
-                    </View>
-
-                    <View style={styles.inputContainer}>
-                      <Text style={styles.inputLabel}>
-                        Confirm New Password
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.textInput,
-                          errors.confirmPassword ? styles.inputError : null,
-                        ]}
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        placeholder="Confirm new password"
-                        placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                        secureTextEntry
-                      />
-                      {errors.confirmPassword ? (
-                        <Text style={styles.errorText}>
-                          {errors.confirmPassword}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-
-                  <View style={styles.buttonContainer}>
-                    <Button
-                      variant={isDarkMode ? "indigo" : "primary"}
-                      title="Save"
-                      icon={
-                        <FontAwesome name="check" style={styles.saveIcon} />
-                      }
-                      onPress={handleSaveAccount}
-                      loading={isSaving}
-                    />
-                  </View>
-                </View>
-              ) : (
-                // View mode - show profile info
-                <>
-                  <Text style={styles.userName}>{userName}</Text>
-                  <Text style={styles.professionalTitle}>
-                    {professionalTitle}
+                    {description}
                   </Text>
-                  <Text style={styles.description}>{description}</Text>
-                </>
-              )}
-            </View>
+                </View>
+              </View>
+            ) : (
+              // Edit mode with standard profile header
+              <View
+                style={[
+                  styles.profileHeader,
+                  {
+                    borderBottomColor: isDarkMode
+                      ? "rgba(55, 65, 81, 0.5)"
+                      : "rgba(230, 234, 240, 0.8)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.avatarContainer,
+                    {
+                      borderColor: isDarkMode
+                        ? "rgba(55, 65, 81, 0.8)"
+                        : "rgba(230, 234, 240, 0.9)",
+                    },
+                  ]}
+                >
+                  <Image
+                    source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
+                    style={styles.avatar}
+                  />
+                  {activeSection === "profile" && (
+                    <TouchableOpacity
+                      style={[
+                        styles.changeAvatarButton,
+                        {
+                          backgroundColor: "rgba(0, 0, 0, 0.6)",
+                        },
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <View
+                        style={[
+                          styles.changeAvatarIconContainer,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(55, 65, 81, 0.7)"
+                              : "rgba(240, 240, 240, 0.9)",
+                          },
+                        ]}
+                      >
+                        <Feather
+                          name="camera"
+                          size={16}
+                          color={getIconColor()}
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Form Container */}
+                <View style={styles.formContainer}>
+                  {activeSection === "profile" ? (
+                    // Profile Edit Form
+                    <>
+                      <View style={styles.inputContainer}>
+                        <Text
+                          style={[
+                            styles.inputLabel,
+                            { color: getAccentColor() },
+                          ]}
+                        >
+                          Name
+                        </Text>
+                        <View
+                          style={[
+                            styles.inputWrapper,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(40, 45, 55, 0.65)"
+                                : "rgba(255, 255, 255, 0.65)",
+                              borderColor: isDarkMode
+                                ? errors.userName
+                                  ? COLORS.ERROR
+                                  : "rgba(255, 255, 255, 0.1)"
+                                : errors.userName
+                                ? COLORS.ERROR
+                                : "rgba(0, 0, 0, 0.05)",
+                              borderWidth: errors.userName ? 1 : 0.5,
+                            },
+                          ]}
+                        >
+                          <TextInput
+                            style={[styles.input, { color: getTextColor() }]}
+                            value={editedUserName}
+                            onChangeText={setEditedUserName}
+                            placeholder="Your name"
+                            placeholderTextColor={
+                              isDarkMode
+                                ? "rgba(255, 255, 255, 0.5)"
+                                : "rgba(0, 0, 0, 0.35)"
+                            }
+                          />
+                          {errors.userName ? null : (
+                            <View
+                              style={[
+                                styles.focusAccent,
+                                {
+                                  backgroundColor: getAccentColor(),
+                                },
+                              ]}
+                            />
+                          )}
+                        </View>
+                        {errors.userName ? (
+                          <Text
+                            style={[styles.errorText, { color: COLORS.ERROR }]}
+                          >
+                            {errors.userName}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.inputContainer}>
+                        <Text
+                          style={[
+                            styles.inputLabel,
+                            { color: getAccentColor() },
+                          ]}
+                        >
+                          Professional Title
+                        </Text>
+                        <View
+                          style={[
+                            styles.inputWrapper,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(40, 45, 55, 0.65)"
+                                : "rgba(255, 255, 255, 0.65)",
+                              borderColor: isDarkMode
+                                ? errors.professionalTitle
+                                  ? COLORS.ERROR
+                                  : "rgba(255, 255, 255, 0.1)"
+                                : errors.professionalTitle
+                                ? COLORS.ERROR
+                                : "rgba(0, 0, 0, 0.05)",
+                              borderWidth: errors.professionalTitle ? 1 : 0.5,
+                            },
+                          ]}
+                        >
+                          <TextInput
+                            style={[styles.input, { color: getTextColor() }]}
+                            value={editedProfessionalTitle}
+                            onChangeText={setEditedProfessionalTitle}
+                            placeholder="Your professional title"
+                            placeholderTextColor={
+                              isDarkMode
+                                ? "rgba(255, 255, 255, 0.5)"
+                                : "rgba(0, 0, 0, 0.35)"
+                            }
+                          />
+                          {errors.professionalTitle ? null : (
+                            <View
+                              style={[
+                                styles.focusAccent,
+                                {
+                                  backgroundColor: getAccentColor(),
+                                },
+                              ]}
+                            />
+                          )}
+                        </View>
+                        {errors.professionalTitle ? (
+                          <Text
+                            style={[styles.errorText, { color: COLORS.ERROR }]}
+                          >
+                            {errors.professionalTitle}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.inputContainer}>
+                        <Text
+                          style={[
+                            styles.inputLabel,
+                            { color: getAccentColor() },
+                          ]}
+                        >
+                          About You
+                        </Text>
+                        <View
+                          style={[
+                            styles.inputWrapper,
+                            styles.textareaWrapper,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(40, 45, 55, 0.65)"
+                                : "rgba(255, 255, 255, 0.65)",
+                              borderColor: isDarkMode
+                                ? errors.description
+                                  ? COLORS.ERROR
+                                  : "rgba(255, 255, 255, 0.1)"
+                                : errors.description
+                                ? COLORS.ERROR
+                                : "rgba(0, 0, 0, 0.05)",
+                              borderWidth: errors.description ? 1 : 0.5,
+                            },
+                          ]}
+                        >
+                          <TextInput
+                            style={[
+                              styles.input,
+                              styles.textareaInput,
+                              { color: getTextColor() },
+                            ]}
+                            value={editedDescription}
+                            onChangeText={setEditedDescription}
+                            placeholder="Describe yourself"
+                            placeholderTextColor={
+                              isDarkMode
+                                ? "rgba(255, 255, 255, 0.5)"
+                                : "rgba(0, 0, 0, 0.35)"
+                            }
+                            multiline
+                            numberOfLines={4}
+                            textAlignVertical="top"
+                          />
+                          {errors.description ? null : (
+                            <View
+                              style={[
+                                styles.focusAccent,
+                                {
+                                  backgroundColor: getAccentColor(),
+                                },
+                              ]}
+                            />
+                          )}
+                        </View>
+                        {errors.description ? (
+                          <Text
+                            style={[styles.errorText, { color: COLORS.ERROR }]}
+                          >
+                            {errors.description}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </>
+                  ) : activeSection === "account" ? (
+                    // Account Edit Form
+                    <>
+                      <View style={styles.inputContainer}>
+                        <Text
+                          style={[
+                            styles.inputLabel,
+                            { color: getAccentColor() },
+                          ]}
+                        >
+                          Email
+                        </Text>
+                        <View
+                          style={[
+                            styles.inputWrapper,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(40, 45, 55, 0.65)"
+                                : "rgba(255, 255, 255, 0.65)",
+                              borderColor: isDarkMode
+                                ? errors.email
+                                  ? COLORS.ERROR
+                                  : "rgba(255, 255, 255, 0.1)"
+                                : errors.email
+                                ? COLORS.ERROR
+                                : "rgba(0, 0, 0, 0.05)",
+                              borderWidth: errors.email ? 1 : 0.5,
+                            },
+                          ]}
+                        >
+                          <TextInput
+                            style={[styles.input, { color: getTextColor() }]}
+                            value={editedEmail}
+                            onChangeText={setEditedEmail}
+                            placeholder="Your email"
+                            placeholderTextColor={
+                              isDarkMode
+                                ? "rgba(255, 255, 255, 0.5)"
+                                : "rgba(0, 0, 0, 0.35)"
+                            }
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                          />
+                          {errors.email ? null : (
+                            <View
+                              style={[
+                                styles.focusAccent,
+                                {
+                                  backgroundColor: getAccentColor(),
+                                },
+                              ]}
+                            />
+                          )}
+                        </View>
+                        {errors.email ? (
+                          <Text
+                            style={[styles.errorText, { color: COLORS.ERROR }]}
+                          >
+                            {errors.email}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.passwordSection}>
+                        <Text
+                          style={[
+                            styles.sectionTitle,
+                            { color: getTextColor() },
+                          ]}
+                        >
+                          Change Password
+                        </Text>
+
+                        <View style={styles.inputContainer}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              { color: getAccentColor() },
+                            ]}
+                          >
+                            Current Password
+                          </Text>
+                          <View
+                            style={[
+                              styles.inputWrapper,
+                              {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(40, 45, 55, 0.65)"
+                                  : "rgba(255, 255, 255, 0.65)",
+                                borderColor: isDarkMode
+                                  ? errors.currentPassword
+                                    ? COLORS.ERROR
+                                    : "rgba(255, 255, 255, 0.1)"
+                                  : errors.currentPassword
+                                  ? COLORS.ERROR
+                                  : "rgba(0, 0, 0, 0.05)",
+                                borderWidth: errors.currentPassword ? 1 : 0.5,
+                              },
+                            ]}
+                          >
+                            <TextInput
+                              style={[styles.input, { color: getTextColor() }]}
+                              value={currentPassword}
+                              onChangeText={setCurrentPassword}
+                              placeholder="Enter current password"
+                              placeholderTextColor={
+                                isDarkMode
+                                  ? "rgba(255, 255, 255, 0.5)"
+                                  : "rgba(0, 0, 0, 0.35)"
+                              }
+                              secureTextEntry
+                            />
+                            {errors.currentPassword ? null : (
+                              <View
+                                style={[
+                                  styles.focusAccent,
+                                  {
+                                    backgroundColor: getAccentColor(),
+                                  },
+                                ]}
+                              />
+                            )}
+                          </View>
+                          {errors.currentPassword ? (
+                            <Text
+                              style={[
+                                styles.errorText,
+                                { color: COLORS.ERROR },
+                              ]}
+                            >
+                              {errors.currentPassword}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              { color: getAccentColor() },
+                            ]}
+                          >
+                            New Password
+                          </Text>
+                          <View
+                            style={[
+                              styles.inputWrapper,
+                              {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(40, 45, 55, 0.65)"
+                                  : "rgba(255, 255, 255, 0.65)",
+                                borderColor: isDarkMode
+                                  ? errors.newPassword
+                                    ? COLORS.ERROR
+                                    : "rgba(255, 255, 255, 0.1)"
+                                  : errors.newPassword
+                                  ? COLORS.ERROR
+                                  : "rgba(0, 0, 0, 0.05)",
+                                borderWidth: errors.newPassword ? 1 : 0.5,
+                              },
+                            ]}
+                          >
+                            <TextInput
+                              style={[styles.input, { color: getTextColor() }]}
+                              value={newPassword}
+                              onChangeText={setNewPassword}
+                              placeholder="Enter new password"
+                              placeholderTextColor={
+                                isDarkMode
+                                  ? "rgba(255, 255, 255, 0.5)"
+                                  : "rgba(0, 0, 0, 0.35)"
+                              }
+                              secureTextEntry
+                            />
+                            {errors.newPassword ? null : (
+                              <View
+                                style={[
+                                  styles.focusAccent,
+                                  {
+                                    backgroundColor: getAccentColor(),
+                                  },
+                                ]}
+                              />
+                            )}
+                          </View>
+                          {errors.newPassword ? (
+                            <Text
+                              style={[
+                                styles.errorText,
+                                { color: COLORS.ERROR },
+                              ]}
+                            >
+                              {errors.newPassword}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <View style={styles.inputContainer}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              { color: getAccentColor() },
+                            ]}
+                          >
+                            Confirm New Password
+                          </Text>
+                          <View
+                            style={[
+                              styles.inputWrapper,
+                              {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(40, 45, 55, 0.65)"
+                                  : "rgba(255, 255, 255, 0.65)",
+                                borderColor: isDarkMode
+                                  ? errors.confirmPassword
+                                    ? COLORS.ERROR
+                                    : "rgba(255, 255, 255, 0.1)"
+                                  : errors.confirmPassword
+                                  ? COLORS.ERROR
+                                  : "rgba(0, 0, 0, 0.05)",
+                                borderWidth: errors.confirmPassword ? 1 : 0.5,
+                              },
+                            ]}
+                          >
+                            <TextInput
+                              style={[styles.input, { color: getTextColor() }]}
+                              value={confirmPassword}
+                              onChangeText={setConfirmPassword}
+                              placeholder="Confirm new password"
+                              placeholderTextColor={
+                                isDarkMode
+                                  ? "rgba(255, 255, 255, 0.5)"
+                                  : "rgba(0, 0, 0, 0.35)"
+                              }
+                              secureTextEntry
+                            />
+                            {errors.confirmPassword ? null : (
+                              <View
+                                style={[
+                                  styles.focusAccent,
+                                  {
+                                    backgroundColor: getAccentColor(),
+                                  },
+                                ]}
+                              />
+                            )}
+                          </View>
+                          {errors.confirmPassword ? (
+                            <Text
+                              style={[
+                                styles.errorText,
+                                { color: COLORS.ERROR },
+                              ]}
+                            >
+                              {errors.confirmPassword}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    </>
+                  ) : null}
+                </View>
+              </View>
+            )}
+
+            {/* Save Button for Edit Modes */}
+            {activeSection && (
+              <View style={styles.buttonContainer}>
+                <Button
+                  variant={isDarkMode ? "primary" : "secondary"}
+                  title="Save Changes"
+                  icon={
+                    <FontAwesome5
+                      name="check"
+                      size={14}
+                      color="white"
+                      style={{ marginRight: SPACING.S }}
+                    />
+                  }
+                  onPress={
+                    activeSection === "profile"
+                      ? handleSaveProfile
+                      : handleSaveAccount
+                  }
+                  loading={isSaving}
+                  small={true}
+                />
+              </View>
+            )}
 
             {/* Settings Section */}
             {!activeSection && (
               <View style={styles.settingsContainer}>
+                <Text style={[styles.settingsTitle, { color: getTextColor() }]}>
+                  Settings
+                </Text>
+
                 <TouchableOpacity
-                  style={styles.settingButton}
+                  style={[
+                    styles.settingButton,
+                    {
+                      borderBottomColor: isDarkMode
+                        ? "rgba(55, 65, 81, 0.5)"
+                        : "rgba(230, 234, 240, 0.8)",
+                    },
+                  ]}
                   onPress={handleEditProfile}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.settingIconContainer}>
-                    <Feather name="user" size={20} color="white" />
+                  <View
+                    style={[
+                      styles.settingIconContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(31, 41, 55, 0.7)"
+                          : "rgba(240, 240, 240, 0.9)",
+                      },
+                    ]}
+                  >
+                    <Feather name="user" size={18} color={getIconColor()} />
                   </View>
-                  <Text style={styles.settingButtonText}>Edit Profile</Text>
+                  <Text
+                    style={[
+                      styles.settingButtonText,
+                      { color: getTextColor() },
+                    ]}
+                  >
+                    Edit Profile
+                  </Text>
                   <Feather
                     name="chevron-right"
                     size={18}
-                    color="rgba(255, 255, 255, 0.5)"
+                    color={getSecondaryTextColor()}
                   />
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={styles.settingButton}
+                  style={[
+                    styles.settingButton,
+                    {
+                      borderBottomColor: isDarkMode
+                        ? "rgba(55, 65, 81, 0.5)"
+                        : "rgba(230, 234, 240, 0.8)",
+                    },
+                  ]}
                   onPress={handleEditAccount}
-                  activeOpacity={0.8}
+                  activeOpacity={0.7}
                 >
-                  <View style={styles.settingIconContainer}>
-                    <Feather name="lock" size={20} color="white" />
+                  <View
+                    style={[
+                      styles.settingIconContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(31, 41, 55, 0.7)"
+                          : "rgba(240, 240, 240, 0.9)",
+                      },
+                    ]}
+                  >
+                    <Feather name="lock" size={18} color={getIconColor()} />
                   </View>
-                  <Text style={styles.settingButtonText}>Account Settings</Text>
+                  <Text
+                    style={[
+                      styles.settingButtonText,
+                      { color: getTextColor() },
+                    ]}
+                  >
+                    Account Settings
+                  </Text>
                   <Feather
                     name="chevron-right"
                     size={18}
-                    color="rgba(255, 255, 255, 0.5)"
+                    color={getSecondaryTextColor()}
                   />
                 </TouchableOpacity>
 
-                <LanguageSelector
-                  currentLanguage={currentLanguage}
-                  onLanguageChange={onLanguageChange}
-                />
-
-                <View style={[styles.settingButton, styles.darkModeContainer]}>
-                  <View style={styles.settingIconContainer}>
-                    <Feather name="moon" size={20} color="white" />
+                {/* Language Setting */}
+                <View
+                  style={[
+                    styles.settingButton,
+                    {
+                      borderBottomColor: isDarkMode
+                        ? "rgba(55, 65, 81, 0.5)"
+                        : "rgba(230, 234, 240, 0.8)",
+                      borderBottomWidth: 0, // Remove bottom border for language section
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.settingIconContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(31, 41, 55, 0.7)"
+                          : "rgba(240, 240, 240, 0.9)",
+                      },
+                    ]}
+                  >
+                    <Feather name="globe" size={18} color={getIconColor()} />
                   </View>
-                  <Text style={styles.settingButtonText}>Dark Mode</Text>
+                  <Text
+                    style={[
+                      styles.settingButtonText,
+                      { color: getTextColor() },
+                    ]}
+                  >
+                    Language
+                  </Text>
+                </View>
+
+                {/* Language Selector */}
+                <View style={styles.languageSelectorWrapper}>
+                  <LanguageSelector
+                    currentLanguage={currentLanguage}
+                    onLanguageChange={onLanguageChange}
+                    hideLabel={true} // Hide label since we already have one
+                  />
+                </View>
+
+                {/* Dark Mode Toggle */}
+                <View
+                  style={[
+                    styles.settingButton,
+                    {
+                      borderBottomColor: isDarkMode
+                        ? "rgba(55, 65, 81, 0.5)"
+                        : "rgba(230, 234, 240, 0.8)",
+                      marginTop: SPACING.S, // Add margin after language
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.settingIconContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(31, 41, 55, 0.7)"
+                          : "rgba(240, 240, 240, 0.9)",
+                      },
+                    ]}
+                  >
+                    <Feather name="moon" size={18} color={getIconColor()} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.settingButtonText,
+                      { color: getTextColor() },
+                    ]}
+                  >
+                    Dark Mode
+                  </Text>
                   <Switch
                     value={isDarkMode}
                     onValueChange={toggleTheme}
                     trackColor={{
-                      false: "rgba(255, 255, 255, 0.3)",
-                      true: "rgba(127, 0, 255, 0.6)",
+                      false: "rgba(155, 155, 155, 0.3)",
+                      true: isDarkMode
+                        ? "rgba(127, 0, 255, 0.4)"
+                        : "rgba(255, 0, 153, 0.4)",
                     }}
-                    thumbColor={isDarkMode ? "#7F00FF" : "#fff"}
-                    ios_backgroundColor="rgba(255, 255, 255, 0.3)"
+                    thumbColor={
+                      isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT
+                    }
+                    ios_backgroundColor={
+                      isDarkMode
+                        ? "rgba(55, 65, 81, 0.5)"
+                        : "rgba(155, 155, 155, 0.3)"
+                    }
                   />
                 </View>
 
+                {/* Logout Button */}
                 <TouchableOpacity
                   style={[styles.settingButton, styles.logoutButton]}
                   onPress={handleLogout}
                   activeOpacity={0.7}
                 >
-                  <View style={styles.settingIconContainer}>
-                    <Feather name="log-out" size={20} color="#FF4D4D" />
+                  <View
+                    style={[
+                      styles.settingIconContainer,
+                      {
+                        backgroundColor: "rgba(255, 77, 77, 0.1)",
+                        borderColor: "rgba(255, 77, 77, 0.2)",
+                        borderWidth: 1,
+                      },
+                    ]}
+                  >
+                    <Feather name="log-out" size={18} color="#FF4D4D" />
                   </View>
                   <Text style={styles.logoutText}>Logout</Text>
                 </TouchableOpacity>
 
-                {/* Add some extra padding at the bottom for better scrolling on small screens */}
-                <View style={{ height: 40 }} />
+                {/* Version info */}
+                <View style={styles.versionContainer}>
+                  <Text
+                    style={[
+                      styles.versionText,
+                      { color: getSecondaryTextColor() },
+                    ]}
+                  >
+                    App Version 1.0.0
+                  </Text>
+                </View>
               </View>
             )}
           </ScrollView>
@@ -611,43 +1160,89 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 const styles = StyleSheet.create({
   header: {
     height: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.M,
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
     zIndex: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: BORDER_RADIUS.CIRCLE,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    ...SHADOWS.SMALL,
   },
   content: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: SCREEN_HEIGHT < 700 ? 100 : 40, // Extra padding for small screens
+    paddingBottom: SPACING.XL,
   },
+  // Large profile header (view mode)
+  profileHeaderLarge: {
+    alignItems: "center",
+    marginBottom: SPACING.M,
+  },
+  avatarContainerLarge: {
+    width: "100%",
+    height: SCREEN_HEIGHT * 0.3,
+    position: "relative",
+  },
+  avatarLarge: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "50%",
+  },
+  avatarInfoContainer: {
+    position: "absolute",
+    bottom: SPACING.M,
+    left: SPACING.M,
+    right: SPACING.M,
+  },
+  userNameLarge: {
+    fontSize: FONT_SIZES.XXL,
+    fontFamily: FONTS.BOLD,
+    color: COLORS.WHITE,
+    marginBottom: SPACING.XS,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  professionalTitleLarge: {
+    fontSize: FONT_SIZES.M,
+    fontFamily: FONTS.MEDIUM,
+    color: "rgba(255, 255, 255, 0.9)",
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  descriptionContainer: {
+    padding: SPACING.M,
+  },
+  // Standard profile header (edit mode)
   profileHeader: {
     alignItems: "center",
-    padding: 24,
+    padding: SPACING.M,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: SPACING.M,
   },
   avatarContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
     overflow: "hidden",
-    marginBottom: 16,
+    marginBottom: SPACING.M,
     position: "relative",
+    ...SHADOWS.SMALL,
   },
   avatar: {
     width: "100%",
@@ -658,133 +1253,153 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     left: 0,
-    height: 40,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    height: 36,
     justifyContent: "center",
     alignItems: "center",
   },
   changeAvatarIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
   },
   userName: {
-    fontSize: 22,
+    fontSize: FONT_SIZES.L,
     fontFamily: FONTS.BOLD,
-    color: "white",
-    marginBottom: 6,
+    marginBottom: SPACING.XS,
   },
   professionalTitle: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.S,
     fontFamily: FONTS.MEDIUM,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 12,
+    marginBottom: SPACING.S,
   },
   description: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.S,
     fontFamily: FONTS.REGULAR,
-    color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
     lineHeight: 20,
-    marginBottom: 10,
   },
   settingsContainer: {
-    padding: 16,
+    padding: SPACING.M,
+  },
+  settingsTitle: {
+    fontSize: FONT_SIZES.L,
+    fontFamily: FONTS.SEMIBOLD,
+    marginBottom: SPACING.M,
   },
   settingButton: {
     flexDirection: "row",
     alignItems: "center",
-    height: 56,
-    paddingHorizontal: 16,
+    height: 50,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: SPACING.M,
   },
   settingIconContainer: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: BORDER_RADIUS.CIRCLE,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: SPACING.M,
+  },
+  languageSelectorWrapper: {
+    paddingHorizontal: SPACING.S,
+    marginTop: 5,
+    marginBottom: SPACING.M,
   },
   settingButtonText: {
     flex: 1,
-    fontSize: 16,
-    fontFamily: FONTS.REGULAR,
-    color: "white",
-  },
-  darkModeContainer: {
-    marginTop: 16,
+    fontSize: FONT_SIZES.S,
+    fontFamily: FONTS.MEDIUM,
   },
   logoutButton: {
-    marginTop: 16,
     borderBottomWidth: 0,
+    marginTop: SPACING.L,
   },
   logoutText: {
     flex: 1,
-    fontSize: 16,
-    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.S,
+    fontFamily: FONTS.SEMIBOLD,
     color: "#FF4D4D",
   },
+  versionContainer: {
+    alignItems: "center",
+    marginTop: SPACING.XL,
+  },
+  versionText: {
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.REGULAR,
+  },
+  // Form styles
   formContainer: {
     width: "100%",
-    marginTop: 10,
+    marginTop: SPACING.S,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: SPACING.M,
     width: "100%",
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
-    color: "white",
-    marginBottom: 8,
+    marginBottom: SPACING.XS,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  textInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 8,
-    padding: 12,
-    color: "white",
+  inputWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 40,
+    borderRadius: BORDER_RADIUS.L,
+    overflow: "hidden",
+    position: "relative",
+  },
+  textareaWrapper: {
+    height: 120,
+    alignItems: "flex-start",
+  },
+  focusAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
+    height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
+  },
+  input: {
+    flex: 1,
+    height: "100%",
+    paddingHorizontal: SPACING.M,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   textareaInput: {
-    minHeight: 100,
+    paddingTop: SPACING.S,
+    height: "100%",
     textAlignVertical: "top",
   },
-  inputError: {
-    borderColor: "rgba(255, 100, 100, 0.7)",
-  },
   errorText: {
-    color: "rgba(255, 100, 100, 0.9)",
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: FONT_SIZES.XS,
+    marginTop: SPACING.XS,
+    paddingHorizontal: SPACING.XS,
     fontFamily: FONTS.REGULAR,
   },
   passwordSection: {
     width: "100%",
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: SPACING.M,
+    marginBottom: SPACING.M,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontFamily: FONTS.MEDIUM,
-    color: "white",
-    marginBottom: 16,
-    marginTop: 8,
+    fontSize: FONT_SIZES.M,
+    fontFamily: FONTS.SEMIBOLD,
+    marginBottom: SPACING.M,
   },
   buttonContainer: {
-    marginVertical: 20,
-  },
-  saveIcon: {
-    color: "white",
-    marginRight: 8,
+    marginHorizontal: SPACING.M,
+    marginTop: SPACING.S,
+    marginBottom: SPACING.M,
   },
 });
 

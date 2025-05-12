@@ -1,6 +1,6 @@
-import { FONTS } from "@/app/theme";
+import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
+import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -8,6 +8,7 @@ import {
   Easing,
   LayoutAnimation,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextStyle,
@@ -38,6 +39,8 @@ interface DropdownProps {
   containerStyle?: ViewStyle;
   labelStyle?: TextStyle;
   error?: string;
+  icon?: React.ReactNode;
+  maxHeight?: number; // Optional prop to control max height
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -49,16 +52,77 @@ const Dropdown: React.FC<DropdownProps> = ({
   containerStyle,
   labelStyle,
   error,
+  icon,
+  maxHeight,
 }) => {
+  const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
-  const [dropdownHeight, setDropdownHeight] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const dropdownOpacity = useRef(new Animated.Value(0)).current;
+  const dropdownTranslateY = useRef(new Animated.Value(-10)).current;
   const dropdownRef = useRef<View>(null);
-  const windowHeight = Dimensions.get("window").height;
+  const { height: windowHeight, width: windowWidth } = Dimensions.get("window");
 
-  // Determine max height for dropdown options list
-  const maxHeight = Math.min(300, windowHeight * 0.4);
+  // Position tracking to handle dropdowns near bottom of screen
+  const [triggerLayout, setTriggerLayout] = useState({
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    pageY: 0,
+  });
+
+  // Custom light theme accent color (matching the Input component)
+  const LIGHT_THEME_ACCENT = "#FF0099";
+
+  // Determine max height for dropdown options list - default to 60% of screen height if not specified
+  const dropdownMaxHeight = maxHeight || Math.min(300, windowHeight * 0.4);
+
+  // Calculate if dropdown would go off screen bottom
+  const wouldExceedBottom =
+    triggerLayout.pageY + triggerLayout.height + dropdownMaxHeight >
+    windowHeight;
+
+  // Theme-based styles (matching Input component)
+  const getTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
+
+  const getPlaceholderColor = () =>
+    isDarkMode ? "rgba(255, 255, 255, 0.5)" : "rgba(0, 0, 0, 0.35)";
+
+  const getLabelColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  const getBackgroundColor = () =>
+    isDarkMode
+      ? isFocused || isOpen
+        ? "rgba(40, 45, 55, 0.65)"
+        : "rgba(30, 35, 45, 0.5)"
+      : isFocused || isOpen
+      ? "rgba(255, 255, 255, 0.65)"
+      : "rgba(255, 255, 255, 0.5)";
+
+  const getBorderColor = () =>
+    isDarkMode
+      ? isFocused || isOpen
+        ? COLORS.SECONDARY
+        : "rgba(255, 255, 255, 0.1)"
+      : isFocused || isOpen
+      ? LIGHT_THEME_ACCENT
+      : "rgba(0, 0, 0, 0.05)";
+
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  const getOptionsBgColor = () =>
+    isDarkMode ? "rgba(30, 35, 45, 0.95)" : "rgba(255, 255, 255, 0.95)";
+
+  const getOptionBorderColor = () =>
+    isDarkMode ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.05)";
+
+  const getSelectedOptionBgColor = () =>
+    isDarkMode ? "rgba(55, 65, 81, 0.7)" : "rgba(240, 240, 240, 0.7)";
 
   // Animation config
   const animationConfig = {
@@ -66,24 +130,18 @@ const Dropdown: React.FC<DropdownProps> = ({
     easing: Easing.bezier(0.25, 0.1, 0.25, 1),
   };
 
-  useEffect(() => {
-    // Calculate content height based on options
-    // Limit height if there are many options
-    const contentHeight = Math.min(options.length * 50, maxHeight);
-    setDropdownHeight(contentHeight);
-  }, [options, maxHeight]);
-
-  // Set initial height calculation
-  useEffect(() => {
-    // Give a minimum height for the dropdown
-    const initialHeight = Math.min(
-      Math.max(options.length * 50, 150),
-      maxHeight
-    );
-    setDropdownHeight(initialHeight);
-  }, []);
-
   const toggleDropdown = () => {
+    // Get position of trigger for positioning the dropdown
+    dropdownRef.current?.measure((x, y, width, height, pageX, pageY) => {
+      setTriggerLayout({
+        x: pageX,
+        y: pageY,
+        width,
+        height,
+        pageY,
+      });
+    });
+
     // Configure animation
     LayoutAnimation.configureNext({
       duration: 200,
@@ -94,6 +152,7 @@ const Dropdown: React.FC<DropdownProps> = ({
 
     // Toggle dropdown state
     setIsOpen(!isOpen);
+    setIsFocused(!isOpen);
 
     // Animate the chevron rotation
     Animated.timing(rotateAnim, {
@@ -103,13 +162,40 @@ const Dropdown: React.FC<DropdownProps> = ({
       useNativeDriver: true,
     }).start();
 
-    // Animate dropdown opacity
-    Animated.timing(dropdownOpacity, {
-      toValue: isOpen ? 0 : 1,
-      duration: animationConfig.duration,
-      easing: animationConfig.easing,
-      useNativeDriver: true,
-    }).start();
+    // Animate dropdown appearance
+    if (!isOpen) {
+      // Opening
+      Animated.parallel([
+        Animated.timing(dropdownOpacity, {
+          toValue: 1,
+          duration: animationConfig.duration,
+          easing: animationConfig.easing,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownTranslateY, {
+          toValue: 0,
+          duration: animationConfig.duration,
+          easing: animationConfig.easing,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      // Closing
+      Animated.parallel([
+        Animated.timing(dropdownOpacity, {
+          toValue: 0,
+          duration: animationConfig.duration,
+          easing: animationConfig.easing,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownTranslateY, {
+          toValue: -10,
+          duration: animationConfig.duration,
+          easing: animationConfig.easing,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
   };
 
   const handleSelect = (option: DropdownOption) => {
@@ -125,38 +211,103 @@ const Dropdown: React.FC<DropdownProps> = ({
 
   // Handle outside click to close dropdown
   useEffect(() => {
-    const handleOutsideClick = () => {
-      if (isOpen) {
-        toggleDropdown();
-      }
-    };
-
-    // Setup event listeners (you would need to adapt this for React Native)
-    // This is just a placeholder for the concept
-    return () => {
-      // Cleanup event listeners
-    };
+    if (!isOpen) {
+      setIsFocused(false);
+    }
   }, [isOpen]);
 
+  // Handle the dropdown position - show above if near bottom of screen
+  const getDropdownPosition = () => {
+    if (wouldExceedBottom) {
+      // Position above the trigger
+      return {
+        bottom: label ? 65 : 45, // Account for the height of the input + label if present
+        maxHeight: dropdownMaxHeight,
+      };
+    } else {
+      // Position below the trigger
+      return {
+        top: label ? 65 : 45, // Account for the height of the input + label if present
+        maxHeight: dropdownMaxHeight,
+      };
+    }
+  };
+
   return (
-    <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, labelStyle]}>{label}</Text>}
+    <View style={[styles.inputContainer, containerStyle]}>
+      {label && (
+        <Text
+          style={[styles.inputLabel, { color: getLabelColor() }, labelStyle]}
+        >
+          {label}
+        </Text>
+      )}
 
       {/* Dropdown trigger button */}
-      <TouchableOpacity
-        activeOpacity={0.7}
-        style={[styles.dropdownTrigger, error && styles.dropdownTriggerError]}
-        onPress={toggleDropdown}
+      <View
+        ref={dropdownRef}
+        style={[
+          styles.inputWrapper,
+          {
+            backgroundColor: getBackgroundColor(),
+            borderColor: getBorderColor(),
+            borderWidth: isFocused || isOpen ? 1 : 0.5,
+          },
+          error && styles.inputWrapperError,
+        ]}
       >
-        <Text style={[styles.selectedText, !value && styles.placeholderText]}>
-          {value ? value.label : placeholder}
-        </Text>
-        <Animated.View style={{ transform: [{ rotate }] }}>
-          <FontAwesome name="chevron-down" size={16} color="white" />
-        </Animated.View>
-      </TouchableOpacity>
+        {icon && <View style={styles.iconContainer}>{icon}</View>}
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.dropdownTrigger}
+          onPress={toggleDropdown}
+        >
+          <Text
+            style={[
+              styles.selectedText,
+              { color: getTextColor() },
+              !value && { color: getPlaceholderColor() },
+            ]}
+          >
+            {value ? value.label : placeholder}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.dropdownChevron}
+          onPress={toggleDropdown}
+          accessibilityLabel="Toggle dropdown"
+        >
+          <Animated.View style={{ transform: [{ rotate }] }}>
+            <FontAwesome
+              name="chevron-down"
+              size={14}
+              color={
+                isDarkMode
+                  ? COLORS.DARK_TEXT_SECONDARY
+                  : COLORS.LIGHT_TEXT_SECONDARY
+              }
+            />
+          </Animated.View>
+        </TouchableOpacity>
+
+        {/* Accent indicator for focused state */}
+        {(isFocused || isOpen) && (
+          <View
+            style={[
+              styles.focusAccent,
+              {
+                backgroundColor: getAccentColor(),
+              },
+            ]}
+          />
+        )}
+      </View>
+
+      {error && (
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
+      )}
 
       {/* Dropdown options container */}
       {isOpen && (
@@ -165,38 +316,48 @@ const Dropdown: React.FC<DropdownProps> = ({
             styles.dropdownOptionsContainer,
             {
               opacity: dropdownOpacity,
-              maxHeight: dropdownHeight,
-              top: label ? 80 : 56,
+              transform: [{ translateY: dropdownTranslateY }],
+              backgroundColor: getOptionsBgColor(),
+              borderColor: getOptionBorderColor(),
+              ...getDropdownPosition(),
             },
           ]}
         >
-          <LinearGradient
-            colors={["#7F00FF", "#E100FF"]}
-            style={styles.optionsGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+          <ScrollView
+            style={styles.scrollView}
+            nestedScrollEnabled={true}
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={styles.scrollViewContent}
           >
-            <View style={styles.optionsInnerContainer}>
-              {options.map((option, index) => (
-                <TouchableOpacity
-                  key={option.value}
-                  style={[
-                    styles.optionItem,
-                    value?.value === option.value && styles.selectedOption,
-                    index === options.length - 1 && styles.lastOptionItem,
-                  ]}
-                  onPress={() => {
-                    handleSelect(option);
-                  }}
-                >
-                  <Text style={styles.optionText}>{option.label}</Text>
-                  {value?.value === option.value && (
-                    <FontAwesome name="check" size={16} color="white" />
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </LinearGradient>
+            {options.map((option, index) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.optionItem,
+                  {
+                    borderBottomColor: getOptionBorderColor(),
+                  },
+                  value?.value === option.value && {
+                    backgroundColor: getSelectedOptionBgColor(),
+                  },
+                  index === options.length - 1 && styles.lastOptionItem,
+                ]}
+                onPress={() => handleSelect(option)}
+              >
+                <Text style={[styles.optionText, { color: getTextColor() }]}>
+                  {option.label}
+                </Text>
+
+                {value?.value === option.value && (
+                  <FontAwesome
+                    name="check"
+                    size={14}
+                    color={getAccentColor()}
+                  />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </Animated.View>
       )}
     </View>
@@ -204,84 +365,102 @@ const Dropdown: React.FC<DropdownProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 16,
+  inputContainer: {
+    marginBottom: SPACING.M,
     width: "100%",
     position: "relative",
+    zIndex: 100,
   },
-  label: {
-    fontSize: 16,
+  inputLabel: {
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
-    color: "white",
-    marginBottom: 8,
+    marginBottom: SPACING.XS,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
-  dropdownTrigger: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 12,
+  inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    height: 56,
-    paddingHorizontal: 16,
+    height: 40,
+    borderRadius: BORDER_RADIUS.L,
+    overflow: "hidden",
+    position: "relative",
   },
-  dropdownTriggerError: {
+  focusAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
+    height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
+  },
+  inputWrapperError: {
     borderWidth: 1,
-    borderColor: "rgba(255, 100, 100, 0.7)",
+    borderColor: COLORS.ERROR,
+  },
+  iconContainer: {
+    paddingHorizontal: SPACING.M,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dropdownTrigger: {
+    flex: 1,
+    height: "100%",
+    justifyContent: "center",
+    paddingHorizontal: SPACING.M,
+  },
+  dropdownChevron: {
+    paddingHorizontal: SPACING.M,
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
   },
   selectedText: {
-    color: "white",
-    fontSize: 16,
+    fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
   },
-  placeholderText: {
-    color: "rgba(255, 255, 255, 0.6)",
-  },
   errorText: {
-    color: "rgba(255, 100, 100, 0.9)",
-    fontSize: 12,
-    marginTop: 4,
-    paddingHorizontal: 4,
+    fontSize: FONT_SIZES.XS,
+    marginTop: SPACING.XS,
+    paddingHorizontal: SPACING.XS,
     fontFamily: FONTS.REGULAR,
   },
   dropdownOptionsContainer: {
     position: "absolute",
     left: 0,
     right: 0,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.L,
     overflow: "hidden",
     zIndex: 999,
-    elevation: 5,
+    borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  optionsGradient: {
+  scrollView: {
     width: "100%",
-    height: "100%",
   },
-  optionsInnerContainer: {
-    width: "100%",
+  scrollViewContent: {
+    flexGrow: 1,
   },
   optionItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.15)",
+    paddingVertical: SPACING.S,
+    paddingHorizontal: SPACING.M,
+    borderBottomWidth: 0.5,
   },
   lastOptionItem: {
     borderBottomWidth: 0,
   },
-  selectedOption: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
   optionText: {
-    color: "white",
-    fontSize: 16,
-    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.REGULAR,
   },
 });
 

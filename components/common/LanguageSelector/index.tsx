@@ -1,4 +1,4 @@
-import { FONTS, THEME } from "@/app/theme";
+import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import React from "react";
 import {
@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ViewStyle,
 } from "react-native";
 
 // Flag images - update with your actual flag paths
@@ -19,26 +20,44 @@ const FLAGS = {
   FR: require("@/assets/images/flags/fr.png"),
 };
 
-// Language options
-const languageOptions = [
-  { code: "EN", name: "English" },
-  { code: "PL", name: "Polski" },
-  { code: "DE", name: "Deutsch" },
-  { code: "ES", name: "Español" },
-  { code: "FR", name: "Français" },
-];
+// Custom light theme accent color
+const LIGHT_THEME_ACCENT = "#FF0099";
 
 interface LanguageSelectorProps {
-  currentLanguage: string;
+  currentLanguage?: string;
   onLanguageChange?: (language: string) => void;
+  containerStyle?: ViewStyle;
+  hideLabel?: boolean;
 }
 
 const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   currentLanguage = "EN",
   onLanguageChange,
+  containerStyle,
+  hideLabel = false,
 }) => {
   const { isDarkMode } = useTheme();
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
+
+  // Helper function to get accent color based on theme
+  const getAccentColor = () =>
+    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  // Helper function to get text color based on theme
+  const getTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
+
+  // Helper function to get secondary text color based on theme
+  const getSecondaryTextColor = () =>
+    isDarkMode ? COLORS.DARK_TEXT_SECONDARY : COLORS.LIGHT_TEXT_SECONDARY;
+
+  // Language options
+  const languageOptions = [
+    { code: "EN", name: "English" },
+    { code: "PL", name: "Polski" },
+    { code: "DE", name: "Deutsch" },
+    { code: "ES", name: "Español" },
+    { code: "FR", name: "Français" },
+  ];
 
   const handleLanguageSelect = (languageCode: string) => {
     if (onLanguageChange) {
@@ -47,8 +66,12 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Language</Text>
+    <View style={[styles.container, containerStyle]}>
+      {!hideLabel && (
+        <Text style={[styles.sectionTitle, { color: getTextColor() }]}>
+          Language
+        </Text>
+      )}
 
       <ScrollView
         horizontal
@@ -60,12 +83,21 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
             key={language.code}
             style={[
               styles.languageItem,
-              currentLanguage === language.code && styles.selectedLanguageItem,
               {
+                backgroundColor:
+                  currentLanguage === language.code
+                    ? isDarkMode
+                      ? "rgba(127, 0, 255, 0.2)"
+                      : "rgba(255, 0, 153, 0.1)"
+                    : isDarkMode
+                    ? "rgba(31, 41, 55, 0.7)"
+                    : "rgba(240, 240, 240, 0.9)",
                 borderColor:
                   currentLanguage === language.code
-                    ? "#7F00FF"
-                    : "rgba(255, 255, 255, 0.2)",
+                    ? getAccentColor()
+                    : isDarkMode
+                    ? "rgba(55, 65, 81, 0.5)"
+                    : "rgba(230, 234, 240, 0.8)",
               },
             ]}
             onPress={() => handleLanguageSelect(language.code)}
@@ -76,7 +108,23 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
               style={styles.flagImage}
               resizeMode="cover"
             />
-            <Text style={styles.languageCode}>{language.code}</Text>
+            <Text
+              style={[
+                styles.languageCode,
+                {
+                  color:
+                    currentLanguage === language.code
+                      ? getAccentColor()
+                      : getTextColor(),
+                  fontFamily:
+                    currentLanguage === language.code
+                      ? FONTS.BOLD
+                      : FONTS.MEDIUM,
+                },
+              ]}
+            >
+              {language.code}
+            </Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -86,45 +134,36 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    width: "100%",
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: FONT_SIZES.S,
     fontFamily: FONTS.MEDIUM,
-    color: "white",
-    marginBottom: 16,
-    paddingHorizontal: 16,
+    marginBottom: SPACING.M,
+    marginLeft: SPACING.XS,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingBottom: SPACING.XS,
   },
   languageItem: {
     width: 66,
     height: 80,
-    marginRight: 12,
-    borderRadius: 12,
+    marginRight: SPACING.S,
+    borderRadius: BORDER_RADIUS.M,
     borderWidth: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-    padding: 10,
-  },
-  selectedLanguageItem: {
-    backgroundColor: "rgba(127, 0, 255, 0.2)",
+    padding: SPACING.XS,
   },
   flagImage: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginBottom: 8,
+    marginBottom: SPACING.XS,
   },
   languageCode: {
-    fontSize: 12,
-    fontFamily: FONTS.MEDIUM,
-    color: "white",
+    fontSize: FONT_SIZES.XS,
+    textAlign: "center",
   },
 });
 
