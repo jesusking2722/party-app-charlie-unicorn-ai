@@ -30,9 +30,13 @@ import {
 } from "@/app/theme";
 import { Button, Input, ThemeToggle } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import { setAuthToken } from "@/lib/axiosInstance";
+import { loginByEmail } from "@/lib/scripts/auth.scripts";
+import { setAuth } from "@/redux/slices/auth.slice";
+import { useDispatch } from "react-redux";
 
 const PartyImage = require("@/assets/images/login_bg.png");
-const LogoImage = require("@/assets/images/logo.png");
 
 const { width, height } = Dimensions.get("window");
 
@@ -40,7 +44,7 @@ const { width, height } = Dimensions.get("window");
 const LIGHT_THEME_ACCENT = "#FF0099";
 
 const LoginScreen = () => {
-  const { isDarkMode, toggleTheme } = useTheme();
+  const { isDarkMode } = useTheme();
 
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -61,6 +65,10 @@ const LoginScreen = () => {
     () => useRef(new Animated.Value(0)).current
   );
 
+  const { showToast } = useToast();
+
+  const dispatch = useDispatch();
+
   // Particle animations for the background
   const particles = Array(6)
     .fill(0)
@@ -71,6 +79,25 @@ const LoginScreen = () => {
       opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
       speed: Math.random() * 3000 + 2000,
     }));
+
+  const toggleRememberMe = (): void => {
+    setRememberMe(!rememberMe);
+
+    // Animation for checkbox toggle
+    Animated.sequence([
+      Animated.timing(checkboxScale, {
+        toValue: 1.2,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.spring(checkboxScale, {
+        toValue: 1,
+        tension: 300,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   // Run animations when component mounts
   useEffect(() => {
@@ -229,8 +256,9 @@ const LoginScreen = () => {
     return isValid;
   };
 
-  const handleLogin = (): void => {
-    if (validateInputs()) {
+  const handleLogin = async () => {
+    if (!validateInputs()) return;
+    try {
       setLoading(true);
 
       // Button press animation
@@ -248,12 +276,22 @@ const LoginScreen = () => {
         }),
       ]).start();
 
-      // Simulate API call
-      setTimeout(() => {
-        console.log("Login with:", email, password);
-        setLoading(false);
-        router.push("/onboarding");
-      }, 1500);
+      // api request/response
+      const response = await loginByEmail(email, password);
+      console.log(response.data);
+      if (response.ok) {
+        const { user, token } = response.data;
+        setAuthToken(token);
+        dispatch(setAuth({ isAuthenticated: true, user }));
+        showToast("Welcome back !!!", "success");
+      } else {
+        showToast(response.message, "error");
+      }
+    } catch (error) {
+      showToast("Something went wrong", "error");
+      console.error("handle login error: ", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -285,25 +323,6 @@ const LoginScreen = () => {
 
   const handleSignUp = (): void => {
     router.push("/auth/register");
-  };
-
-  const toggleRememberMe = (): void => {
-    setRememberMe(!rememberMe);
-
-    // Animation for checkbox toggle
-    Animated.sequence([
-      Animated.timing(checkboxScale, {
-        toValue: 1.2,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.spring(checkboxScale, {
-        toValue: 1,
-        tension: 300,
-        friction: 10,
-        useNativeDriver: true,
-      }),
-    ]).start();
   };
 
   const renderParticles = () => {
@@ -343,7 +362,7 @@ const LoginScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar style="light" />
 
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
@@ -552,7 +571,6 @@ const LoginScreen = () => {
                         onPress={handleLogin}
                         loading={loading}
                         variant={isDarkMode ? "primary" : "secondary"}
-                        small={true}
                       />
                     </Animated.View>
 

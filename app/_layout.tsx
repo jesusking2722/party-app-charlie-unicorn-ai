@@ -6,7 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import "./global.css";
 
+import { ToastProvider } from "@/contexts/ToastContext";
 import { Header, Navbar } from "@/layouts";
+import { store } from "@/redux/store";
+import { Provider } from "react-redux";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -70,36 +73,40 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <View style={styles.container} onLayout={onLayoutRootView}>
-        {/* Header component */}
-        {showNavigation && <Header userAvatar={userData.avatar} />}
+    <Provider store={store}>
+      <ThemeProvider>
+        <ToastProvider>
+          <View style={styles.container} onLayout={onLayoutRootView}>
+            {/* Header component */}
+            {showNavigation && <Header userAvatar={userData.avatar} />}
 
-        {/* Main content */}
-        <View
-          style={[
-            styles.content,
-            showNavigation && styles.contentWithNavigation,
-          ]}
-        >
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="start" />
-            <Stack.Screen name="auth" />
-            <Stack.Screen name="onboarding" />
-            <Stack.Screen name="main" />
-          </Stack>
-        </View>
+            {/* Main content */}
+            <View
+              style={[
+                styles.content,
+                showNavigation && styles.contentWithNavigation,
+              ]}
+            >
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="start" />
+                <Stack.Screen name="auth" />
+                <Stack.Screen name="onboarding" />
+                <Stack.Screen name="main" />
+              </Stack>
+            </View>
 
-        {/* Navbar component */}
-        {showNavigation && (
-          <Navbar
-            unreadChats={userData.chatCount}
-            onCreatePress={handleCreatePress}
-          />
-        )}
-      </View>
-    </ThemeProvider>
+            {/* Navbar component */}
+            {showNavigation && (
+              <Navbar
+                unreadChats={userData.chatCount}
+                onCreatePress={handleCreatePress}
+              />
+            )}
+          </View>
+        </ToastProvider>
+      </ThemeProvider>
+    </Provider>
   );
 }
 

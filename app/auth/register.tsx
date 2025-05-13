@@ -29,6 +29,11 @@ import {
 } from "@/app/theme";
 import { Button, Input, ThemeToggle } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import { setAuthToken } from "@/lib/axiosInstance";
+import { registerByEmail } from "@/lib/scripts/auth.scripts";
+import { setAuth } from "@/redux/slices/auth.slice";
+import { useDispatch } from "react-redux";
 
 const PartyImage = require("@/assets/images/register_bg.png");
 const LogoImage = require("@/assets/images/logo.png");
@@ -60,6 +65,10 @@ const RegisterScreen = () => {
   const socialBtnAnimations = [0, 1].map(
     () => useRef(new Animated.Value(0)).current
   );
+
+  const { showToast } = useToast();
+
+  const dispatch = useDispatch();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -234,8 +243,9 @@ const RegisterScreen = () => {
     return isValid;
   };
 
-  const handleRegister = (): void => {
-    if (validateInputs()) {
+  const handleRegister = async () => {
+    if (!validateInputs()) return;
+    try {
       setLoading(true);
 
       // Button press animation
@@ -253,12 +263,21 @@ const RegisterScreen = () => {
         }),
       ]).start();
 
-      // Simulate API call
-      setTimeout(() => {
-        console.log("Register with:", { email, password });
-        setLoading(false);
+      const response = await registerByEmail(email, password);
+      if (response.ok) {
+        const { user, token } = response.data;
+        setAuthToken(token);
+        dispatch(setAuth({ isAuthenticated: true, user }));
+        showToast("Please check your mailbox to verify your mail", "success");
         router.push("/onboarding");
-      }, 1500);
+      } else {
+        showToast(response.message, "error");
+      }
+    } catch (error) {
+      showToast("Something went wrong", "error");
+      console.error("handle register error: ", error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -319,7 +338,7 @@ const RegisterScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar style="light" />
 
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>

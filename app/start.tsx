@@ -108,7 +108,7 @@ const Start = () => {
 
     // Navigate to login after 5 seconds
     const timer = setTimeout(() => {
-      router.replace("/main");
+      router.replace("/auth/login");
     }, 5000);
 
     return () => clearTimeout(timer);

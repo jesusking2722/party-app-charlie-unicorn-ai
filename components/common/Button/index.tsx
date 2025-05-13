@@ -248,10 +248,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     overflow: "hidden",
+    fontSize: FONT_SIZES.XS,
   },
   smallButton: {
     height: 40,
     borderRadius: BORDER_RADIUS.M,
+    fontSize: FONT_SIZES.XS,
   },
   gradient: {
     width: "100%",
@@ -272,7 +274,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   buttonText: {
-    fontSize: FONT_SIZES.M,
+    fontSize: FONT_SIZES.XS,
     fontWeight: "600",
     fontFamily: FONTS.SEMIBOLD,
   },
