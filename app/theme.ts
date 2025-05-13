@@ -182,12 +182,11 @@ export const THEME = {
   LIGHT: {
     GRADIENT: ["#7F00FF", "#E100FF"] as [string, string],
     FAB_GRADIENT: ["#FF0099", "#FF6D00"] as [string, string],
-    MUSIC_GRADIENT: ["#6366f1", "#2563eb"] as [string, string],
-    CORPORATE_GRADIENT: ["#10b981", "#0d9488"] as [string, string],
     BIRTHDAY_GRADIENT: ["#ec4899", "#9333ea"] as [string, string],
+    COMMON_GRADIENT: ["#f59e0b", "#ea580c"] as [string, string],
     WEDDING_GRADIENT: ["#6366f1", "#2563eb"] as [string, string],
+    MOVIE_GRADIENT: ["#8b5cf6", "#6d28d9"] as [string, string],
     SPORT_GRADIENT: ["#ef4444", "#e11d48"] as [string, string],
-    DEFAULT_GRADIENT: ["#f59e0b", "#ea580c"] as [string, string],
     ACCENT_COLOR: "rgba(255, 0, 153, 0.4)",
     ACCENT_BG: "rgba(255, 0, 153, 0.2)",
     CARD_BG: "rgba(0, 0, 0, 0.15)",
@@ -216,12 +215,11 @@ export const THEME = {
   DARK: {
     GRADIENT: ["#111827", "#1F2937"],
     FAB_GRADIENT: ["#4F46E5", "#7C3AED"],
-    MUSIC_GRADIENT: ["#4338CA", "#3730A3"],
-    CORPORATE_GRADIENT: ["#065F46", "#064E3B"],
     BIRTHDAY_GRADIENT: ["#9D174D", "#6D28D9"],
+    COMMON_GRADIENT: ["#B45309", "#C2410C"],
     WEDDING_GRADIENT: ["#4338CA", "#3730A3"],
+    MOVIE_GRADIENT: ["#6D28D9", "#5B21B6"],
     SPORT_GRADIENT: ["#991B1B", "#9F1239"],
-    DEFAULT_GRADIENT: ["#B45309", "#C2410C"],
     ACCENT_COLOR: "rgba(79, 70, 229, 0.4)",
     ACCENT_BG: "rgba(79, 70, 229, 0.2)",
     CARD_BG: "rgba(17, 24, 39, 0.95)",
@@ -250,16 +248,12 @@ export const THEME = {
 };
 
 export const NEW_LIGHT_THEME_GRADIENTS = {
-  // These gradients match the party type options
-  MUSIC_GRADIENT: ["#6366f1", "#2563eb"] as [string, string],
-  NIGHTCLUB_GRADIENT: ["#8b5cf6", "#7c3aed"] as [string, string],
-  PRIVATE_GRADIENT: ["#ec4899", "#db2777"] as [string, string],
-  BEACH_GRADIENT: ["#34d399", "#10b981"] as [string, string],
-  CORPORATE_GRADIENT: ["#10b981", "#059669"] as [string, string],
+  // These gradients match the new event type options
   BIRTHDAY_GRADIENT: ["#ec4899", "#9333ea"] as [string, string],
+  COMMON_GRADIENT: ["#f59e0b", "#ea580c"] as [string, string],
   WEDDING_GRADIENT: ["#6366f1", "#2563eb"] as [string, string],
+  MOVIE_GRADIENT: ["#8b5cf6", "#6d28d9"] as [string, string],
   SPORT_GRADIENT: ["#ef4444", "#dc2626"] as [string, string],
-  DEFAULT_GRADIENT: ["#f59e0b", "#ea580c"] as [string, string],
 
   // Status gradients
   ACTIVE_GRADIENT: ["#10b981", "#059669"] as [string, string],
@@ -286,16 +280,12 @@ export const NEW_LIGHT_THEME_GRADIENTS = {
 
 // Add these new gradient colors to THEME.DARK
 export const NEW_DARK_THEME_GRADIENTS = {
-  // These gradients match the party type options
-  MUSIC_GRADIENT: ["#4338ca", "#3730a3"] as [string, string],
-  NIGHTCLUB_GRADIENT: ["#7c3aed", "#6d28d9"] as [string, string],
-  PRIVATE_GRADIENT: ["#db2777", "#be185d"] as [string, string],
-  BEACH_GRADIENT: ["#10b981", "#059669"] as [string, string],
-  CORPORATE_GRADIENT: ["#059669", "#047857"] as [string, string],
-  BIRTHDAY_GRADIENT: ["#be185d", "#6d28d9"] as [string, string],
-  WEDDING_GRADIENT: ["#4338ca", "#3730a3"] as [string, string],
-  SPORT_GRADIENT: ["#dc2626", "#b91c1c"] as [string, string],
-  DEFAULT_GRADIENT: ["#d97706", "#b45309"] as [string, string],
+  // These gradients match the new event type options
+  BIRTHDAY_GRADIENT: ["#9D174D", "#6D28D9"] as [string, string],
+  COMMON_GRADIENT: ["#B45309", "#C2410C"] as [string, string],
+  WEDDING_GRADIENT: ["#4338CA", "#3730A3"] as [string, string],
+  MOVIE_GRADIENT: ["#6D28D9", "#5B21B6"] as [string, string],
+  SPORT_GRADIENT: ["#991B1B", "#B91C1C"] as [string, string],
 
   // Status gradients
   ACTIVE_GRADIENT: ["#059669", "#047857"] as [string, string],
@@ -323,15 +313,11 @@ export const NEW_DARK_THEME_GRADIENTS = {
 // Add these new color variations for badges in light mode
 export const NEW_LIGHT_THEME_COLORS = {
   // Badge text colors for light mode
-  BADGE_TEXT_MUSIC: "#4f46e5",
-  BADGE_TEXT_NIGHTCLUB: "#7c3aed",
-  BADGE_TEXT_PRIVATE: "#db2777",
-  BADGE_TEXT_BEACH: "#10b981",
-  BADGE_TEXT_CORPORATE: "#059669",
   BADGE_TEXT_BIRTHDAY: "#ec4899",
+  BADGE_TEXT_COMMON: "#ea580c",
   BADGE_TEXT_WEDDING: "#4f46e5",
+  BADGE_TEXT_MOVIE: "#6d28d9",
   BADGE_TEXT_SPORT: "#dc2626",
-  BADGE_TEXT_DEFAULT: "#ea580c",
 
   // Status text colors
   BADGE_TEXT_ACTIVE: "#059669",

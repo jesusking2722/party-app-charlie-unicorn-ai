@@ -55,7 +55,7 @@ const NotificationAlert = ({
 }: {
   type: "info" | "success" | "error" | "warning";
   message: string;
-  path?: string;
+  path: string | null;
   onNavigate: () => void;
 }) => {
   const { isDarkMode } = useTheme();

@@ -26,7 +26,7 @@ import {
 
 import { ProfileDrawer } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
-import { FontAwesome5 } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 
 // Logo asset path
 const LOGO_IMAGE = require("@/assets/images/logo.png");
@@ -138,6 +138,8 @@ const Header: React.FC<HeaderProps> = ({
   const handleNotificationPress = () => {
     if (onNotificationPress) {
       onNotificationPress();
+    } else {
+      router.push("/main/notification");
     }
   };
 
@@ -203,7 +205,7 @@ const Header: React.FC<HeaderProps> = ({
                     },
                   ]}
                 >
-                  Find your next experience
+                  CHARLIE UNICORN AI
                 </Text>
               </View>
             )}
@@ -212,6 +214,40 @@ const Header: React.FC<HeaderProps> = ({
           {/* Right section with actions */}
           <View style={styles.rightSection}>
             {/* Notification Button */}
+            <TouchableOpacity
+              onPress={() => {}}
+              activeOpacity={0.8}
+              style={[
+                styles.iconButton,
+                {
+                  backgroundColor: isDarkMode
+                    ? "rgba(31, 41, 55, 0.7)"
+                    : "rgba(255, 255, 255, 0.2)",
+                  borderColor: isDarkMode
+                    ? COLORS.DARK_BORDER
+                    : "rgba(255, 255, 255, 0.3)",
+                },
+              ]}
+            >
+              <Ionicons
+                name="chatbox"
+                size={16}
+                color={isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.WHITE}
+              />
+
+              {/* Notification dot */}
+              {hasNotifications && (
+                <View
+                  style={[
+                    styles.notificationDot,
+                    {
+                      backgroundColor: getAccentColor(),
+                    },
+                  ]}
+                />
+              )}
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={handleNotificationPress}
               activeOpacity={0.8}

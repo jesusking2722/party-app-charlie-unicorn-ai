@@ -15,7 +15,6 @@ import {
   View,
 } from "react-native";
 
-// Define nav items
 const NAV_ITEMS = [
   {
     name: "Home",

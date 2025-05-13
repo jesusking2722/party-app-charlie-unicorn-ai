@@ -867,14 +867,7 @@ const EventListScreen = () => {
             style={styles.sliderBackground}
           />
 
-          {/* Add floating particles for fun effect */}
           {renderParticles()}
-
-          {/* Overlay gradient for readability */}
-          <LinearGradient
-            colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0)"]}
-            style={styles.imageOverlay}
-          />
 
           {/* Header text overlay */}
           <View style={styles.sliderContent}>
