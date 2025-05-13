@@ -78,7 +78,6 @@ const Drawer: React.FC<DrawerProps> = ({
     // If drawer is visible, animate in
     if (visible) {
       animationRunning.current = true;
-      StatusBar.setBarStyle(isDarkMode ? "light-content" : "dark-content");
 
       // Reset position to ensure proper animation
       translateX.setValue(position === "right" ? SCREEN_WIDTH : -SCREEN_WIDTH);

@@ -1,10 +1,13 @@
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as VideoThumbnails from "expo-video-thumbnails";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Animated,
   Dimensions,
   Image,
@@ -27,7 +30,6 @@ import {
   GRADIENTS,
   SHADOWS,
   SPACING,
-  THEME,
 } from "@/app/theme";
 import {
   Button,
@@ -49,12 +51,21 @@ const { width, height } = Dimensions.get("window");
 const LIGHT_THEME_ACCENT = "#FF0099";
 
 // Party creation step types
-type CreatePartyStep = "details" | "location" | "congratulations";
+type CreatePartyStep = "details" | "location" | "media" | "congratulations";
 
 // Party Image Assets
 const PartyDetailsImage = require("@/assets/images/preparing-party.png");
 const PartyLocationImage = require("@/assets/images/party-location.png");
+const PartyMediaImage = require("@/assets/images/party-image.png");
 const PartyCongratulationsImage = require("@/assets/images/congratulations.png");
+
+// Media type
+type MediaItem = {
+  uri: string;
+  type: "image" | "video";
+  thumbnail?: string; // For videos
+  id: string;
+};
 
 // Party type options
 const partyTypeOptions = [
@@ -92,7 +103,6 @@ const currencyOptions = [
 
 const CreatePartyScreen = () => {
   const { isDarkMode } = useTheme();
-  const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -118,6 +128,10 @@ const CreatePartyScreen = () => {
   const [paymentType, setPaymentType] = useState<any>(null);
   const [fee, setFee] = useState<any>(null);
   const [currency, setCurrency] = useState<any>(null);
+
+  // Media form state
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Form validation state
   const [errors, setErrors] = useState<Record<string, string> | any>({});
@@ -182,6 +196,29 @@ const CreatePartyScreen = () => {
     }, 100);
   }, []);
 
+  // Request permissions for media library access
+  useEffect(() => {
+    (async () => {
+      const { status: mediaLibraryStatus } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (mediaLibraryStatus !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Please allow access to your media library to upload images and videos."
+        );
+      }
+
+      const { status: cameraStatus } =
+        await ImagePicker.requestCameraPermissionsAsync();
+      if (cameraStatus !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Please allow access to your camera to take photos and videos."
+        );
+      }
+    })();
+  }, []);
+
   // Continuous animation for floating particles (matching ProfileSetup)
   const animateParticles = () => {
     particles.forEach((particle) => {
@@ -237,6 +274,149 @@ const CreatePartyScreen = () => {
     });
   };
 
+  // Function to pick images from library
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: true,
+        quality: 0.8,
+        allowsMultipleSelection: true,
+      });
+
+      if (!result.canceled) {
+        setIsUploading(true);
+
+        // Process each selected asset
+        const newMediaItems: MediaItem[] = [];
+
+        for (const asset of result.assets) {
+          const fileExtension = asset.uri.split(".").pop()?.toLowerCase();
+          const isVideo =
+            fileExtension === "mp4" ||
+            fileExtension === "mov" ||
+            fileExtension === "3gp";
+
+          if (isVideo) {
+            try {
+              // Generate thumbnail for video
+              const { uri } = await VideoThumbnails.getThumbnailAsync(
+                asset.uri,
+                {
+                  time: 1000,
+                  quality: 0.8,
+                }
+              );
+
+              newMediaItems.push({
+                uri: asset.uri,
+                type: "video",
+                thumbnail: uri,
+                id: Date.now().toString() + Math.random().toString(),
+              });
+            } catch (e) {
+              console.error("Error generating video thumbnail:", e);
+              // Still add the video even without thumbnail
+              newMediaItems.push({
+                uri: asset.uri,
+                type: "video",
+                id: Date.now().toString() + Math.random().toString(),
+              });
+            }
+          } else {
+            // It's an image
+            newMediaItems.push({
+              uri: asset.uri,
+              type: "image",
+              id: Date.now().toString() + Math.random().toString(),
+            });
+          }
+        }
+
+        setMediaItems((prevItems) => [...prevItems, ...newMediaItems]);
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error("Error picking media:", error);
+      setIsUploading(false);
+      Alert.alert("Error", "Failed to select media. Please try again.");
+    }
+  };
+
+  // Function to capture media with camera
+  const takePhoto = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setIsUploading(true);
+
+        const asset = result.assets[0];
+        const fileExtension = asset.uri.split(".").pop()?.toLowerCase();
+        const isVideo =
+          fileExtension === "mp4" ||
+          fileExtension === "mov" ||
+          fileExtension === "3gp";
+
+        if (isVideo) {
+          try {
+            // Generate thumbnail for video
+            const { uri } = await VideoThumbnails.getThumbnailAsync(asset.uri, {
+              time: 1000,
+              quality: 0.8,
+            });
+
+            setMediaItems((prevItems) => [
+              ...prevItems,
+              {
+                uri: asset.uri,
+                type: "video",
+                thumbnail: uri,
+                id: Date.now().toString() + Math.random().toString(),
+              },
+            ]);
+          } catch (e) {
+            console.error("Error generating video thumbnail:", e);
+            // Still add the video even without thumbnail
+            setMediaItems((prevItems) => [
+              ...prevItems,
+              {
+                uri: asset.uri,
+                type: "video",
+                id: Date.now().toString() + Math.random().toString(),
+              },
+            ]);
+          }
+        } else {
+          // It's an image
+          setMediaItems((prevItems) => [
+            ...prevItems,
+            {
+              uri: asset.uri,
+              type: "image",
+              id: Date.now().toString() + Math.random().toString(),
+            },
+          ]);
+        }
+
+        setIsUploading(false);
+      }
+    } catch (error) {
+      console.error("Error taking photo/video:", error);
+      setIsUploading(false);
+      Alert.alert("Error", "Failed to capture media. Please try again.");
+    }
+  };
+
+  // Function to remove media item
+  const removeMediaItem = (id: string) => {
+    setMediaItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
   // Form validation function
   const validateForm = (step: CreatePartyStep): boolean => {
     const newErrors: Record<string, string> = {};
@@ -276,6 +456,12 @@ const CreatePartyScreen = () => {
           newErrors.currency = "Please select a currency";
         }
       }
+    } else if (step === "media") {
+      // Media is optional, but we could add validation if needed
+      // For example, requiring at least one image:
+      // if (mediaItems.length === 0) {
+      //   newErrors.media = "Please add at least one photo or video";
+      // }
     }
 
     setErrors(newErrors);
@@ -310,21 +496,26 @@ const CreatePartyScreen = () => {
           break;
         case "location":
           // if (validateForm("location")) {
-          changeStep("congratulations");
-          // Play confetti animation if we're moving to congratulations
-          setTimeout(() => {
-            if (confettiRef.current) {
-              confettiRef.current.play();
-            }
-            // Animate the checkmark
-            Animated.spring(checkmarkScale, {
-              toValue: 1,
-              tension: 80,
-              friction: 5,
-              useNativeDriver: true,
-            }).start();
-          }, 300);
+          changeStep("media");
           // }
+          break;
+        case "media":
+          if (validateForm("media")) {
+            changeStep("congratulations");
+            // Play confetti animation if we're moving to congratulations
+            setTimeout(() => {
+              if (confettiRef.current) {
+                confettiRef.current.play();
+              }
+              // Animate the checkmark
+              Animated.spring(checkmarkScale, {
+                toValue: 1,
+                tension: 80,
+                friction: 5,
+                useNativeDriver: true,
+              }).start();
+            }, 300);
+          }
           break;
       }
       setLoading(false);
@@ -337,8 +528,11 @@ const CreatePartyScreen = () => {
       case "location":
         changeStep("details");
         break;
-      case "congratulations":
+      case "media":
         changeStep("location");
+        break;
+      case "congratulations":
+        changeStep("media");
         break;
     }
   };
@@ -393,7 +587,7 @@ const CreatePartyScreen = () => {
     // Simulate API call
     setTimeout(() => {
       setLoading(false);
-      router.push("/main");
+      router.push("/main/events");
     }, 800);
   };
 
@@ -428,6 +622,52 @@ const CreatePartyScreen = () => {
     ));
   };
 
+  // Render a media item
+  const renderMediaItem = (item: MediaItem) => {
+    return (
+      <View key={item.id} style={styles.mediaItemContainer}>
+        <Image
+          source={{
+            uri: item.type === "video" ? item.thumbnail || item.uri : item.uri,
+          }}
+          style={styles.mediaItemImage}
+          resizeMode="cover"
+        />
+
+        {/* Delete button */}
+        <TouchableOpacity
+          style={styles.mediaDeleteButton}
+          onPress={() => removeMediaItem(item.id)}
+        >
+          <LinearGradient
+            colors={
+              isDarkMode ? ["#d32f2f", "#b71c1c"] : ["#f44336", "#d32f2f"]
+            }
+            style={styles.mediaDeleteButtonGradient}
+          >
+            <FontAwesome5 name="times" size={10} color="#FFFFFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Video indicator */}
+        {item.type === "video" && (
+          <View style={styles.videoIndicator}>
+            <LinearGradient
+              colors={
+                isDarkMode
+                  ? ["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]
+                  : ["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]
+              }
+              style={styles.videoIndicatorGradient}
+            >
+              <FontAwesome5 name="play" size={12} color="#FFFFFF" />
+            </LinearGradient>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   // Get the appropriate image based on current step
   const getStepImage = () => {
     switch (currentStep) {
@@ -435,6 +675,8 @@ const CreatePartyScreen = () => {
         return PartyDetailsImage;
       case "location":
         return PartyLocationImage;
+      case "media":
+        return PartyMediaImage;
       case "congratulations":
         return PartyCongratulationsImage;
       default:
@@ -446,13 +688,15 @@ const CreatePartyScreen = () => {
   const getProgressPercentage = () => {
     switch (currentStep) {
       case "details":
-        return "33%";
+        return "25%";
       case "location":
-        return "66%";
+        return "50%";
+      case "media":
+        return "75%";
       case "congratulations":
         return "100%";
       default:
-        return "33%";
+        return "25%";
     }
   };
 
@@ -460,13 +704,15 @@ const CreatePartyScreen = () => {
   const getStepText = () => {
     switch (currentStep) {
       case "details":
-        return "Step 1 of 3";
+        return "Step 1 of 4";
       case "location":
-        return "Step 2 of 3";
+        return "Step 2 of 4";
+      case "media":
+        return "Step 3 of 4";
       case "congratulations":
-        return "Step 3 of 3";
+        return "Step 4 of 4";
       default:
-        return "Step 1 of 3";
+        return "Step 1 of 4";
     }
   };
 
@@ -929,12 +1175,233 @@ const CreatePartyScreen = () => {
                             }}
                           >
                             <Button
-                              title={loading ? "Creating..." : "Create Party"}
+                              title={loading ? "Saving..." : "Continue"}
                               onPress={handleNextStep}
                               loading={loading}
                               variant={isDarkMode ? "primary" : "secondary"}
                               icon={
                                 !loading && (
+                                  <FontAwesome5
+                                    name="arrow-right"
+                                    size={14}
+                                    color="white"
+                                    style={{ marginLeft: SPACING.S }}
+                                  />
+                                )
+                              }
+                              iconPosition="right"
+                            />
+                          </Animated.View>
+                        </View>
+                      </View>
+                    )}
+
+                    {currentStep === "media" && (
+                      <View style={styles.formContainer}>
+                        <Text
+                          style={[
+                            styles.welcomeText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Add Media
+                        </Text>
+                        <Text
+                          style={[
+                            styles.subtitleText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          Upload photos and videos of your event
+                        </Text>
+
+                        {/* Media grid */}
+                        <View style={styles.mediaGrid}>
+                          {mediaItems.map((item) => renderMediaItem(item))}
+
+                          <View style={styles.mediaButtonsContainer}>
+                            {/* Upload from gallery button */}
+                            <TouchableOpacity
+                              style={styles.mediaButton}
+                              onPress={pickImage}
+                              disabled={isUploading}
+                            >
+                              <LinearGradient
+                                colors={
+                                  isDarkMode
+                                    ? ["#4A00E0", "#8E2DE2"] // Deep purple to violet gradient for dark mode
+                                    : ["#FF6CAB", "#7366FF"] // Pink to blue gradient for light mode
+                                }
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.mediaButtonGradient}
+                              >
+                                <View style={styles.mediaButtonContent}>
+                                  <View style={styles.mediaButtonIconContainer}>
+                                    <FontAwesome5
+                                      name="images"
+                                      size={24}
+                                      color="#FFFFFF"
+                                    />
+                                  </View>
+                                  <Text style={styles.mediaButtonText}>
+                                    Upload Photos
+                                  </Text>
+                                </View>
+                              </LinearGradient>
+                            </TouchableOpacity>
+
+                            {/* Take photo button */}
+                            <TouchableOpacity
+                              style={styles.mediaButton}
+                              onPress={takePhoto}
+                              disabled={isUploading}
+                            >
+                              <LinearGradient
+                                colors={
+                                  isDarkMode
+                                    ? ["#11998E", "#38EF7D"] // Deep teal to bright green for dark mode
+                                    : ["#FF5F6D", "#FFC371"] // Red-orange to yellow gradient for light mode
+                                }
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                                style={styles.mediaButtonGradient}
+                              >
+                                <View style={styles.mediaButtonContent}>
+                                  <View style={styles.mediaButtonIconContainer}>
+                                    <FontAwesome5
+                                      name="camera"
+                                      size={24}
+                                      color="#FFFFFF"
+                                    />
+                                  </View>
+                                  <Text style={styles.mediaButtonText}>
+                                    Take Photo
+                                  </Text>
+                                </View>
+                              </LinearGradient>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        {/* Help text */}
+                        <Text
+                          style={[
+                            styles.mediaHelpText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          You can upload multiple photos and videos. Tap an item
+                          to remove it.
+                        </Text>
+
+                        {/* Progress Indicator */}
+                        <View style={styles.progressContainer}>
+                          <View style={styles.progressHeader}>
+                            <Text
+                              style={[
+                                styles.progressText,
+                                {
+                                  color: isDarkMode
+                                    ? COLORS.DARK_TEXT_SECONDARY
+                                    : COLORS.LIGHT_TEXT_SECONDARY,
+                                },
+                              ]}
+                            >
+                              Party Setup
+                            </Text>
+                            <Text
+                              style={[
+                                styles.progressStep,
+                                {
+                                  color: getAccentColor(),
+                                },
+                              ]}
+                            >
+                              {getStepText()}
+                            </Text>
+                          </View>
+
+                          <View
+                            style={[
+                              styles.progressBarContainer,
+                              {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(255, 255, 255, 0.1)"
+                                  : "rgba(0, 0, 0, 0.05)",
+                              },
+                            ]}
+                          >
+                            <View
+                              style={[
+                                styles.progressFill,
+                                { width: getProgressPercentage() },
+                              ]}
+                            >
+                              <LinearGradient
+                                colors={
+                                  isDarkMode
+                                    ? GRADIENTS.PRIMARY
+                                    : ["#FF0099", "#FF6D00"]
+                                }
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.progressGradient}
+                              />
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* Navigation Buttons */}
+                        <View style={styles.navigationButtons}>
+                          <TouchableOpacity
+                            style={[
+                              styles.navigationBackButton,
+                              {
+                                backgroundColor: isDarkMode
+                                  ? "rgba(55, 65, 81, 0.5)"
+                                  : "rgba(0, 0, 0, 0.05)",
+                              },
+                            ]}
+                            onPress={handleBackStep}
+                          >
+                            <FontAwesome5
+                              name="arrow-left"
+                              size={14}
+                              color={
+                                isDarkMode
+                                  ? COLORS.DARK_TEXT_PRIMARY
+                                  : COLORS.LIGHT_TEXT_PRIMARY
+                              }
+                            />
+                          </TouchableOpacity>
+
+                          <Animated.View
+                            style={{
+                              flex: 1,
+                              marginLeft: 12,
+                              transform: [{ scale: buttonScale }],
+                            }}
+                          >
+                            <Button
+                              title={loading ? "Creating..." : "Create Party"}
+                              onPress={handleNextStep}
+                              loading={loading || isUploading}
+                              variant={isDarkMode ? "primary" : "secondary"}
+                              icon={
+                                !(loading || isUploading) && (
                                   <FontAwesome5
                                     name="check"
                                     size={14}
@@ -1025,9 +1492,9 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          {partyTitle} is now live! People can discover and join
-                          your event. You can manage all details from your
-                          dashboard.
+                          {partyTitle || "Your event"} is now live! People can
+                          discover and join your event. You can manage all
+                          details from your dashboard.
                         </Text>
 
                         {/* Progress Indicator */}
@@ -1096,7 +1563,7 @@ const CreatePartyScreen = () => {
                           }}
                         >
                           <Button
-                            title={loading ? "Loading..." : "Go to Dashboard"}
+                            title={loading ? "Loading..." : "Go to Events"}
                             onPress={handleComplete}
                             loading={loading}
                             variant={isDarkMode ? "primary" : "secondary"}
@@ -1278,6 +1745,105 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     width: "100%",
+  },
+  // Media upload styles
+  mediaGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginVertical: SPACING.M,
+  },
+  mediaItemContainer: {
+    width: (width * 0.9 - SPACING.M * 4) / 3, // 3 items per row
+    height: (width * 0.9 - SPACING.M * 4) / 3,
+    margin: SPACING.XS,
+    borderRadius: BORDER_RADIUS.M,
+    overflow: "hidden",
+  },
+  mediaItemImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: BORDER_RADIUS.M,
+  },
+  mediaDeleteButton: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    overflow: "hidden",
+    zIndex: 10,
+  },
+  mediaDeleteButtonGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  videoIndicator: {
+    position: "absolute",
+    bottom: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    overflow: "hidden",
+    zIndex: 10,
+  },
+  videoIndicatorGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  mediaButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginTop: SPACING.S,
+  },
+  mediaButtonContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+  mediaButtonIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACING.XS,
+  },
+  mediaButtonText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.S,
+    color: "#FFFFFF",
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  mediaButton: {
+    width: width * 0.38,
+    height: width * 0.25,
+    borderRadius: BORDER_RADIUS.L,
+    overflow: "hidden",
+    margin: SPACING.XS,
+  },
+  mediaButtonGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: SPACING.M,
+  },
+  mediaHelpText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
+    textAlign: "center",
+    marginTop: SPACING.S,
   },
   // Congratulations styles
   congratsContainer: {

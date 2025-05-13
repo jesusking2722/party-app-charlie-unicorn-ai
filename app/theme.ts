@@ -248,3 +248,164 @@ export const THEME = {
     LOGIN_CARD_ACCENT: "rgba(127, 0, 255, 0.12)",
   },
 };
+
+export const NEW_LIGHT_THEME_GRADIENTS = {
+  // These gradients match the party type options
+  MUSIC_GRADIENT: ["#6366f1", "#2563eb"] as [string, string],
+  NIGHTCLUB_GRADIENT: ["#8b5cf6", "#7c3aed"] as [string, string],
+  PRIVATE_GRADIENT: ["#ec4899", "#db2777"] as [string, string],
+  BEACH_GRADIENT: ["#34d399", "#10b981"] as [string, string],
+  CORPORATE_GRADIENT: ["#10b981", "#059669"] as [string, string],
+  BIRTHDAY_GRADIENT: ["#ec4899", "#9333ea"] as [string, string],
+  WEDDING_GRADIENT: ["#6366f1", "#2563eb"] as [string, string],
+  SPORT_GRADIENT: ["#ef4444", "#dc2626"] as [string, string],
+  DEFAULT_GRADIENT: ["#f59e0b", "#ea580c"] as [string, string],
+
+  // Status gradients
+  ACTIVE_GRADIENT: ["#10b981", "#059669"] as [string, string],
+  CANCELLED_GRADIENT: ["#ef4444", "#dc2626"] as [string, string],
+  FINISHED_GRADIENT: ["#6366f1", "#4f46e5"] as [string, string],
+
+  // Payment gradients
+  FREE_GRADIENT: ["#10b981", "#059669"] as [string, string],
+  PAID_GRADIENT: ["#f59e0b", "#d97706"] as [string, string],
+
+  // Badge background gradients (for light mode)
+  BADGE_BG_LIGHT: ["rgba(229, 231, 235, 0.8)", "rgba(243, 244, 246, 0.8)"] as [
+    string,
+    string
+  ],
+
+  // Pagination gradients
+  PAGINATION_ACTIVE: ["#7F00FF", "#E100FF"] as [string, string],
+  PAGINATION_INACTIVE: [
+    "rgba(229, 231, 235, 0.8)",
+    "rgba(243, 244, 246, 0.8)",
+  ] as [string, string],
+};
+
+// Add these new gradient colors to THEME.DARK
+export const NEW_DARK_THEME_GRADIENTS = {
+  // These gradients match the party type options
+  MUSIC_GRADIENT: ["#4338ca", "#3730a3"] as [string, string],
+  NIGHTCLUB_GRADIENT: ["#7c3aed", "#6d28d9"] as [string, string],
+  PRIVATE_GRADIENT: ["#db2777", "#be185d"] as [string, string],
+  BEACH_GRADIENT: ["#10b981", "#059669"] as [string, string],
+  CORPORATE_GRADIENT: ["#059669", "#047857"] as [string, string],
+  BIRTHDAY_GRADIENT: ["#be185d", "#6d28d9"] as [string, string],
+  WEDDING_GRADIENT: ["#4338ca", "#3730a3"] as [string, string],
+  SPORT_GRADIENT: ["#dc2626", "#b91c1c"] as [string, string],
+  DEFAULT_GRADIENT: ["#d97706", "#b45309"] as [string, string],
+
+  // Status gradients
+  ACTIVE_GRADIENT: ["#059669", "#047857"] as [string, string],
+  CANCELLED_GRADIENT: ["#dc2626", "#b91c1c"] as [string, string],
+  FINISHED_GRADIENT: ["#4f46e5", "#4338ca"] as [string, string],
+
+  // Payment gradients
+  FREE_GRADIENT: ["#059669", "#047857"] as [string, string],
+  PAID_GRADIENT: ["#d97706", "#b45309"] as [string, string],
+
+  // Badge background gradients (for dark mode)
+  BADGE_BG_DARK: ["rgba(31, 41, 55, 0.8)", "rgba(55, 65, 81, 0.8)"] as [
+    string,
+    string
+  ],
+
+  // Pagination gradients
+  PAGINATION_ACTIVE: ["#4F46E5", "#7C3AED"] as [string, string],
+  PAGINATION_INACTIVE: ["rgba(31, 41, 55, 0.8)", "rgba(55, 65, 81, 0.8)"] as [
+    string,
+    string
+  ],
+};
+
+// Add these new color variations for badges in light mode
+export const NEW_LIGHT_THEME_COLORS = {
+  // Badge text colors for light mode
+  BADGE_TEXT_MUSIC: "#4f46e5",
+  BADGE_TEXT_NIGHTCLUB: "#7c3aed",
+  BADGE_TEXT_PRIVATE: "#db2777",
+  BADGE_TEXT_BEACH: "#10b981",
+  BADGE_TEXT_CORPORATE: "#059669",
+  BADGE_TEXT_BIRTHDAY: "#ec4899",
+  BADGE_TEXT_WEDDING: "#4f46e5",
+  BADGE_TEXT_SPORT: "#dc2626",
+  BADGE_TEXT_DEFAULT: "#ea580c",
+
+  // Status text colors
+  BADGE_TEXT_ACTIVE: "#059669",
+  BADGE_TEXT_CANCELLED: "#dc2626",
+  BADGE_TEXT_FINISHED: "#4f46e5",
+
+  // Payment text colors
+  BADGE_TEXT_FREE: "#059669",
+  BADGE_TEXT_PAID: "#d97706",
+
+  // Filter related colors
+  FILTER_EXPANDED_BG: "rgba(255, 0, 153, 0.2)",
+  FILTER_COLLAPSED_BG: "rgba(0, 0, 0, 0.05)",
+  FILTER_CONTAINER_BG: "rgba(255, 255, 255, 0.8)",
+  FILTER_CONTAINER_BORDER: "rgba(0, 0, 0, 0.05)",
+
+  // List related colors
+  LIST_EMPTY_ICON: "rgba(0, 0, 0, 0.2)",
+};
+
+// Add these new color variations for badges in dark mode
+export const NEW_DARK_THEME_COLORS = {
+  // Badge text colors for dark mode are generally white
+  BADGE_TEXT_COLOR: "#FFFFFF",
+
+  // Filter related colors
+  FILTER_EXPANDED_BG: "rgba(127, 0, 255, 0.3)",
+  FILTER_COLLAPSED_BG: "rgba(55, 65, 81, 0.7)",
+  FILTER_CONTAINER_BG: "rgba(31, 41, 55, 0.8)",
+  FILTER_CONTAINER_BORDER: "rgba(75, 85, 99, 0.3)",
+
+  // List related colors
+  LIST_EMPTY_ICON: "rgba(255, 255, 255, 0.2)",
+};
+
+export const EVENT_PREVIEW = {
+  LIGHT: {
+    PROGRESS_BG: "rgba(229, 231, 235, 0.3)",
+    PROGRESS_FILL: ["#10b981", "#059669"],
+    PROFILE_CARD_BG: "rgba(255, 255, 255, 0.8)",
+    PROFILE_CARD_BORDER: "rgba(229, 231, 235, 0.8)",
+    TAB_INACTIVE: "rgba(107, 114, 128, 0.2)",
+    TAB_ACTIVE_BG: ["#7F00FF", "#E100FF"],
+    TAB_ACTIVE_TEXT: "#FFFFFF",
+    TAB_INDICATOR: "#7F00FF",
+    APPLY_BUTTON_BG: ["#FF0099", "#7F00FF"],
+    APPLY_TEXTAREA_BG: "rgba(255, 255, 255, 0.8)",
+    MEDIA_OVERLAY: "rgba(0, 0, 0, 0.3)",
+    STEPPER_BG: "rgba(255, 255, 255, 0.1)",
+    STEPPER_ACTIVE: ["#7F00FF", "#E100FF"],
+    STEPPER_COMPLETED: ["rgba(127, 0, 255, 0.6)", "rgba(225, 0, 255, 0.6)"],
+    VERIFIED_BADGE: ["#10b981", "#059669"],
+    PREMIUM_BADGE: ["#f59e0b", "#d97706"],
+    RATING_STAR_FILLED: "#f59e0b",
+    RATING_STAR_EMPTY: "rgba(245, 158, 11, 0.3)",
+  },
+  DARK: {
+    PROGRESS_BG: "rgba(31, 41, 55, 0.3)",
+    PROGRESS_FILL: ["#059669", "#047857"],
+    PROFILE_CARD_BG: "rgba(31, 41, 55, 0.8)",
+    PROFILE_CARD_BORDER: "rgba(55, 65, 81, 0.8)",
+    TAB_INACTIVE: "rgba(156, 163, 175, 0.2)",
+    TAB_ACTIVE_BG: ["#4F46E5", "#7C3AED"],
+    TAB_ACTIVE_TEXT: "#FFFFFF",
+    TAB_INDICATOR: "#4F46E5",
+    APPLY_BUTTON_BG: ["#4F46E5", "#7C3AED"],
+    APPLY_TEXTAREA_BG: "rgba(55, 65, 81, 0.5)",
+    MEDIA_OVERLAY: "rgba(0, 0, 0, 0.5)",
+    STEPPER_BG: "rgba(31, 41, 55, 0.3)",
+    STEPPER_ACTIVE: ["#4F46E5", "#7C3AED"],
+    STEPPER_COMPLETED: ["rgba(79, 70, 229, 0.6)", "rgba(124, 58, 237, 0.6)"],
+    VERIFIED_BADGE: ["#059669", "#047857"],
+    PREMIUM_BADGE: ["#d97706", "#b45309"],
+    RATING_STAR_FILLED: "#f59e0b",
+    RATING_STAR_EMPTY: "rgba(245, 158, 11, 0.2)",
+  },
+};

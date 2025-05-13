@@ -1,5 +1,7 @@
+export { default as Badge } from "./Badge";
 export { default as Button } from "./Button";
 export { default as CardPayment } from "./CardPayment";
+export { default as CountdownProgress } from "./CountdownProgress";
 export { default as CountryPicker } from "./CountryPicker";
 export { default as CryptoPayment } from "./CryptoPayment";
 export { default as Drawer } from "./Drawer";
@@ -13,7 +15,10 @@ export { default as Map } from "./Map";
 export { default as MembershipRadioGroup } from "./MembershipRadioGroup";
 export type { SubscriptionPlan } from "./MembershipRadioGroup";
 export { PaymentMethodType, PaymentModal } from "./Modal";
+export { default as Rating } from "./Rating";
 export { default as RegionPicker } from "./RegionPicker";
 export { default as Slider } from "./Slider";
+export { default as StatusBadge } from "./StatusBadge";
+export { default as Tabs } from "./Tabs";
 export { default as Textarea } from "./Textarea";
 export { default as ThemeToggle } from "./ThemeToggle";

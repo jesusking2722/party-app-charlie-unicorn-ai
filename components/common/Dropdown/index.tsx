@@ -40,7 +40,8 @@ interface DropdownProps {
   labelStyle?: TextStyle;
   error?: string;
   icon?: React.ReactNode;
-  maxHeight?: number; // Optional prop to control max height
+  maxHeight?: number;
+  zIndex?: number;
 }
 
 const Dropdown: React.FC<DropdownProps> = ({
@@ -54,6 +55,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   error,
   icon,
   maxHeight,
+  zIndex,
 }) => {
   const { isDarkMode } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -319,6 +321,7 @@ const Dropdown: React.FC<DropdownProps> = ({
               transform: [{ translateY: dropdownTranslateY }],
               backgroundColor: getOptionsBgColor(),
               borderColor: getOptionBorderColor(),
+              zIndex: zIndex ? zIndex : 100,
               ...getDropdownPosition(),
             },
           ]}
@@ -433,7 +436,6 @@ const styles = StyleSheet.create({
     right: 0,
     borderRadius: BORDER_RADIUS.L,
     overflow: "hidden",
-    zIndex: 999,
     borderWidth: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },

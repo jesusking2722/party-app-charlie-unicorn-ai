@@ -20,17 +20,17 @@ const NAV_ITEMS = [
   {
     name: "Home",
     icon: "home",
-    path: "/",
+    path: "/main",
   },
   {
     name: "Events",
     icon: "calendar",
-    path: "/events",
+    path: "/main/events",
   },
   {
     name: "Create",
     icon: "plus-circle",
-    path: "/main/party/create",
+    path: "/main/events/create",
   },
   {
     name: "Tickets",
