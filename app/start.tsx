@@ -1,8 +1,9 @@
 import { FONTS, THEME } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import useInit from "@/hooks/useInit";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Image,
@@ -19,6 +20,31 @@ const Start = () => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
+  const [isAnimationComplete, setIsAnimationComplete] = useState(false);
+  const [isAuthComplete, setIsAuthComplete] = useState(false);
+  const authInitialized = useRef(false);
+
+  // Get the initialization function and loading state
+  const { fetchAuthUser, initLoading } = useInit();
+
+  // Call fetchAuthUser only once when the component mounts
+  useEffect(() => {
+    const initializeAuth = async () => {
+      if (!authInitialized.current) {
+        authInitialized.current = true;
+        try {
+          // Wait for the auth user to be properly updated in Redux
+          await fetchAuthUser();
+          setIsAuthComplete(true);
+        } catch (error) {
+          console.error("Auth initialization failed:", error);
+          setIsAuthComplete(true); // Still mark as complete even on error to allow navigation
+        }
+      }
+    };
+
+    initializeAuth();
+  }, [fetchAuthUser]);
 
   // Animation values
   const logoScale = useRef(new Animated.Value(0.3)).current;
@@ -30,9 +56,16 @@ const Start = () => {
   const circleScale = useRef(new Animated.Value(0)).current;
   const circleOpacity = useRef(new Animated.Value(1)).current;
 
+  // Navigation effect - monitors both animation completion and initialization status
   useEffect(() => {
-    // Logo animation sequence
-    Animated.sequence([
+    if (isAnimationComplete && isAuthComplete && !initLoading) {
+      router.replace("/auth/login");
+    }
+  }, [isAnimationComplete, isAuthComplete, initLoading, router]);
+
+  useEffect(() => {
+    // Start logo animation sequence
+    const initialAnimation = Animated.sequence([
       // Start with logo appearing and scaling up
       Animated.parallel([
         Animated.timing(logoScale, {
@@ -79,78 +112,107 @@ const Start = () => {
 
       // Brief pause for loading effect
       Animated.delay(300),
+    ]);
 
-      // Expanding circle transition out
-      Animated.parallel([
-        Animated.timing(circleScale, {
-          toValue: 2,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(circleOpacity, {
-          toValue: 0,
-          duration: 800,
-          useNativeDriver: true,
-        }),
-        // Shrink the logo as we transition out
-        Animated.timing(logoScale, {
-          toValue: 0.8,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(textOpacity, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
+    // Start the initial animation
+    initialAnimation.start();
 
-    // Navigate to login after 5 seconds
-    const timer = setTimeout(() => {
-      router.replace("/auth/login");
-    }, 5000);
+    // Set a minimum animation display time
+    const minDisplayTimeout = setTimeout(() => {
+      // If init is already completed, play exit animation
+      if (isAuthComplete && !initLoading) {
+        playExitAnimation();
+      }
+    }, 2000);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(minDisplayTimeout);
   }, []);
 
-  // Start a loop animation for the dots
+  // Watch for changes in auth status to potentially start exit animation
   useEffect(() => {
-    const loopDotsAnimation = () => {
-      // Reset dot scales
-      dotScale1.setValue(0.5);
-      dotScale2.setValue(0.5);
-      dotScale3.setValue(0.5);
+    if (isAuthComplete && !initLoading && !isAnimationComplete) {
+      playExitAnimation();
+    }
+  }, [isAuthComplete, initLoading, isAnimationComplete]);
 
-      // Animate them in sequence again
-      Animated.stagger(200, [
-        Animated.spring(dotScale1, {
-          toValue: 1,
-          friction: 6,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-        Animated.spring(dotScale2, {
-          toValue: 1,
-          friction: 6,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-        Animated.spring(dotScale3, {
-          toValue: 1,
-          friction: 6,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setTimeout(loopDotsAnimation, 300);
-      });
+  // Function to play exit animation
+  const playExitAnimation = () => {
+    Animated.parallel([
+      Animated.timing(circleScale, {
+        toValue: 2,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(circleOpacity, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      // Shrink the logo as we transition out
+      Animated.timing(logoScale, {
+        toValue: 0.8,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.timing(textOpacity, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsAnimationComplete(true);
+    });
+  };
+
+  // Loop animation for dots while waiting for init
+  useEffect(() => {
+    let animationTimer: any = null;
+
+    const loopDotsAnimation = () => {
+      // Only animate dots while initialization is still loading
+      if (initLoading || !isAuthComplete) {
+        // Reset dot scales
+        dotScale1.setValue(0.5);
+        dotScale2.setValue(0.5);
+        dotScale3.setValue(0.5);
+
+        // Animate dots in sequence
+        Animated.stagger(200, [
+          Animated.spring(dotScale1, {
+            toValue: 1,
+            friction: 6,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+          Animated.spring(dotScale2, {
+            toValue: 1,
+            friction: 6,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+          Animated.spring(dotScale3, {
+            toValue: 1,
+            friction: 6,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          // Continue animation loop if still loading
+          if (initLoading || !isAuthComplete) {
+            animationTimer = setTimeout(loopDotsAnimation, 300);
+          }
+        });
+      }
     };
 
-    // Start the looping animation after a short delay
-    const timer = setTimeout(loopDotsAnimation, 1500);
-    return () => clearTimeout(timer);
-  }, []);
+    // Start the animation loop after initial animation has time to complete
+    const startTimer = setTimeout(loopDotsAnimation, 1500);
+
+    return () => {
+      clearTimeout(startTimer);
+      if (animationTimer) clearTimeout(animationTimer);
+    };
+  }, [initLoading, isAuthComplete, dotScale1, dotScale2, dotScale3]);
 
   return (
     <View style={styles.container}>

@@ -1,7 +1,6 @@
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -36,10 +35,16 @@ import {
   ThemeToggle,
 } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { User } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
+import { router } from "expo-router";
+import { useSelector } from "react-redux";
 
 const PartyImage = require("@/assets/images/profile_onboarding.png");
-const LogoImage = require("@/assets/images/logo.png");
 
 const { width, height } = Dimensions.get("window");
 
@@ -74,6 +79,11 @@ const ProfileSetupScreen = () => {
   const cardScale = useRef(new Animated.Value(0.97)).current;
   const logoScale = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
+
+  const { showToast } = useToast();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -222,8 +232,10 @@ const ProfileSetupScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    // if (validateForm()) {
+  const handleSubmit = async () => {
+    if (!user) return;
+    if (!validateForm()) return;
+
     setLoading(true);
 
     // Button press animation
@@ -241,17 +253,31 @@ const ProfileSetupScreen = () => {
       }),
     ]).start();
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const updatingUser: User = {
+        ...user,
+        name: fullName,
+        shortname: username,
+        country: country?.code,
+        region: region?.name,
+        address: location as string,
+        geo: locationDetails.geometry.location,
+      };
+      const response = await updateAuthUser(updatingUser);
+      console.log(response.data);
+      if (response.ok) {
+        const { user: updatedUser } = response.data;
+        await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+        router.push("/onboarding/professionSetup");
+      } else {
+        showToast(response.message, "error");
+      }
+    } catch (error) {
+      showToast("Something went wrong", "error");
+      console.error("handle profile setup onboarding submit: ", error);
+    } finally {
       setLoading(false);
-      router.push("/onboarding/professionSetup");
-    }, 1500);
-    // }
-  };
-
-  const handleLocationSelect = (data: any, details: any) => {
-    setLocation(data.description);
-    setLocationDetails(details);
+    }
   };
 
   const renderParticles = () => {

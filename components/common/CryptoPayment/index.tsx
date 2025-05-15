@@ -1,5 +1,5 @@
 import { FONTS } from "@/app/theme";
-import { Button } from "@/components/common";
+import { Button, Currency } from "@/components/common";
 import { FontAwesome, FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,6 +30,7 @@ import {
   SPACING,
 } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAppKit, useAppKitAccount } from "@reown/appkit-ethers-react-native";
 
 const PaymentHeaderImage = require("@/assets/images/crypto-payment.png");
 const { width, height } = Dimensions.get("window");
@@ -123,6 +124,8 @@ const formatAddress = (address: string): string => {
 interface CryptoPaymentProps {
   amount: string;
   planTitle: string;
+  formattedAmount: string;
+  currency: Currency;
   onPaymentComplete: (success: boolean) => void;
   onBack: () => void;
 }
@@ -130,6 +133,8 @@ interface CryptoPaymentProps {
 const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   amount,
   planTitle,
+  formattedAmount,
+  currency,
   onPaymentComplete,
   onBack,
 }) => {
@@ -139,12 +144,12 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   const [loading, setLoading] = useState(false);
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("initial"); // initial, processing, confirming, completed, failed
+  const [paymentStatus, setPaymentStatus] = useState("initial");
   const [paymentDetails, setPaymentDetails] = useState<any>(null);
-  const [remainingTime, setRemainingTime] = useState(900); // 15 minutes in seconds
+  const [remainingTime, setRemainingTime] = useState(900);
   const [statusCheckInterval, setStatusCheckInterval] =
     useState<NodeJS.Timeout | null>(null);
-  const [showWalletInfo, setShowWalletInfo] = useState(false);
+  const [showWalletInfo, setShowWalletInfo] = useState(true);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -153,6 +158,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   const buttonScale = useRef(new Animated.Value(0)).current;
   const infoHeight = useRef(new Animated.Value(0)).current;
   const infoOpacity = useRef(new Animated.Value(0)).current;
+
+  const { open } = useAppKit();
+  const { isConnected, address } = useAppKitAccount();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -241,6 +249,20 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
     }
   }, [showWalletInfo]);
 
+  // Helper function to get currency text
+  const getCurrencyText = (currency: Currency): string => {
+    switch (currency) {
+      case "USD":
+        return "US Dollars";
+      case "EUR":
+        return "Euros";
+      case "PLN":
+        return "Polish Złoty";
+      default:
+        return "US Dollars";
+    }
+  };
+
   // Continuous animation for floating particles
   const animateParticles = () => {
     particles.forEach((particle) => {
@@ -310,23 +332,6 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   // Toggle wallet info section
   const toggleWalletInfo = () => {
     setShowWalletInfo(!showWalletInfo);
-  };
-
-  // Connect wallet
-  const handleConnectWallet = async () => {
-    try {
-      setLoading(true);
-      const wallet = await connectWallet();
-      setWalletConnected(true);
-      setWalletAddress(wallet.address);
-    } catch (error: any) {
-      Alert.alert(
-        "Connection Error",
-        error.message || "Failed to connect wallet"
-      );
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Make payment
@@ -429,6 +434,11 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
       }, 2000);
     }
   }, [paymentStatus, onPaymentComplete]);
+
+  useEffect(() => {
+    setWalletConnected(isConnected);
+    setWalletAddress(address as string);
+  }, [isConnected, address]);
 
   // Render particles for background effect
   const renderParticles = () => {
@@ -550,7 +560,8 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                         },
                       ]}
                     >
-                      {planTitle} Plan • {amount}
+                      {planTitle} Plan • {formattedAmount} (
+                      {getCurrencyText(currency)})
                       {paymentDetails && (
                         <Text> • ≈ {paymentDetails.amount} BNB</Text>
                       )}
@@ -570,7 +581,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                       >
                         Crypto Wallet
                       </Text>
-                      <TouchableOpacity
+                      {/* <TouchableOpacity
                         style={styles.infoButton}
                         onPress={toggleWalletInfo}
                       >
@@ -583,7 +594,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                               : COLORS.LIGHT_TEXT_SECONDARY
                           }
                         />
-                      </TouchableOpacity>
+                      </TouchableOpacity> */}
                     </View>
 
                     {/* Wallet Info (collapsible) */}
@@ -967,7 +978,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                       {paymentStatus === "initial" && !walletConnected && (
                         <Button
                           title="Connect Wallet"
-                          onPress={handleConnectWallet}
+                          onPress={() => open()}
                           loading={loading}
                           variant={isDarkMode ? "primary" : "secondary"}
                           small={false}

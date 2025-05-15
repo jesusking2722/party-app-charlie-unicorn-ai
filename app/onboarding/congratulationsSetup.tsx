@@ -3,6 +3,7 @@ import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import LottieView from "lottie-react-native";
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
@@ -29,7 +30,6 @@ import { Button, ThemeToggle } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const CelebrateImage = require("@/assets/images/congratulations.png");
-const LogoImage = require("@/assets/images/logo.png");
 
 const { width, height } = Dimensions.get("window");
 
@@ -38,6 +38,7 @@ const LIGHT_THEME_ACCENT = "#FF0099";
 
 const CongratulationsScreen = () => {
   const { isDarkMode } = useTheme();
+  const confettiRef = useRef<LottieView>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -118,6 +119,13 @@ const CongratulationsScreen = () => {
 
       // Start particle animations
       animateParticles();
+
+      // Play confetti animation
+      setTimeout(() => {
+        if (confettiRef.current) {
+          confettiRef.current.play();
+        }
+      }, 300);
     }, 100);
   }, []);
 
@@ -233,7 +241,7 @@ const CongratulationsScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar style="light" />
 
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
@@ -295,6 +303,15 @@ const CongratulationsScreen = () => {
               />
 
               <View style={styles.cardContent}>
+                {/* Confetti animation */}
+                <LottieView
+                  ref={confettiRef}
+                  source={require("@/assets/animations/confetti.json")}
+                  style={styles.confettiAnimation}
+                  loop={false}
+                  autoPlay={false}
+                />
+
                 {/* Success Icon */}
                 <Animated.View
                   style={[
@@ -414,6 +431,7 @@ const CongratulationsScreen = () => {
                     width: "100%",
                     transform: [{ scale: buttonScale }],
                     marginTop: SPACING.M,
+                    zIndex: 999,
                   }}
                 >
                   <Button
@@ -510,6 +528,15 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: SPACING.L,
     alignItems: "center",
+    position: "relative",
+  },
+  confettiAnimation: {
+    position: "absolute",
+    top: -100,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
   },
   checkIconContainer: {
     width: 60,

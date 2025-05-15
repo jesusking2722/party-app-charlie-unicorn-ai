@@ -32,11 +32,10 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { setAuthToken } from "@/lib/axiosInstance";
 import { registerByEmail } from "@/lib/scripts/auth.scripts";
-import { setAuth } from "@/redux/slices/auth.slice";
-import { useDispatch } from "react-redux";
+import { setAuthAsync } from "@/redux/actions/auth.actions";
+import { useAppDispatch } from "@/redux/store";
 
 const PartyImage = require("@/assets/images/register_bg.png");
-const LogoImage = require("@/assets/images/logo.png");
 
 const { width, height } = Dimensions.get("window");
 
@@ -68,7 +67,7 @@ const RegisterScreen = () => {
 
   const { showToast } = useToast();
 
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -267,9 +266,12 @@ const RegisterScreen = () => {
       if (response.ok) {
         const { user, token } = response.data;
         setAuthToken(token);
-        dispatch(setAuth({ isAuthenticated: true, user }));
+
+        // Use the unwrap() method to wait for the async thunk to complete
+        await dispatch(setAuthAsync({ isAuthenticated: true, user })).unwrap();
+
         showToast("Please check your mailbox to verify your mail", "success");
-        router.push("/onboarding");
+        router.push("/auth/verify");
       } else {
         showToast(response.message, "error");
       }

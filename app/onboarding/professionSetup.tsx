@@ -2,7 +2,6 @@ import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -30,6 +29,12 @@ import {
 } from "@/app/theme";
 import { Button, Input, Textarea, ThemeToggle } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { User } from "@/types/data";
+import { useSelector } from "react-redux";
 
 const PartyImage = require("@/assets/images/professional_onboarding.png");
 
@@ -59,6 +64,10 @@ const ProfessionalSetupScreen = () => {
   const cardScale = useRef(new Animated.Value(0.97)).current;
   const logoScale = useRef(new Animated.Value(0)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
+  const { showToast } = useToast();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -195,8 +204,10 @@ const ProfessionalSetupScreen = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
-    // if (validateForm()) {
+  const handleSubmit = async () => {
+    if (!user) return;
+    if (!validateForm()) return;
+
     setLoading(true);
 
     // Button press animation
@@ -214,12 +225,26 @@ const ProfessionalSetupScreen = () => {
       }),
     ]).start();
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const updatingUser: User = {
+        ...user,
+        title: professionalTitle,
+        about: description,
+      };
+      const response = await updateAuthUser(updatingUser);
+      if (response.ok) {
+        const { user: updatedUser } = response.data;
+        await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+        router.push("/onboarding/kycSetup");
+      } else {
+        showToast(response.message, "error");
+      }
+    } catch (error) {
+      showToast("Something went wrong", "error");
+      console.error("handle profession setup onboarding error: ", error);
+    } finally {
       setLoading(false);
-      router.push("/onboarding/kycSetup");
-    }, 1500);
-    // }
+    }
   };
 
   const handleBack = () => {
@@ -263,8 +288,6 @@ const ProfessionalSetupScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
-
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />

@@ -1,6 +1,6 @@
 import { FONTS } from "@/app/theme";
-import { Button, Input } from "@/components/common";
-import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
+import { Button } from "@/components/common";
+import { FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
@@ -28,74 +28,57 @@ import {
   SPACING,
 } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Currency } from "../MembershipRadioGroup";
+
+// Import Stripe dependencies
+import { useToast } from "@/contexts/ToastContext";
+import {
+  createStripePaymentIntent,
+  fetchStripePaymentIntentClientSecret,
+} from "@/lib/scripts/stripe.scripts";
+import { RootState } from "@/redux/store";
+import { extractNumericPrice } from "@/utils/price";
+import {
+  confirmPlatformPayPayment,
+  PlatformPay,
+  usePlatformPay,
+  useStripe,
+} from "@stripe/stripe-react-native";
+import { useSelector } from "react-redux";
 
 const PaymentHeaderImage = require("@/assets/images/card-payment.png");
 const { width, height } = Dimensions.get("window");
 
-// Custom light theme secondary color
 const LIGHT_THEME_ACCENT = "#FF0099";
 
-// Mock function to check if Google Pay is available
-const checkIsGooglePayAvailable = async () => {
-  try {
-    // Simulate checking device capability
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    // Return true for demo purposes - in a real app, this would check device capabilities
-    return Platform.OS === "android";
-  } catch (error) {
-    console.error("Error checking Google Pay availability:", error);
-    return false;
-  }
-};
-
-// Mock function to check if Apple Pay is available
-const checkIsApplePayAvailable = async () => {
-  try {
-    // Simulate checking device capability
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    // Return true for demo purposes if on iOS - in a real app, you would check capabilities
-    return Platform.OS === "ios";
-  } catch (error) {
-    console.error("Error checking Apple Pay availability:", error);
-    return false;
-  }
-};
-
-// Props for the custom card payment component
-interface CustomCardPaymentProps {
+interface CardPaymentProps {
   amount: string;
+  formattedAmount: string;
+  currency: Currency;
   planTitle: string;
   onPaymentComplete: (success: boolean) => void;
   onBack: () => void;
 }
 
-const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
-  amount,
+const CardPayment: React.FC<CardPaymentProps> = ({
+  formattedAmount,
+  currency,
   planTitle,
   onPaymentComplete,
   onBack,
 }) => {
+  const [cardLoading, setCardLoading] = useState<boolean>(false);
+
   const { isDarkMode } = useTheme();
 
-  // Card form state
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiryDate, setExpiryDate] = useState("");
-  const [cvv, setCvv] = useState("");
-  const [cardholderName, setCardholderName] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [formErrors, setFormErrors] = useState({
-    cardNumber: "",
-    expiryDate: "",
-    cvv: "",
-    cardholderName: "",
-  });
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { isPlatformPaySupported } = usePlatformPay();
 
   // Payment method states
-  const [isGooglePayLoading, setIsGooglePayLoading] = useState(true);
   const [isGooglePayAvailable, setIsGooglePayAvailable] = useState(false);
-  const [isApplePayLoading, setIsApplePayLoading] = useState(true);
   const [isApplePayAvailable, setIsApplePayAvailable] = useState(false);
-  const [showDigitalWalletInfo, setShowDigitalWalletInfo] = useState(false);
+  const [googlePayLoading, setGooglePayLoading] = useState<boolean>(false);
+  const [applePayLoading, setApplePayLoading] = useState<boolean>(false);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -104,6 +87,11 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
   const buttonScale = useRef(new Animated.Value(0)).current;
   const infoHeight = useRef(new Animated.Value(0)).current;
   const infoOpacity = useRef(new Animated.Value(0)).current;
+  const creditCardInfoHeight = useRef(new Animated.Value(0)).current;
+  const creditCardInfoOpacity = useRef(new Animated.Value(0)).current;
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const { showToast } = useToast();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -116,32 +104,14 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
       speed: Math.random() * 3000 + 2000,
     }));
 
-  // Check if payment methods are available
   useEffect(() => {
-    const checkPaymentMethodsAvailability = async () => {
-      try {
-        setIsGooglePayLoading(true);
-        setIsApplePayLoading(true);
-
-        const [googlePayAvailable, applePayAvailable] = await Promise.all([
-          checkIsGooglePayAvailable(),
-          checkIsApplePayAvailable(),
-        ]);
-
-        setIsGooglePayAvailable(googlePayAvailable);
-        setIsApplePayAvailable(applePayAvailable);
-      } catch (error) {
-        console.error("Failed to check payment methods availability:", error);
-        setIsGooglePayAvailable(false);
-        setIsApplePayAvailable(false);
-      } finally {
-        setIsGooglePayLoading(false);
-        setIsApplePayLoading(false);
-      }
-    };
-
-    checkPaymentMethodsAvailability();
-  }, []);
+    (async function () {
+      setIsApplePayAvailable(await isPlatformPaySupported());
+      setIsGooglePayAvailable(
+        !(await isPlatformPaySupported({ googlePay: { testEnv: true } }))
+      );
+    })();
+  }, [isPlatformPaySupported]);
 
   // Run animations when component mounts
   useEffect(() => {
@@ -190,34 +160,35 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
 
   // Animate digital wallet info section
   useEffect(() => {
-    if (showDigitalWalletInfo) {
-      Animated.parallel([
-        Animated.timing(infoHeight, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(infoOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(infoHeight, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }),
-        Animated.timing(infoOpacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    }
-  }, [showDigitalWalletInfo]);
+    Animated.parallel([
+      Animated.timing(infoHeight, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(infoOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, []);
+
+  // Animate credit card info section
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(creditCardInfoHeight, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+      Animated.timing(creditCardInfoOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, []);
 
   // Continuous animation for floating particles
   const animateParticles = () => {
@@ -272,11 +243,35 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
         ])
       ).start();
     });
+
+    // Clean up animations when component unmounts
+    return () => {
+      particles.forEach((particle) => {
+        particle.x.stopAnimation();
+        particle.y.stopAnimation();
+        particle.scale.stopAnimation();
+        particle.opacity.stopAnimation();
+      });
+    };
   };
 
   // Helper function to get accent color based on theme
   const getAccentColor = () =>
     isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
+
+  // Helper function to get currency text
+  const getCurrencyText = (currency: Currency): string => {
+    switch (currency) {
+      case "USD":
+        return "US Dollars";
+      case "EUR":
+        return "Euros";
+      case "PLN":
+        return "Polish Złoty";
+      default:
+        return "US Dollars";
+    }
+  };
 
   // Render particles for background effect
   const renderParticles = () => {
@@ -305,163 +300,157 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
     ));
   };
 
-  // Toggle digital wallet info section
-  const toggleDigitalWalletInfo = () => {
-    setShowDigitalWalletInfo(!showDigitalWalletInfo);
+  const initializePaymentSheet = async () => {
+    const amount = extractNumericPrice(formattedAmount);
+    if (amount === 0 || !currency || !user) return;
+
+    const response = await createStripePaymentIntent(
+      amount,
+      currency.toLowerCase()
+    );
+
+    const { customer, paymentIntent, ephemeralKey } = response.data;
+
+    await initPaymentSheet({
+      merchantDisplayName: "Example, Inc.",
+      customerId: customer,
+      customerEphemeralKeySecret: ephemeralKey,
+      paymentIntentClientSecret: paymentIntent,
+      // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
+      //methods that complete payment after a delay, like SEPA Debit and Sofort.
+      allowsDelayedPaymentMethods: true,
+      defaultBillingDetails: {
+        name: user.name as string,
+        email: user.email as string,
+        address: {
+          state: user.region,
+          country: user.country,
+          line1: user.address,
+        },
+      },
+    });
   };
 
-  // Format card number with spaces
-  const formatCardNumber = (text: string) => {
-    // Remove all non-digits
-    const cleaned = text.replace(/\D/g, "");
-    // Add space after every 4 digits
-    const formatted = cleaned.replace(/(\d{4})(?=\d)/g, "$1 ");
-    return formatted.slice(0, 19); // Limit to 16 digits + spaces
-  };
+  // Handle credit card payment
+  const handlePayment = async () => {
+    try {
+      setCardLoading(true);
+      await initializePaymentSheet();
 
-  // Format expiry date (MM/YY)
-  const formatExpiryDate = (text: string) => {
-    // Remove all non-digits
-    const cleaned = text.replace(/\D/g, "");
+      const { error } = await presentPaymentSheet();
 
-    // Format as MM/YY
-    if (cleaned.length > 2) {
-      return cleaned.slice(0, 2) + "/" + cleaned.slice(2, 4);
-    } else {
-      return cleaned;
+      if (error) {
+        showToast(error.message, "error");
+        onPaymentComplete(false);
+      } else {
+        showToast("Subscription is successful", "success");
+        onPaymentComplete(true);
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+    } finally {
+      setCardLoading(false);
     }
-  };
-
-  // Handle card number change
-  const handleCardNumberChange = (text: string) => {
-    const formatted = formatCardNumber(text);
-    setCardNumber(formatted);
-
-    // Clear error when user types
-    if (formErrors.cardNumber) {
-      setFormErrors((prev) => ({ ...prev, cardNumber: "" }));
-    }
-  };
-
-  // Handle expiry date change
-  const handleExpiryDateChange = (text: string) => {
-    const formatted = formatExpiryDate(text);
-    setExpiryDate(formatted);
-
-    // Clear error when user types
-    if (formErrors.expiryDate) {
-      setFormErrors((prev) => ({ ...prev, expiryDate: "" }));
-    }
-  };
-
-  // Handle CVV change
-  const handleCvvChange = (text: string) => {
-    // Only allow digits and max 4 digits
-    const cleaned = text.replace(/\D/g, "").slice(0, 4);
-    setCvv(cleaned);
-
-    // Clear error when user types
-    if (formErrors.cvv) {
-      setFormErrors((prev) => ({ ...prev, cvv: "" }));
-    }
-  };
-
-  // Handle cardholder name change
-  const handleCardholderNameChange = (text: string) => {
-    setCardholderName(text);
-
-    // Clear error when user types
-    if (formErrors.cardholderName) {
-      setFormErrors((prev) => ({ ...prev, cardholderName: "" }));
-    }
-  };
-
-  // Validate form before submission
-  const validateForm = () => {
-    let isValid = true;
-    const newErrors = {
-      cardNumber: "",
-      expiryDate: "",
-      cvv: "",
-      cardholderName: "",
-    };
-
-    // Check card number (should be 16 digits)
-    if (cardNumber.replace(/\s/g, "").length !== 16) {
-      newErrors.cardNumber = "Please enter a valid 16-digit card number";
-      isValid = false;
-    }
-
-    // Check expiry date format (should be MM/YY)
-    if (!expiryDate.match(/^\d{2}\/\d{2}$/)) {
-      newErrors.expiryDate = "Please enter a valid expiry date (MM/YY)";
-      isValid = false;
-    }
-
-    // Check CVV (should be 3 or 4 digits)
-    if (!cvv.match(/^\d{3,4}$/)) {
-      newErrors.cvv = "Please enter a valid CVV code";
-      isValid = false;
-    }
-
-    // Check cardholder name
-    if (cardholderName.trim().length < 3) {
-      newErrors.cardholderName = "Please enter the cardholder name";
-      isValid = false;
-    }
-
-    setFormErrors(newErrors);
-    return isValid;
-  };
-
-  // Handle payment submission
-  const handlePayment = () => {
-    if (!validateForm()) {
-      return;
-    }
-
-    setLoading(true);
-
-    // Simulate API call to process payment
-    setTimeout(() => {
-      setLoading(false);
-
-      // For demo purposes, we'll automatically succeed
-      // In a real app, you would:
-      // 1. Send card details securely to your backend
-      // 2. Your backend would use Stripe API to create a payment
-      // 3. Handle the response accordingly
-
-      onPaymentComplete(true);
-    }, 2000);
   };
 
   // Handle Google Pay payment
-  const handleGooglePay = () => {
-    setLoading(true);
+  const handleGooglePay = async () => {
+    const amount = extractNumericPrice(formattedAmount);
+    if (amount === 0 || !currency || !user) return;
 
-    // Simulate Google Pay payment process
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      setGooglePayLoading(true);
+
+      const response = await fetchStripePaymentIntentClientSecret(
+        amount,
+        currency.toLowerCase()
+      );
+
+      if (!response.ok) {
+        setGooglePayLoading(false);
+        return;
+      }
+
+      const { clientSecret } = response.data;
+
+      const { error } = await confirmPlatformPayPayment(clientSecret, {
+        googlePay: {
+          testEnv: true,
+          merchantName: "Charlie Unicorn AI",
+          merchantCountryCode: "PL",
+          currencyCode: currency,
+          billingAddressConfig: {
+            format: PlatformPay.BillingAddressFormat.Full,
+            isPhoneNumberRequired: true,
+            isRequired: true,
+          },
+        },
+      });
+
+      if (error) {
+        showToast(error.message, "error");
+        setGooglePayLoading(false);
+        return;
+      }
+
       onPaymentComplete(true);
-    }, 2000);
+    } catch (error) {
+      console.error("Google Pay error:", error);
+    } finally {
+      setGooglePayLoading(false);
+    }
   };
 
   // Handle Apple Pay payment
-  const handleApplePay = () => {
-    setLoading(true);
+  const handleApplePay = async () => {
+    const amount = extractNumericPrice(formattedAmount);
+    if (amount === 0 || !currency || !user) return;
 
-    // Simulate Apple Pay payment process
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      setApplePayLoading(true);
+
+      const response = await fetchStripePaymentIntentClientSecret(
+        amount,
+        currency.toLowerCase()
+      );
+
+      if (!response.ok) {
+        setApplePayLoading(false);
+        return;
+      }
+
+      const { clientSecret } = response.data;
+
+      const { error } = await confirmPlatformPayPayment(clientSecret, {
+        applePay: {
+          cartItems: [
+            {
+              label: planTitle,
+              amount: amount.toString(),
+              paymentType: PlatformPay.PaymentType.Immediate,
+            },
+          ],
+          merchantCountryCode: "PL",
+          currencyCode: currency,
+          requiredShippingAddressFields: [
+            PlatformPay.ContactField.PostalAddress,
+          ],
+          requiredBillingContactFields: [PlatformPay.ContactField.PhoneNumber],
+        },
+      });
+
+      if (error) {
+        showToast(error.message, "error");
+        setApplePayLoading(false);
+        return;
+      }
+
       onPaymentComplete(true);
-    }, 2000);
+    } catch (error) {
+      console.error("Apple Pay error:", error);
+    } finally {
+    }
   };
-
-  // Check if at least one digital wallet is available
-  const hasDigitalWallet =
-    (!isGooglePayLoading && isGooglePayAvailable) ||
-    (!isApplePayLoading && isApplePayAvailable);
 
   return (
     <SafeAreaView
@@ -556,383 +545,213 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
                         },
                       ]}
                     >
-                      {planTitle} Plan • {amount}
+                      {planTitle} Plan • {formattedAmount} (
+                      {getCurrencyText(currency)})
                     </Text>
 
                     {/* Digital Wallet Options Section */}
-                    {hasDigitalWallet && (
-                      <>
-                        <View style={styles.digitalWalletHeader}>
+                    <>
+                      <View style={styles.digitalWalletHeader}>
+                        <Text
+                          style={[
+                            styles.digitalWalletTitle,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Express Checkout
+                        </Text>
+                      </View>
+
+                      {/* Digital Wallet Information (collapsible) */}
+                      <Animated.View
+                        style={[
+                          styles.walletInfoContainer,
+                          {
+                            maxHeight: infoHeight.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0, 500], // Max height when expanded
+                            }),
+                            opacity: infoOpacity,
+                            backgroundColor: isDarkMode
+                              ? "rgba(30, 35, 45, 0.5)"
+                              : "rgba(255, 255, 255, 0.5)",
+                            borderColor: isDarkMode
+                              ? "rgba(255, 255, 255, 0.05)"
+                              : "rgba(0, 0, 0, 0.05)",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.walletInfoTitle,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Why use digital wallets?
+                        </Text>
+
+                        <View style={styles.walletInfoItem}>
+                          <FontAwesome5
+                            name="bolt"
+                            size={12}
+                            color={getAccentColor()}
+                            style={styles.walletInfoIcon}
+                          />
                           <Text
                             style={[
-                              styles.digitalWalletTitle,
+                              styles.walletInfoText,
                               {
                                 color: isDarkMode
-                                  ? COLORS.DARK_TEXT_PRIMARY
-                                  : COLORS.LIGHT_TEXT_PRIMARY,
+                                  ? COLORS.DARK_TEXT_SECONDARY
+                                  : COLORS.LIGHT_TEXT_SECONDARY,
                               },
                             ]}
                           >
-                            Express Checkout
+                            Faster checkout without manual card entry
                           </Text>
-                          <TouchableOpacity
-                            style={styles.infoButton}
-                            onPress={toggleDigitalWalletInfo}
-                          >
-                            <FontAwesome
-                              name={
-                                showDigitalWalletInfo
-                                  ? "chevron-up"
-                                  : "chevron-down"
-                              }
-                              size={14}
-                              color={
-                                isDarkMode
-                                  ? COLORS.DARK_TEXT_SECONDARY
-                                  : COLORS.LIGHT_TEXT_SECONDARY
-                              }
-                            />
-                          </TouchableOpacity>
                         </View>
 
-                        {/* Digital Wallet Information (collapsible) */}
-                        <Animated.View
+                        <View style={styles.walletInfoItem}>
+                          <FontAwesome5
+                            name="shield-alt"
+                            size={12}
+                            color={getAccentColor()}
+                            style={styles.walletInfoIcon}
+                          />
+                          <Text
+                            style={[
+                              styles.walletInfoText,
+                              {
+                                color: isDarkMode
+                                  ? COLORS.DARK_TEXT_SECONDARY
+                                  : COLORS.LIGHT_TEXT_SECONDARY,
+                              },
+                            ]}
+                          >
+                            Enhanced security with tokenization technology
+                          </Text>
+                        </View>
+
+                        <View style={styles.walletInfoItem}>
+                          <FontAwesome5
+                            name="fingerprint"
+                            size={12}
+                            color={getAccentColor()}
+                            style={styles.walletInfoIcon}
+                          />
+                          <Text
+                            style={[
+                              styles.walletInfoText,
+                              {
+                                color: isDarkMode
+                                  ? COLORS.DARK_TEXT_SECONDARY
+                                  : COLORS.LIGHT_TEXT_SECONDARY,
+                              },
+                            ]}
+                          >
+                            Secure authentication with biometrics
+                          </Text>
+                        </View>
+
+                        <View style={styles.walletInfoItem}>
+                          <FontAwesome5
+                            name="lock"
+                            size={12}
+                            color={getAccentColor()}
+                            style={styles.walletInfoIcon}
+                          />
+                          <Text
+                            style={[
+                              styles.walletInfoText,
+                              {
+                                color: isDarkMode
+                                  ? COLORS.DARK_TEXT_SECONDARY
+                                  : COLORS.LIGHT_TEXT_SECONDARY,
+                              },
+                            ]}
+                          >
+                            Your card details are never shared with merchants
+                          </Text>
+                        </View>
+                      </Animated.View>
+
+                      {/* Google Pay Button */}
+                      {isGooglePayAvailable && (
+                        <View
                           style={[
-                            styles.walletInfoContainer,
+                            styles.digitalWalletButton,
                             {
-                              maxHeight: infoHeight.interpolate({
-                                inputRange: [0, 1],
-                                outputRange: [0, 500], // Max height when expanded
-                              }),
-                              opacity: infoOpacity,
                               backgroundColor: isDarkMode
-                                ? "rgba(30, 35, 45, 0.5)"
-                                : "rgba(255, 255, 255, 0.5)",
+                                ? "rgba(40, 45, 55, 0.65)"
+                                : "rgba(255, 255, 255, 0.65)",
                               borderColor: isDarkMode
-                                ? "rgba(255, 255, 255, 0.05)"
+                                ? "rgba(255, 255, 255, 0.1)"
                                 : "rgba(0, 0, 0, 0.05)",
                             },
                           ]}
                         >
-                          <Text
-                            style={[
-                              styles.walletInfoTitle,
-                              {
-                                color: isDarkMode
-                                  ? COLORS.DARK_TEXT_PRIMARY
-                                  : COLORS.LIGHT_TEXT_PRIMARY,
-                              },
-                            ]}
-                          >
-                            Why use digital wallets?
-                          </Text>
-
-                          <View style={styles.walletInfoItem}>
-                            <FontAwesome5
-                              name="bolt"
-                              size={12}
-                              color={getAccentColor()}
-                              style={styles.walletInfoIcon}
-                            />
-                            <Text
-                              style={[
-                                styles.walletInfoText,
-                                {
-                                  color: isDarkMode
-                                    ? COLORS.DARK_TEXT_SECONDARY
-                                    : COLORS.LIGHT_TEXT_SECONDARY,
-                                },
-                              ]}
-                            >
-                              Faster checkout without manual card entry
-                            </Text>
-                          </View>
-
-                          <View style={styles.walletInfoItem}>
-                            <FontAwesome5
-                              name="shield-alt"
-                              size={12}
-                              color={getAccentColor()}
-                              style={styles.walletInfoIcon}
-                            />
-                            <Text
-                              style={[
-                                styles.walletInfoText,
-                                {
-                                  color: isDarkMode
-                                    ? COLORS.DARK_TEXT_SECONDARY
-                                    : COLORS.LIGHT_TEXT_SECONDARY,
-                                },
-                              ]}
-                            >
-                              Enhanced security with tokenization technology
-                            </Text>
-                          </View>
-
-                          <View style={styles.walletInfoItem}>
-                            <FontAwesome5
-                              name="fingerprint"
-                              size={12}
-                              color={getAccentColor()}
-                              style={styles.walletInfoIcon}
-                            />
-                            <Text
-                              style={[
-                                styles.walletInfoText,
-                                {
-                                  color: isDarkMode
-                                    ? COLORS.DARK_TEXT_SECONDARY
-                                    : COLORS.LIGHT_TEXT_SECONDARY,
-                                },
-                              ]}
-                            >
-                              Secure authentication with biometrics
-                            </Text>
-                          </View>
-
-                          <View style={styles.walletInfoItem}>
-                            <FontAwesome5
-                              name="lock"
-                              size={12}
-                              color={getAccentColor()}
-                              style={styles.walletInfoIcon}
-                            />
-                            <Text
-                              style={[
-                                styles.walletInfoText,
-                                {
-                                  color: isDarkMode
-                                    ? COLORS.DARK_TEXT_SECONDARY
-                                    : COLORS.LIGHT_TEXT_SECONDARY,
-                                },
-                              ]}
-                            >
-                              Your card details are never shared with merchants
-                            </Text>
-                          </View>
-                        </Animated.View>
-
-                        {/* Google Pay Button */}
-                        {!isGooglePayLoading && isGooglePayAvailable && (
-                          <View
-                            style={[
-                              styles.digitalWalletButton,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(40, 45, 55, 0.65)"
-                                  : "rgba(255, 255, 255, 0.65)",
-                                borderColor: isDarkMode
-                                  ? "rgba(255, 255, 255, 0.1)"
-                                  : "rgba(0, 0, 0, 0.05)",
-                              },
-                            ]}
-                          >
-                            <TouchableOpacity
-                              style={styles.googlePayButton}
-                              onPress={handleGooglePay}
-                              disabled={loading}
-                            >
-                              <View style={styles.googlePayContent}>
-                                <FontAwesome5
-                                  name="google"
-                                  size={16}
-                                  color="white"
-                                  style={{ marginRight: SPACING.S }}
-                                />
-                                <Text style={styles.googlePayText}>
-                                  Pay with Google Pay
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-
-                        {/* Apple Pay Button */}
-                        {!isApplePayLoading && isApplePayAvailable && (
-                          <View
-                            style={[
-                              styles.digitalWalletButton,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(40, 45, 55, 0.65)"
-                                  : "rgba(255, 255, 255, 0.65)",
-                                borderColor: isDarkMode
-                                  ? "rgba(255, 255, 255, 0.1)"
-                                  : "rgba(0, 0, 0, 0.05)",
-                                marginTop: isGooglePayAvailable ? SPACING.S : 0,
-                              },
-                            ]}
-                          >
-                            <TouchableOpacity
-                              style={styles.applePayButton}
-                              onPress={handleApplePay}
-                              disabled={loading}
-                            >
-                              <View style={styles.applePayContent}>
-                                <FontAwesome5
-                                  name="apple"
-                                  size={18}
-                                  color="white"
-                                  style={{ marginRight: SPACING.S }}
-                                />
-                                <Text style={styles.applePayText}>
-                                  Pay with Apple Pay
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-
-                        {/* OR Divider */}
-                        <View style={styles.orDivider}>
-                          <View
-                            style={[
-                              styles.dividerLine,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(255, 255, 255, 0.2)"
-                                  : "rgba(0, 0, 0, 0.1)",
-                              },
-                            ]}
-                          />
-                          <Text
-                            style={[
-                              styles.orText,
-                              {
-                                color: isDarkMode
-                                  ? "rgba(255, 255, 255, 0.6)"
-                                  : "rgba(0, 0, 0, 0.5)",
-                              },
-                            ]}
-                          >
-                            OR
-                          </Text>
-                          <View
-                            style={[
-                              styles.dividerLine,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(255, 255, 255, 0.2)"
-                                  : "rgba(0, 0, 0, 0.1)",
-                              },
-                            ]}
-                          />
-                        </View>
-                      </>
-                    )}
-
-                    {/* Credit Card Form */}
-                    <View style={styles.formContainer}>
-                      <Text
-                        style={[
-                          styles.formSectionTitle,
-                          {
-                            color: isDarkMode
-                              ? COLORS.DARK_TEXT_PRIMARY
-                              : COLORS.LIGHT_TEXT_PRIMARY,
-                          },
-                        ]}
-                      >
-                        Pay with Card
-                      </Text>
-
-                      {/* Card number input */}
-                      <Input
-                        label="Card Number"
-                        placeholder="1234 5678 9012 3456"
-                        keyboardType="number-pad"
-                        value={cardNumber}
-                        onChangeText={handleCardNumberChange}
-                        error={formErrors.cardNumber}
-                        autoCapitalize="none"
-                        icon={
-                          <FontAwesome
-                            name="credit-card"
-                            size={16}
-                            color={
-                              isDarkMode
-                                ? COLORS.DARK_TEXT_SECONDARY
-                                : COLORS.LIGHT_TEXT_SECONDARY
-                            }
-                          />
-                        }
-                      />
-
-                      {/* Expiry date and CVV (on the same row) */}
-                      <View style={styles.rowContainer}>
-                        <View style={styles.halfWidth}>
-                          <Input
-                            label="Expiry Date"
-                            placeholder="MM/YY"
-                            keyboardType="number-pad"
-                            value={expiryDate}
-                            onChangeText={handleExpiryDateChange}
-                            error={formErrors.expiryDate}
-                            autoCapitalize="none"
+                          <Button
+                            title="Google pay"
+                            variant={isDarkMode ? "secondary" : "primary"}
+                            onPress={handleGooglePay}
+                            disabled={cardLoading}
+                            loading={googlePayLoading}
                             icon={
-                              <FontAwesome
-                                name="calendar"
-                                size={16}
-                                color={
-                                  isDarkMode
-                                    ? COLORS.DARK_TEXT_SECONDARY
-                                    : COLORS.LIGHT_TEXT_SECONDARY
-                                }
+                              <FontAwesome5
+                                name="google"
+                                size={14}
+                                color="white"
                               />
                             }
                           />
                         </View>
+                      )}
 
-                        <View style={styles.halfWidth}>
-                          <Input
-                            label="CVV"
-                            placeholder="123"
-                            keyboardType="number-pad"
-                            value={cvv}
-                            onChangeText={handleCvvChange}
-                            error={formErrors.cvv}
-                            isPassword={true}
-                            autoCapitalize="none"
+                      {/* Apple Pay Button */}
+                      {isApplePayAvailable && (
+                        <View
+                          style={[
+                            styles.digitalWalletButton,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(40, 45, 55, 0.65)"
+                                : "rgba(255, 255, 255, 0.65)",
+                              borderColor: isDarkMode
+                                ? "rgba(255, 255, 255, 0.1)"
+                                : "rgba(0, 0, 0, 0.05)",
+                              marginTop: isGooglePayAvailable ? SPACING.S : 0,
+                            },
+                          ]}
+                        >
+                          <Button
+                            title="Apple pay"
+                            variant={isDarkMode ? "secondary" : "primary"}
+                            onPress={handleApplePay}
+                            disabled={cardLoading}
+                            loading={applePayLoading}
                             icon={
-                              <FontAwesome
-                                name="lock"
-                                size={16}
-                                color={
-                                  isDarkMode
-                                    ? COLORS.DARK_TEXT_SECONDARY
-                                    : COLORS.LIGHT_TEXT_SECONDARY
-                                }
+                              <FontAwesome5
+                                name="apple"
+                                size={14}
+                                color="white"
                               />
                             }
                           />
                         </View>
-                      </View>
+                      )}
 
-                      {/* Cardholder name */}
-                      <Input
-                        label="Cardholder Name"
-                        placeholder="John Doe"
-                        value={cardholderName}
-                        onChangeText={handleCardholderNameChange}
-                        error={formErrors.cardholderName}
-                        autoCapitalize="words"
-                        icon={
-                          <FontAwesome
-                            name="user"
-                            size={16}
-                            color={
-                              isDarkMode
-                                ? COLORS.DARK_TEXT_SECONDARY
-                                : COLORS.LIGHT_TEXT_SECONDARY
-                            }
-                          />
-                        }
-                      />
-
-                      {/* Security Notes */}
+                      {/* Payment Sheet Button */}
                       <View
                         style={[
-                          styles.securityContainer,
+                          styles.digitalWalletButton,
                           {
                             backgroundColor: isDarkMode
                               ? "rgba(40, 45, 55, 0.65)"
@@ -940,42 +759,108 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
                             borderColor: isDarkMode
                               ? "rgba(255, 255, 255, 0.1)"
                               : "rgba(0, 0, 0, 0.05)",
+                            marginTop: SPACING.S,
+                          },
+                        ]}
+                      ></View>
+
+                      {/* OR Divider */}
+                      <View style={styles.orDivider}>
+                        <View
+                          style={[
+                            styles.dividerLine,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(255, 255, 255, 0.2)"
+                                : "rgba(0, 0, 0, 0.1)",
+                            },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.orText,
+                            {
+                              color: isDarkMode
+                                ? "rgba(255, 255, 255, 0.6)"
+                                : "rgba(0, 0, 0, 0.5)",
+                            },
+                          ]}
+                        >
+                          OR
+                        </Text>
+                        <View
+                          style={[
+                            styles.dividerLine,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(255, 255, 255, 0.2)"
+                                : "rgba(0, 0, 0, 0.1)",
+                            },
+                          ]}
+                        />
+                      </View>
+                    </>
+
+                    {/* Credit Card Section Header */}
+                    <View style={styles.digitalWalletHeader}>
+                      <Text
+                        style={[
+                          styles.digitalWalletTitle,
+                          {
+                            color: isDarkMode
+                              ? COLORS.DARK_TEXT_PRIMARY
+                              : COLORS.LIGHT_TEXT_PRIMARY,
+                            marginTop: SPACING.S,
                           },
                         ]}
                       >
-                        <View style={styles.securityHeader}>
-                          <View
-                            style={[
-                              styles.featureIconContainer,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(255, 0, 153, 0.2)"
-                                  : "rgba(255, 0, 153, 0.1)",
-                              },
-                            ]}
-                          >
-                            <FontAwesome
-                              name="shield"
-                              size={14}
-                              color={getAccentColor()}
-                            />
-                          </View>
-                          <Text
-                            style={[
-                              styles.securityHeaderText,
-                              {
-                                color: isDarkMode
-                                  ? COLORS.DARK_TEXT_PRIMARY
-                                  : COLORS.LIGHT_TEXT_PRIMARY,
-                              },
-                            ]}
-                          >
-                            Secure Payment
-                          </Text>
-                        </View>
+                        Credit Card Payment
+                      </Text>
+                    </View>
+
+                    {/* Credit Card Information (collapsible) */}
+                    <Animated.View
+                      style={[
+                        styles.walletInfoContainer,
+                        {
+                          maxHeight: creditCardInfoHeight.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 500], // Max height when expanded
+                          }),
+                          opacity: creditCardInfoOpacity,
+                          backgroundColor: isDarkMode
+                            ? "rgba(30, 35, 45, 0.5)"
+                            : "rgba(255, 255, 255, 0.5)",
+                          borderColor: isDarkMode
+                            ? "rgba(255, 255, 255, 0.05)"
+                            : "rgba(0, 0, 0, 0.05)",
+                          marginBottom: SPACING.S,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.walletInfoTitle,
+                          {
+                            color: isDarkMode
+                              ? COLORS.DARK_TEXT_PRIMARY
+                              : COLORS.LIGHT_TEXT_PRIMARY,
+                          },
+                        ]}
+                      >
+                        Why use credit card payment?
+                      </Text>
+
+                      <View style={styles.walletInfoItem}>
+                        <FontAwesome5
+                          name="shield-alt"
+                          size={12}
+                          color={getAccentColor()}
+                          style={styles.walletInfoIcon}
+                        />
                         <Text
                           style={[
-                            styles.securityText,
+                            styles.walletInfoText,
                             {
                               color: isDarkMode
                                 ? COLORS.DARK_TEXT_SECONDARY
@@ -983,11 +868,75 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
                             },
                           ]}
                         >
-                          Your payment information is encrypted and securely
-                          processed.
+                          Industry-standard SSL encryption protects your data
                         </Text>
                       </View>
-                    </View>
+
+                      <View style={styles.walletInfoItem}>
+                        <FontAwesome5
+                          name="credit-card"
+                          size={12}
+                          color={getAccentColor()}
+                          style={styles.walletInfoIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.walletInfoText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          Most cards offer fraud protection and purchase
+                          insurance
+                        </Text>
+                      </View>
+
+                      <View style={styles.walletInfoItem}>
+                        <FontAwesome5
+                          name="globe"
+                          size={12}
+                          color={getAccentColor()}
+                          style={styles.walletInfoIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.walletInfoText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          Accepted worldwide with comprehensive payment options
+                        </Text>
+                      </View>
+
+                      <View style={styles.walletInfoItem}>
+                        <FontAwesome5
+                          name="lock"
+                          size={12}
+                          color={getAccentColor()}
+                          style={styles.walletInfoIcon}
+                        />
+                        <Text
+                          style={[
+                            styles.walletInfoText,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          PCI-DSS compliant processing ensures your data is
+                          secure
+                        </Text>
+                      </View>
+                    </Animated.View>
 
                     {/* Pay Button */}
                     <Animated.View
@@ -998,13 +947,13 @@ const CustomCardPayment: React.FC<CustomCardPaymentProps> = ({
                       }}
                     >
                       <Button
-                        title={`Pay ${amount}`}
+                        title="Pay with Credit Card"
                         onPress={handlePayment}
-                        loading={loading}
+                        loading={cardLoading}
                         variant={isDarkMode ? "primary" : "secondary"}
                         small={false}
                         icon={
-                          !loading && (
+                          !cardLoading && (
                             <FontAwesome5
                               name="arrow-right"
                               size={14}
@@ -1220,6 +1169,21 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.SEMIBOLD,
     fontSize: FONT_SIZES.S,
   },
+  paymentSheetButton: {
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  paymentSheetContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentSheetText: {
+    color: "white",
+    fontFamily: FONTS.SEMIBOLD,
+    fontSize: FONT_SIZES.S,
+  },
   orDivider: {
     flexDirection: "row",
     alignItems: "center",
@@ -1281,4 +1245,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CustomCardPayment;
+export default CardPayment;

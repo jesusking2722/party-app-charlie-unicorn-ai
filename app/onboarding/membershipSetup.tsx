@@ -1,6 +1,8 @@
 import {
+  Currency,
   MembershipRadioGroup,
   PaymentMethodType,
+  Spinner,
   SubscriptionPlan,
 } from "@/components/common";
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
@@ -40,6 +42,12 @@ import {
   ThemeToggle,
 } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { User } from "@/types/data";
+import { useSelector } from "react-redux";
 
 const PremiumHeaderImage = require("@/assets/images/premium_onboarding.png");
 const { width, height } = Dimensions.get("window");
@@ -74,7 +82,7 @@ const PremiumSubscriptionScreen = () => {
       id: "quarterly",
       title: "3 Months",
       price: 30,
-      priceLabel: "$30 (only $10/month)",
+      priceLabel: "$30 / 3 months",
       duration: "3 months",
       features: ["All premium features", "Priority support"],
     },
@@ -82,7 +90,7 @@ const PremiumSubscriptionScreen = () => {
       id: "biannual",
       title: "6 Months",
       price: 54,
-      priceLabel: "$54 (only $9/month)",
+      priceLabel: "$54 / 6 months",
       duration: "6 months",
       isPopular: true,
       features: [
@@ -95,7 +103,7 @@ const PremiumSubscriptionScreen = () => {
       id: "annual",
       title: "12 Months",
       price: 95,
-      priceLabel: "$95 (only $7.92/month)",
+      priceLabel: "$95 / 1 year",
       duration: "1 year",
       features: [
         "All premium features",
@@ -106,19 +114,14 @@ const PremiumSubscriptionScreen = () => {
     },
   ];
 
-  // State for selected plan (default to biannual)
   const [selectedPlanId, setSelectedPlanId] = useState<string>(
     subscriptionPlans[3].id
   );
-
-  // State for loading
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>("USD");
+  const [formattedAmount, setFormattedAmount] = useState<string>("$54");
   const [loading, setLoading] = useState<boolean>(false);
-
-  // State for payment modal visibility
   const [paymentModalVisible, setPaymentModalVisible] =
     useState<boolean>(false);
-
-  // State for current payment flow
   const [paymentFlow, setPaymentFlow] = useState<string | null>(null);
 
   // Animation values
@@ -126,6 +129,11 @@ const PremiumSubscriptionScreen = () => {
   const translateY = useRef(new Animated.Value(30)).current;
   const cardScale = useRef(new Animated.Value(0.97)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
+
+  const { showToast } = useToast();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -181,6 +189,20 @@ const PremiumSubscriptionScreen = () => {
       // Start particle animations
       animateParticles();
     }, 100);
+  }, []);
+
+  // Initialize formattedAmount with default selected plan
+  useEffect(() => {
+    const selectedPlan = subscriptionPlans.find(
+      (plan) => plan.id === selectedPlanId
+    );
+    if (selectedPlan && !selectedPlan.isFree) {
+      // Extract just the price part (e.g. "$54" from "$54 / 6 months")
+      const priceMatch = selectedPlan.priceLabel.match(/\$\d+/);
+      if (priceMatch) {
+        setFormattedAmount(priceMatch[0]);
+      }
+    }
   }, []);
 
   // Continuous animation for floating particles
@@ -243,6 +265,12 @@ const PremiumSubscriptionScreen = () => {
     setSelectedPlanId(plan.id);
   };
 
+  // Handle currency change
+  const handleCurrencyChange = (currency: Currency, formattedPrice: string) => {
+    setSelectedCurrency(currency);
+    setFormattedAmount(formattedPrice);
+  };
+
   // Handle subscription submission
   const handleSubscribe = () => {
     const selectedPlan = subscriptionPlans.find(
@@ -261,7 +289,7 @@ const PremiumSubscriptionScreen = () => {
   // Handle free subscription
   const handleFreeSubscription = () => {
     setLoading(true);
-    // Simulate API call
+
     setTimeout(() => {
       setLoading(false);
       router.push("/onboarding/congratulationsSetup");
@@ -281,34 +309,43 @@ const PremiumSubscriptionScreen = () => {
   };
 
   // Handle payment completion
-  const handlePaymentComplete = (success: boolean) => {
-    if (success) {
-      // Reset payment flow
+  const handlePaymentComplete = async (success: boolean) => {
+    if (success && user) {
+      setLoading(true);
       setPaymentFlow(null);
 
-      // Navigate to next screen
-      console.log("Payment successful, navigating to home screen");
-      router.push("/onboarding/congratulationsSetup");
+      try {
+        const updatingUser: User = {
+          ...user,
+          membership: "premium",
+          membershipPeriod: Number(selectedPlan?.duration.split(" ")[0]) as any,
+          premiumStartedAt: new Date(),
+        };
+
+        const response = await updateAuthUser(updatingUser);
+        if (response.ok) {
+          const { user: updatedUser } = response.data;
+          await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+          router.push("/onboarding/congratulationsSetup");
+        }
+      } catch (error) {
+        showToast("Something went wrong", "error");
+        console.error(
+          "handle premium membership payment complete error: ",
+          error
+        );
+      } finally {
+        setLoading(false);
+      }
     } else {
-      // Handle payment failure
       setPaymentFlow(null);
-      console.log("Payment failed");
+      showToast("Failed", "error");
     }
   };
 
   // Handle back from payment flow
   const handleBackFromPayment = () => {
     setPaymentFlow(null);
-  };
-
-  // Handle skipping subscription
-  const handleSkip = () => {
-    router.push("/onboarding/congratulationsSetup");
-  };
-
-  // Handle back button
-  const handleBack = () => {
-    router.back();
   };
 
   // Get the selected plan
@@ -351,9 +388,11 @@ const PremiumSubscriptionScreen = () => {
   if (paymentFlow === "card") {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar style={isDarkMode ? "light" : "dark"} />
+        <StatusBar style="light" />
         <CardPayment
-          amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+          amount={selectedPlan?.price.toString() || ""}
+          formattedAmount={formattedAmount}
+          currency={selectedCurrency}
           planTitle={selectedPlan?.title || ""}
           onPaymentComplete={handlePaymentComplete}
           onBack={handleBackFromPayment}
@@ -367,7 +406,9 @@ const PremiumSubscriptionScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar style={isDarkMode ? "light" : "dark"} />
         <CryptoPayment
-          amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+          amount={selectedPlan?.price.toString() || ""}
+          formattedAmount={formattedAmount}
+          currency={selectedCurrency}
           planTitle={selectedPlan?.title || ""}
           onPaymentComplete={handlePaymentComplete}
           onBack={handleBackFromPayment}
@@ -384,7 +425,9 @@ const PremiumSubscriptionScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar style="light" />
+
+      <Spinner visible={loading} message="Subscribing..." />
 
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
@@ -607,6 +650,7 @@ const PremiumSubscriptionScreen = () => {
                         plans={subscriptionPlans}
                         selectedPlanId={selectedPlanId}
                         onPlanSelect={handlePlanSelect}
+                        onCurrencyChange={handleCurrencyChange}
                       />
                     </View>
 
@@ -679,13 +723,9 @@ const PremiumSubscriptionScreen = () => {
                     >
                       <Button
                         title={
-                          loading
-                            ? "Processing..."
-                            : selectedPlan?.isFree
+                          selectedPlan?.isFree
                             ? "Continue with Free Plan"
-                            : `Subscribe for ${
-                                selectedPlan?.priceLabel.split(" ")[0]
-                              }`
+                            : `Subscribe for ${formattedAmount}`
                         }
                         onPress={handleSubscribe}
                         loading={loading}
@@ -734,7 +774,8 @@ const PremiumSubscriptionScreen = () => {
         visible={paymentModalVisible}
         onClose={() => setPaymentModalVisible(false)}
         onSelectPaymentMethod={handleSelectPaymentMethod}
-        amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+        amount={formattedAmount}
+        currency={selectedCurrency}
         planTitle={selectedPlan?.title || ""}
       />
     </SafeAreaView>

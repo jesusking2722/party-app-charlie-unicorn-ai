@@ -1,13 +1,12 @@
-import { FontAwesome5 } from "@expo/vector-icons";
+// PaymentModal.tsx
+import { FONTS } from "@/app/theme";
+import { FontAwesome } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import {
-  Animated,
   Dimensions,
   Image,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,412 +14,326 @@ import {
   View,
 } from "react-native";
 
-import {
-  ANIMATIONS,
-  BORDER_RADIUS,
-  COLORS,
-  FONTS,
-  FONT_SIZES,
-  GRADIENTS,
-  SHADOWS,
-  SPACING,
-} from "@/app/theme";
+import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Currency } from "../MembershipRadioGroup";
 
-const CreditCardImage = require("@/assets/images/credit-card.png");
+// Get screen dimensions
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+
 const BNBImage = require("@/assets/images/bnb.png");
 
-// Custom light theme accent color
-const LIGHT_THEME_ACCENT = "#FF0099";
-
-// Define payment method types
+// Payment method enum
 export enum PaymentMethodType {
-  CRYPTO = "CRYPTO",
-  CARD = "CARD",
+  CARD = "card",
+  CRYPTO = "crypto",
 }
 
-// Props for the payment modal
+// Props for our payment modal
 interface PaymentModalProps {
   visible: boolean;
+  amount: string;
+  currency: Currency;
+  planTitle: string;
   onClose: () => void;
   onSelectPaymentMethod: (method: PaymentMethodType) => void;
-  amount: string;
-  planTitle: string;
 }
 
 const PaymentModal: React.FC<PaymentModalProps> = ({
   visible,
+  amount,
+  currency,
+  planTitle,
   onClose,
   onSelectPaymentMethod,
-  amount,
-  planTitle,
 }) => {
   const { isDarkMode } = useTheme();
 
-  // Animation values
-  const slideAnim = useRef(
-    new Animated.Value(Dimensions.get("window").height)
-  ).current;
-  const backdropOpacity = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-
-  // Helper function to get accent color based on theme
-  const getAccentColor = () =>
-    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
-
-  useEffect(() => {
-    if (visible) {
-      // Animate in
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: ANIMATIONS.FAST,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: ANIMATIONS.FAST,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 60,
-          friction: 6,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      // Animate out
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 0,
-          duration: ANIMATIONS.FAST * 0.8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: Dimensions.get("window").height,
-          duration: ANIMATIONS.FAST * 0.8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 0.95,
-          duration: ANIMATIONS.FAST * 0.8,
-          useNativeDriver: true,
-        }),
-      ]).start();
+  // Helper function to get text for currency
+  const getCurrencyText = (currency: Currency): string => {
+    switch (currency) {
+      case "USD":
+        return "US Dollars";
+      case "EUR":
+        return "Euros";
+      case "PLN":
+        return "Polish Złoty";
+      default:
+        return "US Dollars";
     }
-  }, [visible, backdropOpacity, slideAnim, scaleAnim]);
-
-  const handleSelectPayment = (method: PaymentMethodType) => {
-    onSelectPaymentMethod(method);
   };
 
   return (
     <Modal
+      transparent
       visible={visible}
-      transparent={true}
-      animationType="none"
+      animationType="slide"
       onRequestClose={onClose}
-      statusBarTranslucent={true}
     >
       <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[styles.overlay, { opacity: backdropOpacity }]}>
-          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <Animated.View
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback>
+            <View
               style={[
                 styles.modalContainer,
                 {
-                  transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+                  backgroundColor: isDarkMode
+                    ? COLORS.DARK_BG
+                    : COLORS.LIGHT_BG,
+                  height: SCREEN_HEIGHT * 0.4, // Set modal height to 30% of screen height
                 },
               ]}
             >
               <BlurView
                 intensity={isDarkMode ? 40 : 30}
                 tint={isDarkMode ? "dark" : "light"}
-                style={styles.modalBlur}
+                style={styles.blurView}
               >
-                <LinearGradient
-                  colors={isDarkMode ? GRADIENTS.DARK_BG : GRADIENTS.LIGHT_BG}
-                  style={styles.gradientBackground}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  {/* Handle for draggable modal */}
-                  <View style={styles.handleContainer}>
-                    <View
-                      style={[
-                        styles.handle,
-                        {
-                          backgroundColor: isDarkMode
-                            ? "rgba(255, 255, 255, 0.3)"
-                            : "rgba(0, 0, 0, 0.2)",
-                        },
-                      ]}
-                    />
-                  </View>
+                {/* Handle for dragging - common in bottom sheets */}
+                <View style={styles.dragHandle} />
 
-                  {/* Accent Bar */}
-                  <View
+                <View style={styles.modalContent}>
+                  <Text
                     style={[
-                      styles.accentBar,
+                      styles.modalTitle,
                       {
-                        backgroundColor: getAccentColor(),
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
                       },
                     ]}
-                  />
+                  >
+                    Select Payment Method
+                  </Text>
+                  <Text
+                    style={[
+                      styles.modalSubtitle,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_SECONDARY
+                          : COLORS.LIGHT_TEXT_SECONDARY,
+                      },
+                    ]}
+                  >
+                    {planTitle} Plan • {amount} ({getCurrencyText(currency)})
+                  </Text>
 
-                  <View style={styles.contentContainer}>
-                    <Text
-                      style={[
-                        styles.title,
-                        {
-                          color: isDarkMode
-                            ? COLORS.DARK_TEXT_PRIMARY
-                            : COLORS.LIGHT_TEXT_PRIMARY,
-                        },
-                      ]}
-                    >
-                      Choose Payment Method
-                    </Text>
-
-                    <Text
-                      style={[
-                        styles.subtitle,
-                        {
-                          color: isDarkMode
-                            ? COLORS.DARK_TEXT_SECONDARY
-                            : COLORS.LIGHT_TEXT_SECONDARY,
-                        },
-                      ]}
-                    >
-                      {planTitle} Plan • {amount}
-                    </Text>
-
-                    <View style={styles.optionsContainer}>
-                      {/* Card Payment Option */}
-                      <TouchableOpacity
-                        style={[
-                          styles.paymentOption,
-                          {
-                            backgroundColor: isDarkMode
-                              ? "rgba(40, 45, 55, 0.65)"
-                              : "rgba(255, 255, 255, 0.65)",
-                            borderColor: isDarkMode
-                              ? "rgba(255, 255, 255, 0.1)"
-                              : "rgba(0, 0, 0, 0.05)",
-                          },
-                        ]}
-                        onPress={() =>
-                          handleSelectPayment(PaymentMethodType.CARD)
-                        }
-                        activeOpacity={0.8}
-                      >
-                        <View
-                          style={[
-                            styles.paymentIconContainer,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(255, 255, 255, 0.1)"
-                                : "rgba(0, 0, 0, 0.05)",
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={CreditCardImage}
-                            style={styles.paymentIcon}
-                            resizeMode="contain"
-                          />
-                        </View>
-                        <Text
-                          style={[
-                            styles.paymentOptionText,
-                            {
-                              color: isDarkMode
-                                ? COLORS.DARK_TEXT_PRIMARY
-                                : COLORS.LIGHT_TEXT_PRIMARY,
-                            },
-                          ]}
-                        >
-                          Pay with Card
-                        </Text>
-                        <FontAwesome5
-                          name="chevron-right"
-                          size={14}
-                          color={
-                            isDarkMode
-                              ? "rgba(255, 255, 255, 0.5)"
-                              : "rgba(0, 0, 0, 0.3)"
-                          }
-                          style={styles.arrowIcon}
-                        />
-                      </TouchableOpacity>
-
-                      {/* Crypto Payment Option */}
-                      <TouchableOpacity
-                        style={[
-                          styles.paymentOption,
-                          {
-                            backgroundColor: isDarkMode
-                              ? "rgba(40, 45, 55, 0.65)"
-                              : "rgba(255, 255, 255, 0.65)",
-                            borderColor: isDarkMode
-                              ? "rgba(255, 255, 255, 0.1)"
-                              : "rgba(0, 0, 0, 0.05)",
-                          },
-                        ]}
-                        onPress={() =>
-                          handleSelectPayment(PaymentMethodType.CRYPTO)
-                        }
-                        activeOpacity={0.8}
-                      >
-                        <View
-                          style={[
-                            styles.paymentIconContainer,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(255, 255, 255, 0.1)"
-                                : "rgba(0, 0, 0, 0.05)",
-                            },
-                          ]}
-                        >
-                          <Image
-                            source={BNBImage}
-                            style={styles.paymentIcon}
-                            resizeMode="contain"
-                          />
-                        </View>
-                        <Text
-                          style={[
-                            styles.paymentOptionText,
-                            {
-                              color: isDarkMode
-                                ? COLORS.DARK_TEXT_PRIMARY
-                                : COLORS.LIGHT_TEXT_PRIMARY,
-                            },
-                          ]}
-                        >
-                          Pay with Crypto
-                        </Text>
-                        <FontAwesome5
-                          name="chevron-right"
-                          size={14}
-                          color={
-                            isDarkMode
-                              ? "rgba(255, 255, 255, 0.5)"
-                              : "rgba(0, 0, 0, 0.3)"
-                          }
-                          style={styles.arrowIcon}
-                        />
-                      </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.secureContainer}>
-                      <FontAwesome5
-                        name="shield-alt"
-                        size={14}
-                        color={getAccentColor()}
-                        style={styles.secureIcon}
-                      />
-                      <Text
-                        style={[
-                          styles.secureText,
-                          {
-                            color: isDarkMode
-                              ? COLORS.DARK_TEXT_SECONDARY
-                              : COLORS.LIGHT_TEXT_SECONDARY,
-                          },
-                        ]}
-                      >
-                        All payments are secure and encrypted
-                      </Text>
-                    </View>
-
+                  <View style={styles.methodsContainer}>
+                    {/* Card Payment Option */}
                     <TouchableOpacity
-                      style={styles.cancelButton}
-                      onPress={onClose}
+                      style={[
+                        styles.methodButton,
+                        {
+                          backgroundColor: isDarkMode
+                            ? "rgba(40, 45, 55, 0.65)"
+                            : "rgba(255, 255, 255, 0.65)",
+                          borderColor: isDarkMode
+                            ? "rgba(255, 255, 255, 0.1)"
+                            : "rgba(0, 0, 0, 0.05)",
+                        },
+                      ]}
+                      onPress={() =>
+                        onSelectPaymentMethod(PaymentMethodType.CARD)
+                      }
                     >
-                      <Text
+                      <View
                         style={[
-                          styles.cancelText,
+                          styles.methodIconContainer,
                           {
-                            color: isDarkMode
-                              ? "rgba(255, 255, 255, 0.6)"
-                              : "rgba(0, 0, 0, 0.5)",
+                            backgroundColor: isDarkMode
+                              ? "rgba(0, 122, 255, 0.2)"
+                              : "rgba(0, 122, 255, 0.1)",
                           },
                         ]}
                       >
-                        Cancel
-                      </Text>
+                        <FontAwesome
+                          name="credit-card"
+                          size={20}
+                          color={isDarkMode ? "#0A84FF" : "#007AFF"}
+                        />
+                      </View>
+                      <View style={styles.methodTextContainer}>
+                        <Text
+                          style={[
+                            styles.methodTitle,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Credit/Debit Card
+                        </Text>
+                        <Text
+                          style={[
+                            styles.methodDescription,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          Pay with Visa, Mastercard, Google pay or Apple pay
+                        </Text>
+                      </View>
+                      <FontAwesome
+                        name="chevron-right"
+                        size={14}
+                        color={
+                          isDarkMode
+                            ? COLORS.DARK_TEXT_SECONDARY
+                            : COLORS.LIGHT_TEXT_SECONDARY
+                        }
+                      />
+                    </TouchableOpacity>
+
+                    {/* Crypto Payment Option */}
+                    <TouchableOpacity
+                      style={[
+                        styles.methodButton,
+                        {
+                          backgroundColor: isDarkMode
+                            ? "rgba(40, 45, 55, 0.65)"
+                            : "rgba(255, 255, 255, 0.65)",
+                          borderColor: isDarkMode
+                            ? "rgba(255, 255, 255, 0.1)"
+                            : "rgba(0, 0, 0, 0.05)",
+                        },
+                      ]}
+                      onPress={() =>
+                        onSelectPaymentMethod(PaymentMethodType.CRYPTO)
+                      }
+                    >
+                      <View
+                        style={[
+                          styles.methodIconContainer,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(255, 149, 0, 0.2)"
+                              : "rgba(255, 149, 0, 0.1)",
+                          },
+                        ]}
+                      >
+                        <Image
+                          source={BNBImage}
+                          alt="BNB"
+                          style={{ width: 25, height: 25, objectFit: "cover" }}
+                        />
+                      </View>
+                      <View style={styles.methodTextContainer}>
+                        <Text
+                          style={[
+                            styles.methodTitle,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_PRIMARY
+                                : COLORS.LIGHT_TEXT_PRIMARY,
+                            },
+                          ]}
+                        >
+                          Cryptocurrency
+                        </Text>
+                        <Text
+                          style={[
+                            styles.methodDescription,
+                            {
+                              color: isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY,
+                            },
+                          ]}
+                        >
+                          Pay with BNB
+                        </Text>
+                      </View>
+                      <FontAwesome
+                        name="chevron-right"
+                        size={14}
+                        color={
+                          isDarkMode
+                            ? COLORS.DARK_TEXT_SECONDARY
+                            : COLORS.LIGHT_TEXT_SECONDARY
+                        }
+                      />
                     </TouchableOpacity>
                   </View>
-                </LinearGradient>
+
+                  {/* Close Button */}
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={onClose}
+                  >
+                    <Text
+                      style={[
+                        styles.closeText,
+                        {
+                          color: isDarkMode
+                            ? "rgba(255, 255, 255, 0.6)"
+                            : "rgba(0, 0, 0, 0.5)",
+                        },
+                      ]}
+                    >
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </BlurView>
-            </Animated.View>
+            </View>
           </TouchableWithoutFeedback>
-        </Animated.View>
+        </View>
       </TouchableWithoutFeedback>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "flex-end",
   },
   modalContainer: {
     width: "100%",
-    borderTopLeftRadius: BORDER_RADIUS.XXL,
-    borderTopRightRadius: BORDER_RADIUS.XXL,
+    borderTopLeftRadius: BORDER_RADIUS.XL,
+    borderTopRightRadius: BORDER_RADIUS.XL,
     overflow: "hidden",
-    maxHeight: "60%",
-    ...SHADOWS.MEDIUM,
   },
-  modalBlur: {
+  blurView: {
     width: "100%",
     height: "100%",
   },
-  gradientBackground: {
-    width: "100%",
-    height: "100%",
-    borderTopLeftRadius: BORDER_RADIUS.XXL,
-    borderTopRightRadius: BORDER_RADIUS.XXL,
-    overflow: "hidden",
-  },
-  handleContainer: {
-    width: "100%",
-    alignItems: "center",
-    paddingTop: SPACING.S,
-    paddingBottom: SPACING.XS,
-  },
-  handle: {
-    width: 40,
+  dragHandle: {
+    width: 36,
     height: 5,
+    backgroundColor: "rgba(150, 150, 150, 0.3)",
     borderRadius: 3,
+    marginTop: 10,
+    alignSelf: "center",
   },
-  accentBar: {
-    height: 3,
-    width: "100%",
-  },
-  contentContainer: {
+  modalContent: {
     padding: SPACING.M,
-    paddingBottom: Platform.OS === "ios" ? SPACING.XL : SPACING.L,
+    height: "100%",
+    justifyContent: "space-between",
   },
-  title: {
+  modalTitle: {
     fontFamily: FONTS.BOLD,
     fontSize: FONT_SIZES.L,
     marginBottom: SPACING.XS,
+    textAlign: "center",
   },
-  subtitle: {
+  modalSubtitle: {
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.S,
     marginBottom: SPACING.M,
+    textAlign: "center",
   },
-  optionsContainer: {
-    marginBottom: SPACING.M,
+  methodsContainer: {
+    width: "100%",
   },
-  paymentOption: {
+  methodButton: {
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     padding: SPACING.M,
@@ -428,47 +341,34 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.S,
     borderWidth: 0.5,
   },
-  paymentIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  methodIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     marginRight: SPACING.M,
   },
-  paymentIcon: {
-    width: 28,
-    height: 28,
-  },
-  paymentOptionText: {
+  methodTextContainer: {
     flex: 1,
+  },
+  methodTitle: {
     fontFamily: FONTS.SEMIBOLD,
     fontSize: FONT_SIZES.S,
+    marginBottom: 2,
   },
-  arrowIcon: {
-    marginLeft: SPACING.S,
-  },
-  secureContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: SPACING.S,
-    marginBottom: SPACING.M,
-  },
-  secureIcon: {
-    marginRight: SPACING.XS,
-  },
-  secureText: {
+  methodDescription: {
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.XS,
   },
-  cancelButton: {
-    alignSelf: "center",
+  closeButton: {
     padding: SPACING.S,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  cancelText: {
+  closeText: {
     fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.XS,
+    fontSize: FONT_SIZES.S,
   },
 });
 

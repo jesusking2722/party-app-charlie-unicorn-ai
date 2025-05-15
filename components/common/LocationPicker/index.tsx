@@ -703,7 +703,7 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.M,
     marginBottom: SPACING.M,
     padding: SPACING.S,
-    backgroundColor: "rgba(255, 100, 100, 0.2)",
+    backgroundColor: "rgba(255, 100, 100, 1)",
     borderRadius: BORDER_RADIUS.M,
   },
   errorMessage: {

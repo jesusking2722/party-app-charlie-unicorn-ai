@@ -6,8 +6,8 @@ export const BACKEND_BASEURL = "https://charlieeventup.pl:8443";
 // Third party api keys
 export const GOOGLE_API_KEY = "AIzaSyD-ON7g5hfIjGcbJ0AySwZn1BEbLdqLLnQ";
 
-export const STRIPE_PUBLISHABLE_KEY =
-  "pk_test_51RGgNOB3QdeQ8arQcprVRXtbcpeDjhIQV6pBlLRrNJpb9MqGi9lrR7VTLYaHbsnozaqQjP42RM8FBqSBPzmjAJ5m00FAlzmRBY";
+export const FREECURRENCY_API =
+  "fca_live_iSwnWj4yX1zRmpzAhGUq3v7AvJ5Nlk2OOr4nDNKP";
 
 // Constants
 export const EVENT_TYPES = [

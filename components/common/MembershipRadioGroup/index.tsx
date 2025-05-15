@@ -1,7 +1,8 @@
+// MembershipRadioGroup.tsx
 import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   StyleSheet,
@@ -21,6 +22,7 @@ import {
   GRADIENTS,
   SPACING,
 } from "@/app/theme";
+import fetchUsdRates from "@/utils/currency";
 
 // Types for our subscription plan
 export interface SubscriptionPlan {
@@ -36,11 +38,15 @@ export interface SubscriptionPlan {
   limitations?: string[];
 }
 
+// Available currency options
+export type Currency = "USD" | "EUR" | "PLN";
+
 // Props for our subscription radio group
 interface MembershipRadioGroupProps {
   plans: SubscriptionPlan[];
   selectedPlanId: string;
   onPlanSelect: (plan: SubscriptionPlan) => void;
+  onCurrencyChange?: (currency: Currency, formattedPrice: string) => void; // New prop
   containerStyle?: ViewStyle;
   titleStyle?: TextStyle;
 }
@@ -49,9 +55,15 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
   plans,
   selectedPlanId,
   onPlanSelect,
+  onCurrencyChange,
   containerStyle,
   titleStyle,
 }) => {
+  const [eurRate, setEurRate] = useState<number | null>(null);
+  const [plnRate, setPlnRate] = useState<number | null>(null);
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>("USD");
+  const [isLoadingRates, setIsLoadingRates] = useState<boolean>(false);
+
   const { isDarkMode } = useTheme();
 
   const LIGHT_THEME_ACCENT = "#FF0099";
@@ -121,6 +133,94 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
       }
     });
   }, [selectedPlanId, plans]);
+
+  // Get usd rate per eur and pln
+  const getUsdRates = useCallback(async () => {
+    setIsLoadingRates(true);
+    try {
+      const rates = await fetchUsdRates();
+      setEurRate(rates.eur);
+      setPlnRate(rates.pln);
+    } catch (error) {
+      console.error("Error fetching exchange rates:", error);
+      // Fallback to default rates if API fails
+      setEurRate(0.93);
+      setPlnRate(4.15);
+    } finally {
+      setIsLoadingRates(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    getUsdRates();
+  }, [getUsdRates]);
+
+  // Cycle through currencies when clicking on the price
+  const cycleCurrency = () => {
+    const nextCurrency =
+      selectedCurrency === "USD"
+        ? "EUR"
+        : selectedCurrency === "EUR"
+        ? "PLN"
+        : "USD";
+
+    setSelectedCurrency(nextCurrency);
+
+    // Get the formatted price of the currently selected plan in the new currency
+    const selectedPlan = plans.find((plan) => plan.id === selectedPlanId);
+    if (selectedPlan && !selectedPlan.isFree && onCurrencyChange) {
+      const formattedPrice = formatPrice(selectedPlan.price, nextCurrency);
+      onCurrencyChange(nextCurrency, formattedPrice);
+    }
+  };
+
+  // Format price in different currencies
+  const formatPrice = (price: number, currency: Currency): string => {
+    if (price === 0) return "Free";
+
+    switch (currency) {
+      case "USD":
+        return `$${price}`;
+      case "EUR":
+        if (!eurRate) return "€...";
+        const eurPrice = price * eurRate;
+        return `€${Math.round(eurPrice)}`;
+      case "PLN":
+        if (!plnRate) return "PLN...";
+        const plnPrice = price * plnRate;
+        return `${Math.round(plnPrice)} PLN`;
+      default:
+        return `$${price}`;
+    }
+  };
+
+  // Get formatted price label based on current currency
+  const getPriceLabel = (plan: SubscriptionPlan): string => {
+    if (plan.isFree) return plan.priceLabel;
+
+    // For monthly plan, just show the base price
+    if (plan.duration === "1 month") {
+      return `${formatPrice(plan.price, selectedCurrency)} / month`;
+    }
+
+    // For other plans, show price with duration
+    const formattedPrice = formatPrice(plan.price, selectedCurrency);
+
+    // Get the duration text
+    let durationText = plan.duration;
+
+    // For different durations
+    if (plan.duration === "3 months") {
+      return `${formattedPrice} / ${durationText}`;
+    } else if (plan.duration === "6 months") {
+      return `${formattedPrice} / ${durationText}`;
+    } else if (plan.duration.includes("year")) {
+      return `${formattedPrice} / ${durationText}`;
+    }
+
+    // Default fallback
+    return `${formattedPrice} / ${durationText}`;
+  };
 
   // Theme-based styles
   const getAccentColor = () =>
@@ -202,6 +302,57 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
+      {/* Currency Selector */}
+      <View style={styles.currencySelectorContainer}>
+        <Text
+          style={[
+            styles.currencySelectorLabel,
+            {
+              color: isDarkMode
+                ? "rgba(255, 255, 255, 0.7)"
+                : "rgba(0, 0, 0, 0.7)",
+            },
+          ]}
+        >
+          Currency:
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.currencySelector,
+            {
+              backgroundColor: isDarkMode
+                ? "rgba(40, 45, 55, 0.5)"
+                : "rgba(255, 255, 255, 0.7)",
+              borderColor: isDarkMode
+                ? "rgba(255, 255, 255, 0.1)"
+                : "rgba(0, 0, 0, 0.1)",
+            },
+          ]}
+          onPress={cycleCurrency}
+        >
+          <Text
+            style={[
+              styles.currencySelectorText,
+              {
+                color: isDarkMode
+                  ? "rgba(255, 255, 255, 0.9)"
+                  : "rgba(0, 0, 0, 0.9)",
+              },
+            ]}
+          >
+            {selectedCurrency} {isLoadingRates && "(Loading...)"}
+          </Text>
+          <FontAwesome5
+            name="exchange-alt"
+            size={12}
+            color={
+              isDarkMode ? "rgba(255, 255, 255, 0.6)" : "rgba(0, 0, 0, 0.6)"
+            }
+            style={styles.currencySelectorIcon}
+          />
+        </TouchableOpacity>
+      </View>
+
       {plans.map((plan) => {
         const isSelected = selectedPlanId === plan.id;
         const animations = animationRefs.current[plan.id];
@@ -247,7 +398,17 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               },
               plan.isPopular && styles.popularPlanContainer,
             ]}
-            onPress={() => onPlanSelect(plan)}
+            onPress={() => {
+              onPlanSelect(plan);
+              // Trigger currency change handler with the newly selected plan
+              if (!plan.isFree && onCurrencyChange) {
+                const formattedPrice = formatPrice(
+                  plan.price,
+                  selectedCurrency
+                );
+                onCurrencyChange(selectedCurrency, formattedPrice);
+              }
+            }}
             activeOpacity={0.7}
           >
             {/* Left Accent Bar when selected */}
@@ -303,16 +464,22 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               </Text>
 
               <View style={styles.priceContainer}>
-                <Text
-                  style={[
-                    styles.planPrice,
-                    {
-                      color: getPriceColor(isSelected, plan.isFree),
-                    },
-                  ]}
+                <TouchableOpacity
+                  onPress={cycleCurrency}
+                  disabled={plan.isFree}
                 >
-                  {plan.priceLabel}
-                </Text>
+                  <Text
+                    style={[
+                      styles.planPrice,
+                      {
+                        color: getPriceColor(isSelected, plan.isFree),
+                      },
+                      !plan.isFree && styles.clickablePrice,
+                    ]}
+                  >
+                    {plan.isFree ? plan.priceLabel : getPriceLabel(plan)}
+                  </Text>
+                </TouchableOpacity>
 
                 {showSavings && (
                   <View
@@ -515,6 +682,10 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
   },
+  clickablePrice: {
+    textDecorationLine: "underline",
+    textDecorationStyle: "dotted",
+  },
   savingsContainer: {
     marginLeft: SPACING.S,
     paddingHorizontal: SPACING.S,
@@ -588,6 +759,32 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.REGULAR,
+  },
+  currencySelectorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginBottom: SPACING.S,
+  },
+  currencySelectorLabel: {
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.MEDIUM,
+    marginRight: SPACING.XS,
+  },
+  currencySelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SPACING.XS,
+    paddingHorizontal: SPACING.S,
+    borderRadius: BORDER_RADIUS.M,
+    borderWidth: 0.5,
+  },
+  currencySelectorText: {
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.MEDIUM,
+  },
+  currencySelectorIcon: {
+    marginLeft: SPACING.XS,
   },
 });
 

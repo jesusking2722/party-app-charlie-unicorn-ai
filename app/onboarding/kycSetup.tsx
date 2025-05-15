@@ -1,6 +1,5 @@
 import { AnimationType, VerificationAnimation } from "@/animations";
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
-import { Video } from "expo-av";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -37,8 +36,17 @@ import {
 } from "@/app/theme";
 import { Button, ThemeToggle } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import {
+  fetchAuthUserById,
+  startAuthUserKyc,
+} from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { useSelector } from "react-redux";
 
 const KYCHeaderImage = require("@/assets/images/verify.png");
+const CelebrateImage = require("@/assets/images/congratulations.png");
 const { width, height } = Dimensions.get("window");
 
 // Custom light theme secondary color
@@ -46,10 +54,13 @@ const LIGHT_THEME_ACCENT = "#FF0099";
 
 // Define verification status types
 enum VerificationStatus {
-  NOT_STARTED = "NOT_STARTED",
-  PENDING = "PENDING",
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
+  NOT_STARTED = "Not Started",
+  PENDING = "In Progress",
+  COMPLETED = "Completed",
+  DECLINED = "Declined",
+  EXPIRED = "Expired",
+  APPROVED = "Approved",
+  ABANDONED = "Abandoned",
 }
 
 const KYCVerificationScreen = () => {
@@ -58,24 +69,24 @@ const KYCVerificationScreen = () => {
   // State for verification status
   const [verificationStatus, setVerificationStatus] =
     useState<VerificationStatus>(VerificationStatus.NOT_STARTED);
-
-  // State for modal visibility on Android
   const [modalVisible, setModalVisible] = useState(false);
-
-  // State for loading
   const [loading, setLoading] = useState(false);
-
-  // Redirect countdown timer (when verification is completed)
   const [redirectCountdown, setRedirectCountdown] = useState(0);
+  const [isPollingActive, setIsPollingActive] = useState(false);
 
-  // Video reference
-  const videoRef = useRef<Video>(null);
+  const pollingIntervalRef = useRef<any>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(30)).current;
   const cardScale = useRef(new Animated.Value(0.97)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
+  const checkmarkScale = useRef(new Animated.Value(0)).current;
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
+
+  const { showToast } = useToast();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -87,10 +98,6 @@ const KYCVerificationScreen = () => {
       opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
       speed: Math.random() * 3000 + 2000,
     }));
-
-  // Mock third-party KYC service URL
-  const KYC_SESSION_URL =
-    "https://verify.didit.me/session/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NDYyMjY0NDcsImV4cCI6MTc0NjgzMTI0Nywic2Vzc2lvbl9pZCI6Ijk2M2ViZWRiLTYxMmUtNGYyMS1iMWY1LWFkN2RjODU4M2RhMCJ9.L1xR8FFxNSmjPE2k3uAk9G0dejYIRA_fH4OhYGhN-dY?step=start";
 
   // Run animations when component mounts
   useEffect(() => {
@@ -132,10 +139,75 @@ const KYCVerificationScreen = () => {
         }),
       ]).start();
 
+      // Checkmark animation
+      if (
+        verificationStatus === VerificationStatus.COMPLETED ||
+        verificationStatus === VerificationStatus.APPROVED
+      ) {
+        Animated.sequence([
+          Animated.delay(animationDelay / 2),
+          Animated.spring(checkmarkScale, {
+            toValue: 1,
+            tension: 80,
+            friction: 5,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
+
       // Start particle animations
       animateParticles();
     }, 100);
-  }, []);
+
+    // Cleanup animation on unmount
+    return () => {
+      stopKycPolling();
+    };
+  }, [verificationStatus]);
+
+  // Set KYC status when component mounts
+  useEffect(() => {
+    // Check if user already has KYC status
+    if (user?.kyc?.status) {
+      updateVerificationStatus(user.kyc.status);
+    }
+  }, [user]);
+
+  // Start polling for KYC result when verification is pending
+  useEffect(() => {
+    if (
+      (verificationStatus === VerificationStatus.PENDING || isPollingActive) &&
+      !pollingIntervalRef.current
+    ) {
+      startKycPolling();
+    }
+
+    // Countdown effect after verification completes
+    if (
+      (verificationStatus === VerificationStatus.COMPLETED ||
+        verificationStatus === VerificationStatus.APPROVED) &&
+      redirectCountdown > 0
+    ) {
+      const countdownId = setInterval(() => {
+        setRedirectCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(countdownId);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => {
+        clearInterval(countdownId);
+      };
+    }
+
+    // Cleanup polling interval on unmount
+    return () => {
+      stopKycPolling();
+    };
+  }, [verificationStatus, isPollingActive, redirectCountdown]);
 
   // Continuous animation for floating particles
   const animateParticles = () => {
@@ -192,88 +264,141 @@ const KYCVerificationScreen = () => {
     });
   };
 
-  // Mock function to check verification status from your backend
-  const checkVerificationStatus = async () => {
-    try {
-      // In a real app, this would be an API call to your backend
-      // which would then check with the KYC provider
-
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // For demo, we'll just return COMPLETED after a delay
-      if (verificationStatus === VerificationStatus.PENDING) {
+  // Helper function to update verification status based on API response
+  const updateVerificationStatus = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "in progress":
+        setVerificationStatus(VerificationStatus.PENDING);
+        setIsPollingActive(true);
+        break;
+      case "completed":
         setVerificationStatus(VerificationStatus.COMPLETED);
-
-        // Start the redirect countdown when verification completes
         setRedirectCountdown(180); // 3 minutes in seconds
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Error checking verification status:", error);
-      Alert.alert(
-        "Verification Error",
-        "Unable to check verification status. Please try again later."
-      );
-      return false;
+        stopKycPolling();
+        break;
+      case "approved":
+        setVerificationStatus(VerificationStatus.APPROVED);
+        setRedirectCountdown(180); // 3 minutes in seconds
+        stopKycPolling();
+        break;
+      case "declined":
+        setVerificationStatus(VerificationStatus.DECLINED);
+        stopKycPolling();
+        break;
+      case "expired":
+        setVerificationStatus(VerificationStatus.EXPIRED);
+        stopKycPolling();
+        break;
+      case "abandoned":
+        setVerificationStatus(VerificationStatus.ABANDONED);
+        stopKycPolling();
+        break;
+      default:
+        setVerificationStatus(VerificationStatus.NOT_STARTED);
+        stopKycPolling();
     }
   };
 
-  // Polling effect for verification status
-  useEffect(() => {
-    let intervalId: ReturnType<typeof setInterval>;
-
-    if (verificationStatus === VerificationStatus.PENDING) {
-      // Poll every 5 seconds
-      intervalId = setInterval(checkVerificationStatus, 5000);
+  // Start polling for KYC result
+  const startKycPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
 
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [verificationStatus]);
+    setIsPollingActive(true);
 
-  // Countdown effect after verification completes
-  useEffect(() => {
-    let countdownId: ReturnType<typeof setInterval>;
+    fetchKycResult();
 
-    if (redirectCountdown > 0) {
-      countdownId = setInterval(() => {
-        setRedirectCountdown((prev) => {
-          if (prev <= 1) {
-            // Navigate to next step when countdown reaches 0
-            navigateToNextStep();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    pollingIntervalRef.current = setInterval(() => {
+      if (
+        verificationStatus === VerificationStatus.PENDING ||
+        isPollingActive
+      ) {
+        fetchKycResult();
+      } else {
+        stopKycPolling();
+      }
+    }, 10000);
+  };
+
+  // Stop polling for KYC result
+  const stopKycPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
+    setIsPollingActive(false);
+  };
 
-    return () => {
-      if (countdownId) clearInterval(countdownId);
-    };
-  }, [redirectCountdown]);
+  // Fetch KYC result from backend
+  const fetchKycResult = async () => {
+    if (!user?._id) return;
+
+    try {
+      const response = await fetchAuthUserById(user._id);
+      if (response.ok) {
+        const { user: updatedUser } = response.data;
+        await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+
+        // Update verification status based on KYC status
+        if (updatedUser.kyc?.status) {
+          console.log("KYC status updated:", updatedUser.kyc.status);
+          updateVerificationStatus(updatedUser.kyc.status);
+        } else {
+          // If there's no status yet, keep polling until we get a status
+          console.log("No KYC status yet, continuing to poll...");
+        }
+      } else {
+        console.error("Failed to fetch KYC result:", response.message);
+        // Don't stop polling on fetch errors, try again later
+      }
+    } catch (error) {
+      console.error("Error fetching KYC result:", error);
+      // Don't stop polling on fetch errors, try again later
+    }
+  };
 
   // Start verification process
   const startVerification = async () => {
+    if (!user) return;
     setLoading(true);
 
     try {
-      if (Platform.OS === "android") {
-        // Show modal on Android with instructions
-        setModalVisible(true);
+      // If we already have a KYC URL, use it directly
+      if (user.kyc?.url) {
+        if (Platform.OS === "android") {
+          setModalVisible(true);
+        } else {
+          // For iOS, open browser and immediately set to pending
+          setVerificationStatus(VerificationStatus.PENDING);
+          startKycPolling(); // Start polling immediately
+          await openBrowser();
+        }
+        setLoading(false);
+        return;
+      }
+
+      // If no KYC URL yet, get one from the backend
+      const response = await startAuthUserKyc(user);
+      if (response.ok) {
+        const { user: updatedUser } = response.data;
+        await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+
+        if (Platform.OS === "android") {
+          setModalVisible(true);
+        } else {
+          // For iOS, set to pending immediately
+          setVerificationStatus(VerificationStatus.PENDING);
+          startKycPolling(); // Start polling immediately
+          await openBrowser();
+        }
       } else {
-        // Open web browser on iOS
-        await openBrowser();
+        showToast(response.message, "error");
       }
     } catch (error) {
+      showToast("Something went wrong", "error");
       console.error("Error starting verification:", error);
-      Alert.alert(
-        "Verification Error",
-        "Unable to start verification process. Please try again."
-      );
     } finally {
       setLoading(false);
     }
@@ -281,36 +406,41 @@ const KYCVerificationScreen = () => {
 
   // Open browser for verification
   const openBrowser = async () => {
-    try {
-      // Use Expo's WebBrowser for a better UX
-      const result = await WebBrowser.openBrowserAsync(KYC_SESSION_URL);
+    if (!user?.kyc?.url) return;
 
-      if (result.type === "dismiss") {
-        // User came back to the app, update status to pending
-        setVerificationStatus(VerificationStatus.PENDING);
-      }
+    try {
+      const result = await WebBrowser.openBrowserAsync(user.kyc.url);
     } catch (error) {
       console.error("Error opening browser:", error);
       Alert.alert(
         "Browser Error",
         "Unable to open verification page. Please try again."
       );
+
+      // Reset to NOT_STARTED if there was an error
+      setVerificationStatus(VerificationStatus.NOT_STARTED);
+      stopKycPolling();
     }
   };
 
   // Open external browser (from Android modal)
   const openExternalBrowser = async () => {
+    if (!user?.kyc?.url) return;
+
     try {
-      // Close modal
+      // Close modal first
       setModalVisible(false);
 
-      // Open URL in external browser
-      const supported = await Linking.canOpenURL(KYC_SESSION_URL);
+      // Set status to pending BEFORE opening the URL
+      setVerificationStatus(VerificationStatus.PENDING);
 
+      // Start polling immediately
+      startKycPolling();
+
+      // Open URL in external browser
+      const supported = await Linking.canOpenURL(user.kyc.url);
       if (supported) {
-        await Linking.openURL(KYC_SESSION_URL);
-        // Set status to pending after opening browser
-        setVerificationStatus(VerificationStatus.PENDING);
+        await Linking.openURL(user.kyc.url);
       } else {
         throw new Error("URL cannot be opened");
       }
@@ -320,12 +450,30 @@ const KYCVerificationScreen = () => {
         "Browser Error",
         "Unable to open verification page. Please try again."
       );
+
+      // Reset to NOT_STARTED if there was an error
+      setVerificationStatus(VerificationStatus.NOT_STARTED);
+      stopKycPolling();
     }
   };
 
   // Navigate to next step (step 4)
   const navigateToNextStep = () => {
     router.push("/onboarding/membershipSetup");
+  };
+
+  const handleContinueVerifySession = async () => {
+    if (user?.kyc?.url) {
+      if (Platform.OS === "android") {
+        setModalVisible(true);
+      } else {
+        setVerificationStatus(VerificationStatus.PENDING);
+        startKycPolling();
+        await openBrowser();
+      }
+      setLoading(false);
+      return;
+    }
   };
 
   // Skip verification for now
@@ -384,6 +532,17 @@ const KYCVerificationScreen = () => {
     ));
   };
 
+  // Get header image based on verification status
+  const getHeaderImage = () => {
+    if (
+      verificationStatus === VerificationStatus.COMPLETED ||
+      verificationStatus === VerificationStatus.APPROVED
+    ) {
+      return CelebrateImage;
+    }
+    return KYCHeaderImage;
+  };
+
   // Content for each verification state
   const renderVerificationContent = () => {
     switch (verificationStatus) {
@@ -414,19 +573,6 @@ const KYCVerificationScreen = () => {
             >
               We need to verify your identity to comply with regulations
             </Text>
-
-            {/* <View style={styles.videoContainer}>
-              <Video
-                ref={videoRef}
-                style={styles.video}
-                source={require("@/assets/videos/kyc-intro.mp4")}
-                useNativeControls={false}
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping
-                shouldPlay
-                isMuted={false}
-              />
-            </View> */}
 
             <View style={styles.infoContainer}>
               <View style={styles.infoItem}>
@@ -647,7 +793,7 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              We're waiting for your verification to complete
+              We're checking your identity. This may take a few minutes.
             </Text>
 
             <View style={styles.pendingContainer}>
@@ -668,6 +814,26 @@ const KYCVerificationScreen = () => {
               >
                 Please wait while we process your verification...
               </Text>
+              <Text
+                style={[
+                  styles.pendingText,
+                  {
+                    color: isDarkMode
+                      ? COLORS.DARK_TEXT_SECONDARY
+                      : COLORS.LIGHT_TEXT_SECONDARY,
+                  },
+                ]}
+              >
+                Didn't you get verification session?
+              </Text>
+              <View style={{ width: "100%", marginTop: 10 }}>
+                <Button
+                  variant={isDarkMode ? "primary" : "secondary"}
+                  title="Continue to verify"
+                  small={true}
+                  onPress={handleContinueVerifySession}
+                />
+              </View>
             </View>
 
             {/* Progress Indicator */}
@@ -730,20 +896,31 @@ const KYCVerificationScreen = () => {
         );
 
       case VerificationStatus.COMPLETED:
+      case VerificationStatus.APPROVED:
         return (
           <>
-            <View style={styles.animationContainer}>
-              <VerificationAnimation
-                type={AnimationType.SUCCESS}
-                loop={false}
-                speed={0.8}
-                style={styles.animation}
-              />
-            </View>
+            {/* Success Icon */}
+            <Animated.View
+              style={[
+                styles.checkIconContainer,
+                {
+                  transform: [{ scale: checkmarkScale }],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.checkIconGradient}
+              >
+                <FontAwesome name="trophy" size={24} color="white" />
+              </LinearGradient>
+            </Animated.View>
 
             <Text
               style={[
-                styles.welcomeText,
+                styles.congratsTitle,
                 {
                   color: isDarkMode
                     ? COLORS.DARK_TEXT_PRIMARY
@@ -751,11 +928,11 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Verification Successful
+              Congratulations!
             </Text>
             <Text
               style={[
-                styles.subtitleText,
+                styles.congratsSubtitle,
                 {
                   color: isDarkMode
                     ? COLORS.DARK_TEXT_SECONDARY
@@ -766,20 +943,36 @@ const KYCVerificationScreen = () => {
               Your identity has been successfully verified
             </Text>
 
-            <View style={styles.successContainer}>
-              <Text
-                style={[
-                  styles.successText,
-                  {
-                    color: isDarkMode
-                      ? COLORS.DARK_TEXT_SECONDARY
-                      : COLORS.LIGHT_TEXT_SECONDARY,
-                  },
-                ]}
-              >
-                You'll be redirected in {formatTime(redirectCountdown)}
-              </Text>
-            </View>
+            <Text
+              style={[
+                styles.congratsMessage,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY,
+                },
+              ]}
+            >
+              You're now ready to access all features of our platform. Thank you
+              for your patience.
+            </Text>
+
+            {redirectCountdown > 0 && (
+              <View style={styles.successContainer}>
+                <Text
+                  style={[
+                    styles.successText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  You'll be redirected in {formatTime(redirectCountdown)}
+                </Text>
+              </View>
+            )}
 
             {/* Progress Indicator */}
             <View style={styles.progressContainer}>
@@ -847,7 +1040,7 @@ const KYCVerificationScreen = () => {
               }}
             >
               <Button
-                title="Continue Now"
+                title="Continue"
                 onPress={navigateToNextStep}
                 variant={isDarkMode ? "primary" : "secondary"}
                 small={true}
@@ -865,7 +1058,7 @@ const KYCVerificationScreen = () => {
           </>
         );
 
-      case VerificationStatus.FAILED:
+      case VerificationStatus.DECLINED:
         return (
           <>
             <View style={styles.animationContainer}>
@@ -887,7 +1080,7 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Verification Failed
+              Verification Declined
             </Text>
             <Text
               style={[
@@ -899,8 +1092,258 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              We couldn't verify your identity. Please try again.
+              Unfortunately, your verification was declined
             </Text>
+
+            <View style={styles.infoContainer}>
+              <View style={styles.infoItem}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    {
+                      backgroundColor: isDarkMode
+                        ? "rgba(255, 100, 100, 0.2)"
+                        : "rgba(255, 100, 100, 0.1)",
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="exclamation-triangle"
+                    size={16}
+                    color={COLORS.ERROR}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  There was a problem with your verification documents
+                </Text>
+              </View>
+
+              <View style={styles.infoItem}>
+                <View
+                  style={[
+                    styles.iconContainer,
+                    {
+                      backgroundColor: isDarkMode
+                        ? "rgba(255, 100, 100, 0.2)"
+                        : "rgba(255, 100, 100, 0.1)",
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="envelope"
+                    size={16}
+                    color={COLORS.ERROR}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  Contact support team for more detailed information
+                </Text>
+              </View>
+
+              <View style={{ width: "100%", marginTop: 10 }}>
+                <Button
+                  title="Contact us"
+                  variant={isDarkMode ? "primary" : "secondary"}
+                  small={true}
+                  onPress={() => {}}
+                />
+              </View>
+            </View>
+
+            {/* Progress Indicator */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeader}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  Verification Process
+                </Text>
+                <Text
+                  style={[
+                    styles.progressStep,
+                    {
+                      color: getAccentColor(),
+                    },
+                  ]}
+                >
+                  Step 3 of 4
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.progressBarContainer,
+                  {
+                    backgroundColor: isDarkMode
+                      ? "rgba(255, 255, 255, 0.1)"
+                      : "rgba(0, 0, 0, 0.05)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: "75%", // 3 of 4 steps
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.progressGradient}
+                  />
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.skipButton}
+              onPress={skipVerification}
+            >
+              <Text
+                style={[
+                  styles.skipButtonText,
+                  {
+                    color: isDarkMode
+                      ? "rgba(255, 255, 255, 0.6)"
+                      : "rgba(0, 0, 0, 0.5)",
+                  },
+                ]}
+              >
+                Skip for now
+              </Text>
+            </TouchableOpacity>
+          </>
+        );
+
+      case VerificationStatus.EXPIRED:
+      case VerificationStatus.ABANDONED:
+        return (
+          <>
+            <View style={styles.animationContainer}>
+              <VerificationAnimation
+                type={AnimationType.FAILED}
+                loop={false}
+                speed={1}
+                style={styles.animation}
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.welcomeText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
+                },
+              ]}
+            >
+              Verification{" "}
+              {verificationStatus === VerificationStatus.EXPIRED
+                ? "Expired"
+                : "Abandoned"}
+            </Text>
+            <Text
+              style={[
+                styles.subtitleText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY,
+                },
+              ]}
+            >
+              Your verification session has{" "}
+              {verificationStatus === VerificationStatus.EXPIRED
+                ? "expired"
+                : "been abandoned"}
+            </Text>
+
+            <View style={styles.infoContainer}>
+              <View style={styles.infoItem}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome5
+                    name="clock"
+                    size={16}
+                    color={
+                      isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY
+                    }
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  {verificationStatus === VerificationStatus.EXPIRED
+                    ? "Your verification session has timed out"
+                    : "Your verification was not completed"}
+                </Text>
+              </View>
+
+              <View style={styles.infoItem}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome5
+                    name="redo"
+                    size={16}
+                    color={
+                      isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY
+                    }
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  Please start the verification process again
+                </Text>
+              </View>
+            </View>
 
             {/* Progress Indicator */}
             <View style={styles.progressContainer}>
@@ -968,17 +1411,20 @@ const KYCVerificationScreen = () => {
               }}
             >
               <Button
-                title="Try Again"
+                title="Restart Verification"
                 onPress={startVerification}
+                loading={loading}
                 variant={isDarkMode ? "primary" : "secondary"}
                 small={true}
                 icon={
-                  <FontAwesome5
-                    name="redo"
-                    size={14}
-                    color="white"
-                    style={{ marginLeft: SPACING.S }}
-                  />
+                  !loading && (
+                    <FontAwesome5
+                      name="redo"
+                      size={14}
+                      color="white"
+                      style={{ marginLeft: SPACING.S }}
+                    />
+                  )
                 }
                 iconPosition="right"
               />
@@ -1016,7 +1462,7 @@ const KYCVerificationScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar style="light" />
 
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
@@ -1035,7 +1481,7 @@ const KYCVerificationScreen = () => {
           {/* Top Image Section */}
           <View style={styles.headerImageContainer}>
             <Image
-              source={KYCHeaderImage}
+              source={getHeaderImage()}
               style={styles.headerImage}
               resizeMode="cover"
             />
@@ -1123,9 +1569,10 @@ const KYCVerificationScreen = () => {
                 style={styles.modalGradient}
               >
                 {/* Handle for draggable modal */}
-                <View>
+                <View style={styles.modalHandle}>
                   <View
                     style={[
+                      styles.modalHandleBar,
                       {
                         backgroundColor: isDarkMode
                           ? "rgba(255, 255, 255, 0.3)"
@@ -1286,23 +1733,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.BOLD,
     fontSize: FONT_SIZES.XL,
     marginBottom: SPACING.XS,
+    textAlign: "center",
   },
   subtitleText: {
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.S,
     marginBottom: SPACING.M,
-  },
-  videoContainer: {
-    width: "100%",
-    height: 160,
-    borderRadius: BORDER_RADIUS.L,
-    overflow: "hidden",
-    marginBottom: SPACING.M,
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-  },
-  video: {
-    width: "100%",
-    height: "100%",
+    textAlign: "center",
   },
   infoContainer: {
     width: "100%",
@@ -1433,6 +1870,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BORDER_RADIUS.XXL,
     overflow: "hidden",
   },
+  modalHandle: {
+    alignItems: "center",
+    paddingTop: SPACING.S,
+  },
+  modalHandleBar: {
+    width: 40,
+    height: 5,
+    borderRadius: 2.5,
+  },
   modalAccentBar: {
     height: 6,
     width: "100%",
@@ -1461,6 +1907,41 @@ const styles = StyleSheet.create({
   modalCancelText: {
     fontFamily: FONTS.MEDIUM,
     fontSize: FONT_SIZES.XS,
+  },
+  // Congratulations styles
+  checkIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: "hidden",
+    marginBottom: SPACING.M,
+    alignSelf: "center",
+    ...SHADOWS.MEDIUM,
+  },
+  checkIconGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  congratsTitle: {
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.XL,
+    marginBottom: SPACING.XS,
+    textAlign: "center",
+  },
+  congratsSubtitle: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
+    marginBottom: SPACING.M,
+    textAlign: "center",
+  },
+  congratsMessage: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.S,
+    textAlign: "center",
+    marginBottom: SPACING.M,
+    lineHeight: 22,
   },
 });
 

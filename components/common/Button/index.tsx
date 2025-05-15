@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.SEMIBOLD,
   },
   smallButtonText: {
-    fontSize: FONT_SIZES.S,
+    fontSize: FONT_SIZES.XS,
   },
   outlineButton: {
     backgroundColor: "transparent",

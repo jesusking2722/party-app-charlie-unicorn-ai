@@ -10,3 +10,18 @@ export interface AuthResponse {
   token: string;
   user: User;
 }
+
+export interface UserResponse {
+  user: User;
+}
+
+export interface PaymentIntentResponse {
+  paymentIntent: string;
+  ephemeralKey: string;
+  customer: string;
+  publishableKey: string;
+}
+
+export interface StripeClientSecretResponse {
+  clientSecret: string;
+}

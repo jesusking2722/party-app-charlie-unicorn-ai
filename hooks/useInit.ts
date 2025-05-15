@@ -1,0 +1,85 @@
+import { fetchAuthUserById } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { useAppDispatch } from "@/redux/store";
+import { User } from "@/types/data";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { jwtDecode } from "jwt-decode";
+import { useState } from "react";
+
+interface TokenPayload {
+  _id: string;
+  [key: string]: any;
+}
+
+const useInit = () => {
+  const [initLoading, setInitLoading] = useState<boolean>(true);
+  const [initError, setInitError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+
+  const checkRedirectPath = (user: User) => {
+    if (user.isBlocked) {
+      return;
+    }
+    if (!user._id) {
+      router.replace("/auth/login");
+    } else if (!user.emailVerified) {
+      router.replace("/auth/verify");
+    } else if (!user.name) {
+      router.replace("/onboarding/profileSetup");
+    } else if (!user.title) {
+      router.replace("/onboarding/professionSetup");
+    } else if (!user.kycVerified) {
+      router.replace("/onboarding/kycSetup");
+    }
+  };
+
+  const fetchAuthUser = async () => {
+    setInitLoading(true);
+    setInitError(null);
+
+    try {
+      const token = await AsyncStorage.getItem("Authorization");
+
+      if (!token) {
+        setInitLoading(false);
+        return false;
+      }
+
+      const decoded = jwtDecode<TokenPayload>(token);
+
+      const response = await fetchAuthUserById(decoded.id);
+
+      if (response.ok) {
+        const { user } = response.data;
+        checkRedirectPath(user);
+        // Use the async thunk directly and wait for it to complete
+        await dispatch(setAuthUserAsync(user)).unwrap();
+
+        setInitLoading(false);
+        return true;
+      } else {
+        setInitError(response.message || "Failed to fetch user data");
+        console.error("API Error:", response.message);
+        setInitLoading(false);
+        return false;
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+      setInitError(errorMessage);
+      console.error("Init Error:", error);
+      setInitLoading(false);
+      return false;
+    }
+  };
+
+  return {
+    initLoading,
+    initError,
+    fetchAuthUser,
+    checkRedirectPath,
+  };
+};
+
+export default useInit;
