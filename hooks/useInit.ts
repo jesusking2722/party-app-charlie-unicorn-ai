@@ -32,7 +32,7 @@ const useInit = () => {
     } else if (!user.title) {
       router.replace("/onboarding/professionSetup");
     }
-    router.replace("/main");
+    router.replace("/home");
   };
 
   const fetchAuthUser = async () => {

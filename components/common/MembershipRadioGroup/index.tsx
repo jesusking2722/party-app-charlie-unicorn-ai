@@ -1,4 +1,3 @@
-// MembershipRadioGroup.tsx
 import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -45,8 +44,9 @@ export type Currency = "USD" | "EUR" | "PLN";
 interface MembershipRadioGroupProps {
   plans: SubscriptionPlan[];
   selectedPlanId: string;
+  currentPlanId?: string; // Optional prop to indicate the user's current plan
   onPlanSelect: (plan: SubscriptionPlan) => void;
-  onCurrencyChange?: (currency: Currency, formattedPrice: string) => void; // New prop
+  onCurrencyChange?: (currency: Currency, formattedPrice: string) => void;
   containerStyle?: ViewStyle;
   titleStyle?: TextStyle;
 }
@@ -54,6 +54,7 @@ interface MembershipRadioGroupProps {
 const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
   plans,
   selectedPlanId,
+  currentPlanId,
   onPlanSelect,
   onCurrencyChange,
   containerStyle,
@@ -226,53 +227,84 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
   const getAccentColor = () =>
     isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
+  const getGreenAccentColor = () =>
+    isDarkMode ? "rgb(0, 200, 150)" : "rgb(0, 180, 130)";
+
   const getPlanBackgroundColor = (
     isSelected: boolean,
-    isFree: boolean = false
+    isFree: boolean = false,
+    isCurrent: boolean = false
   ) =>
     isDarkMode
       ? isSelected
         ? "rgba(40, 45, 55, 0.65)"
+        : isCurrent
+        ? "rgba(35, 40, 50, 0.6)"
         : isFree
         ? "rgba(25, 30, 40, 0.4)"
         : "rgba(30, 35, 45, 0.5)"
       : isSelected
       ? "rgba(255, 255, 255, 0.65)"
+      : isCurrent
+      ? "rgba(245, 245, 245, 0.8)"
       : isFree
       ? "rgba(255, 255, 255, 0.3)"
       : "rgba(255, 255, 255, 0.5)";
 
-  const getPlanBorderColor = (isSelected: boolean) =>
+  const getPlanBorderColor = (
+    isSelected: boolean,
+    isCurrent: boolean = false
+  ) =>
     isDarkMode
       ? isSelected
         ? "rgba(255, 255, 255, 0.2)"
+        : isCurrent
+        ? "rgba(0, 200, 150, 0.3)"
         : "rgba(255, 255, 255, 0.1)"
       : isSelected
       ? "rgba(255, 0, 153, 0.3)"
+      : isCurrent
+      ? "rgba(0, 180, 130, 0.3)"
       : "rgba(0, 0, 0, 0.05)";
 
-  const getTitleColor = (isSelected: boolean, isFree: boolean = false) =>
+  const getTitleColor = (
+    isSelected: boolean,
+    isFree: boolean = false,
+    isCurrent: boolean = false
+  ) =>
     isDarkMode
       ? isSelected
         ? COLORS.DARK_TEXT_PRIMARY
+        : isCurrent
+        ? "rgba(255, 255, 255, 0.9)"
         : isFree
         ? "rgba(255, 255, 255, 0.6)"
         : "rgba(255, 255, 255, 0.8)"
       : isSelected
       ? COLORS.LIGHT_TEXT_PRIMARY
+      : isCurrent
+      ? "rgba(0, 0, 0, 0.9)"
       : isFree
       ? "rgba(0, 0, 0, 0.5)"
       : "rgba(0, 0, 0, 0.8)";
 
-  const getPriceColor = (isSelected: boolean, isFree: boolean = false) =>
+  const getPriceColor = (
+    isSelected: boolean,
+    isFree: boolean = false,
+    isCurrent: boolean = false
+  ) =>
     isDarkMode
       ? isSelected
         ? COLORS.DARK_TEXT_PRIMARY
+        : isCurrent
+        ? "rgba(255, 255, 255, 0.8)"
         : isFree
         ? "rgba(255, 255, 255, 0.4)"
         : "rgba(255, 255, 255, 0.7)"
       : isSelected
       ? COLORS.LIGHT_TEXT_PRIMARY
+      : isCurrent
+      ? "rgba(0, 0, 0, 0.8)"
       : isFree
       ? "rgba(0, 0, 0, 0.4)"
       : "rgba(0, 0, 0, 0.7)";
@@ -355,6 +387,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
 
       {plans.map((plan) => {
         const isSelected = selectedPlanId === plan.id;
+        const isCurrent = currentPlanId === plan.id;
         const animations = animationRefs.current[plan.id];
 
         // Calculate months for savings
@@ -383,6 +416,9 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
           outputRange: ["rgba(0, 0, 0, 0)", getAccentColor()],
         });
 
+        // Determine if this plan should be selectable
+        const isSelectable = !isCurrent;
+
         return (
           <TouchableOpacity
             key={plan.id}
@@ -391,28 +427,34 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               {
                 backgroundColor: getPlanBackgroundColor(
                   isSelected,
-                  plan.isFree
+                  plan.isFree,
+                  isCurrent
                 ),
-                borderColor: getPlanBorderColor(isSelected),
-                borderWidth: isSelected ? 1 : 0.5,
+                borderColor: getPlanBorderColor(isSelected, isCurrent),
+                borderWidth: isSelected || isCurrent ? 1 : 0.5,
+                opacity: isSelectable ? 1 : 0.9,
               },
               plan.isPopular && styles.popularPlanContainer,
+              isCurrent && styles.currentPlanContainer,
             ]}
             onPress={() => {
-              onPlanSelect(plan);
-              // Trigger currency change handler with the newly selected plan
-              if (!plan.isFree && onCurrencyChange) {
-                const formattedPrice = formatPrice(
-                  plan.price,
-                  selectedCurrency
-                );
-                onCurrencyChange(selectedCurrency, formattedPrice);
+              if (isSelectable) {
+                onPlanSelect(plan);
+                // Trigger currency change handler with the newly selected plan
+                if (!plan.isFree && onCurrencyChange) {
+                  const formattedPrice = formatPrice(
+                    plan.price,
+                    selectedCurrency
+                  );
+                  onCurrencyChange(selectedCurrency, formattedPrice);
+                }
               }
             }}
-            activeOpacity={0.7}
+            activeOpacity={isSelectable ? 0.7 : 1}
+            disabled={!isSelectable}
           >
             {/* Left Accent Bar when selected */}
-            {isSelected && (
+            {isSelected && !isCurrent && (
               <Animated.View
                 style={[
                   styles.selectedAccent,
@@ -424,57 +466,123 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               />
             )}
 
-            {/* Radio Button */}
-            <View style={styles.radioButtonContainer}>
-              <Animated.View
+            {/* Left Accent Bar when current */}
+            {isCurrent && (
+              <View
                 style={[
-                  styles.radioButton,
+                  styles.currentAccent,
                   {
-                    borderColor: radioBorderColor,
-                    borderWidth: animations?.borderWidth || 1,
+                    backgroundColor: getGreenAccentColor(),
                   },
                 ]}
-              >
-                <Animated.View
+              />
+            )}
+
+            {/* Radio Button */}
+            <View style={styles.radioButtonContainer}>
+              {isCurrent ? (
+                <View
                   style={[
-                    styles.radioButtonInner,
+                    styles.radioButton,
                     {
-                      backgroundColor: radioInnerColor,
-                      transform: [{ scale: animations?.scale || 0 }],
-                      opacity: animations?.checkOpacity || 0,
+                      borderColor: getGreenAccentColor(),
+                      borderWidth: 2,
                     },
                   ]}
-                />
-              </Animated.View>
+                >
+                  <View
+                    style={[
+                      styles.radioButtonInner,
+                      {
+                        backgroundColor: getGreenAccentColor(),
+                        transform: [{ scale: 1 }],
+                      },
+                    ]}
+                  />
+                </View>
+              ) : (
+                <Animated.View
+                  style={[
+                    styles.radioButton,
+                    {
+                      borderColor: radioBorderColor,
+                      borderWidth: animations?.borderWidth || 1,
+                    },
+                  ]}
+                >
+                  <Animated.View
+                    style={[
+                      styles.radioButtonInner,
+                      {
+                        backgroundColor: radioInnerColor,
+                        transform: [{ scale: animations?.scale || 0 }],
+                        opacity: animations?.checkOpacity || 0,
+                      },
+                    ]}
+                  />
+                </Animated.View>
+              )}
             </View>
 
             {/* Plan Information */}
             <View style={styles.planInfo}>
-              <Text
-                style={[
-                  styles.planTitle,
-                  {
-                    color: getTitleColor(isSelected, plan.isFree),
-                    fontFamily: isSelected ? FONTS.SEMIBOLD : FONTS.MEDIUM,
-                  },
-                  titleStyle,
-                ]}
-              >
-                {plan.title}
-              </Text>
+              <View style={styles.planTitleContainer}>
+                <Text
+                  style={[
+                    styles.planTitle,
+                    {
+                      color: getTitleColor(isSelected, plan.isFree, isCurrent),
+                      fontFamily:
+                        isSelected || isCurrent ? FONTS.SEMIBOLD : FONTS.MEDIUM,
+                    },
+                    titleStyle,
+                  ]}
+                >
+                  {plan.title}
+                </Text>
+
+                {/* Inline "Current" indicator for better visibility */}
+                {isCurrent && (
+                  <View
+                    style={[
+                      styles.inlineCurrentBadge,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(0, 200, 150, 0.2)"
+                          : "rgba(0, 180, 130, 0.1)",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.inlineCurrentText,
+                        {
+                          color: getGreenAccentColor(),
+                        },
+                      ]}
+                    >
+                      Current
+                    </Text>
+                  </View>
+                )}
+              </View>
 
               <View style={styles.priceContainer}>
                 <TouchableOpacity
                   onPress={cycleCurrency}
-                  disabled={plan.isFree}
+                  disabled={plan.isFree || !isSelectable}
                 >
                   <Text
                     style={[
                       styles.planPrice,
                       {
-                        color: getPriceColor(isSelected, plan.isFree),
+                        color: getPriceColor(
+                          isSelected,
+                          plan.isFree,
+                          isCurrent
+                        ),
                       },
-                      !plan.isFree && styles.clickablePrice,
+                      !plan.isFree && isSelectable && styles.clickablePrice,
                     ]}
                   >
                     {plan.isFree ? plan.priceLabel : getPriceLabel(plan)}
@@ -519,7 +627,11 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                           name="minus"
                           size={8}
                           color={
-                            isDarkMode
+                            isCurrent
+                              ? isDarkMode
+                                ? "rgba(0, 200, 150, 0.6)"
+                                : "rgba(0, 180, 130, 0.6)"
+                              : isDarkMode
                               ? "rgba(255, 255, 255, 0.4)"
                               : "rgba(0, 0, 0, 0.4)"
                           }
@@ -529,7 +641,11 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                           style={[
                             styles.limitationText,
                             {
-                              color: isDarkMode
+                              color: isCurrent
+                                ? isDarkMode
+                                  ? "rgba(255, 255, 255, 0.7)"
+                                  : "rgba(0, 0, 0, 0.7)"
+                                : isDarkMode
                                 ? "rgba(255, 255, 255, 0.5)"
                                 : "rgba(0, 0, 0, 0.5)",
                             },
@@ -550,7 +666,9 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                       <FontAwesome5
                         name="check"
                         size={8}
-                        color={getAccentColor()}
+                        color={
+                          isCurrent ? getGreenAccentColor() : getAccentColor()
+                        }
                         style={styles.featureIcon}
                       />
                       <Text
@@ -571,8 +689,8 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               )}
             </View>
 
-            {/* Popular Badge */}
-            {plan.isPopular && (
+            {/* Popular Badge - Only shown if not current plan */}
+            {plan.isPopular && !isCurrent && (
               <View style={styles.popularBadge}>
                 <LinearGradient
                   colors={
@@ -593,8 +711,8 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               </View>
             )}
 
-            {/* Free Badge */}
-            {plan.isFree && (
+            {/* Free Badge - Only shown if not current plan */}
+            {plan.isFree && !isCurrent && (
               <View style={styles.freeBadge}>
                 <View
                   style={[
@@ -617,6 +735,42 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                     ]}
                   >
                     Basic
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Current Plan Badge - Always shown when plan is current */}
+            {isCurrent && (
+              <View style={styles.currentBadge}>
+                <View
+                  style={[
+                    styles.currentGradient,
+                    {
+                      backgroundColor: isDarkMode
+                        ? "rgba(0, 200, 150, 0.2)"
+                        : "rgba(0, 180, 130, 0.2)",
+                      borderColor: isDarkMode
+                        ? "rgba(0, 200, 150, 0.5)"
+                        : "rgba(0, 180, 130, 0.5)",
+                    },
+                  ]}
+                >
+                  <FontAwesome5
+                    name="check-circle"
+                    size={10}
+                    color={getGreenAccentColor()}
+                    style={styles.currentBadgeIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.currentTextBadge,
+                      {
+                        color: getGreenAccentColor(),
+                      },
+                    ]}
+                  >
+                    Current Plan
                   </Text>
                 </View>
               </View>
@@ -649,8 +803,24 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BORDER_RADIUS.S,
     borderBottomRightRadius: BORDER_RADIUS.S,
   },
+  currentAccent: {
+    position: "absolute",
+    left: 0,
+    width: 3,
+    height: "100%",
+    borderTopRightRadius: BORDER_RADIUS.S,
+    borderBottomRightRadius: BORDER_RADIUS.S,
+  },
   popularPlanContainer: {
     borderColor: "rgba(255, 0, 153, 0.3)",
+  },
+  currentPlanContainer: {
+    shadowColor: "rgba(0, 180, 130, 0.3)",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
+    borderWidth: 1,
   },
   radioButtonContainer: {
     marginRight: SPACING.M,
@@ -670,9 +840,23 @@ const styles = StyleSheet.create({
   planInfo: {
     flex: 1,
   },
+  planTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING.XS,
+  },
   planTitle: {
     fontSize: FONT_SIZES.S,
-    marginBottom: SPACING.XS,
+  },
+  inlineCurrentBadge: {
+    marginLeft: SPACING.XS,
+    paddingHorizontal: SPACING.XS,
+    paddingVertical: 1,
+    borderRadius: BORDER_RADIUS.S,
+  },
+  inlineCurrentText: {
+    fontSize: FONT_SIZES.XS || 8,
+    fontFamily: FONTS.MEDIUM,
   },
   priceContainer: {
     flexDirection: "row",
@@ -700,6 +884,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     right: 0,
+    zIndex: 1,
   },
   popularGradient: {
     paddingHorizontal: SPACING.S,
@@ -720,6 +905,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     right: 0,
+    zIndex: 1,
   },
   freeGradient: {
     paddingHorizontal: SPACING.S,
@@ -727,6 +913,27 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: BORDER_RADIUS.M,
   },
   freeTextBadge: {
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.MEDIUM,
+  },
+  currentBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    zIndex: 2, // Higher z-index ensures it appears on top
+  },
+  currentGradient: {
+    paddingHorizontal: SPACING.S,
+    paddingVertical: 4,
+    borderBottomLeftRadius: BORDER_RADIUS.M,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+  },
+  currentBadgeIcon: {
+    marginRight: 4,
+  },
+  currentTextBadge: {
     fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
   },

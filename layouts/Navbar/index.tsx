@@ -1,5 +1,6 @@
 import { FONTS, THEME } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import { RootState } from "@/redux/store";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,39 +8,39 @@ import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
 import {
   Animated,
-  Dimensions,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSelector } from "react-redux";
 
 const NAV_ITEMS = [
   {
     name: "Home",
     icon: "home",
-    path: "/main",
+    path: "/home",
   },
   {
     name: "Events",
     icon: "calendar",
-    path: "/main/events",
+    path: "/events",
   },
   {
     name: "Create",
     icon: "plus-circle",
-    path: "/main/events/create",
+    path: "/events/create",
   },
   {
     name: "Tickets",
     icon: "shopping-cart",
-    path: "/main/tickets",
+    path: "/tickets",
   },
   {
     name: "Subscription",
     icon: "tag",
-    path: "/main/subscription",
+    path: "/subscription",
   },
 ];
 
@@ -51,13 +52,14 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ unreadChats = 0, onCreatePress }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const windowWidth = Dimensions.get("window").width;
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
 
   // Animation refs
   const translateY = useRef(new Animated.Value(50)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const { parties } = useSelector((state: RootState) => state.party);
 
   // Animation effect on component mount
   useEffect(() => {
@@ -183,8 +185,8 @@ const Navbar: React.FC<NavbarProps> = ({ unreadChats = 0, onCreatePress }) => {
                   }
                 />
                 {item.name === "Events" &&
-                  unreadChats > 0 &&
-                  renderBadge(unreadChats)}
+                  parties.length > 0 &&
+                  renderBadge(parties.length)}
                 <Text
                   style={[
                     styles.navLabel,

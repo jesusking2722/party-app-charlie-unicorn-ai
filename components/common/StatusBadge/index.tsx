@@ -4,18 +4,17 @@ import { StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
 
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
-import { PartyType } from "@/types/data";
+import { PartyStatus, PartyType } from "@/types/data";
 
 type BadgeType = "date" | "status" | "payment" | "eventType";
-type BadgeStatus = "active" | "cancelled" | "finished";
 type BadgePayment = "free" | "paid";
 
 interface StatusBadgeProps {
   type: BadgeType;
   label?: string;
-  status?: BadgeStatus;
+  status?: PartyStatus;
   payment?: BadgePayment;
-  eventType?: string;
+  eventType?: PartyType;
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
@@ -46,9 +45,9 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
         };
 
       case "status":
-        if (status === "active") {
+        if (status === "opening") {
           return {
-            text: "Active",
+            text: "Opening",
             colors: isDarkMode
               ? ["rgba(5, 150, 105, 0.8)", "rgba(4, 120, 87, 0.8)"]
               : ["rgba(5, 150, 105, 0.2)", "rgba(4, 120, 87, 0.2)"],

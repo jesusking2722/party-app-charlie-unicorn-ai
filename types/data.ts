@@ -86,6 +86,13 @@ export type PartyType =
   | "movie"
   | "sport";
 
+export type PartyStatus =
+  | "opening"
+  | "accepted"
+  | "playing"
+  | "finished"
+  | "cancelled";
+
 export interface Party {
   _id?: string;
   type: PartyType | string;
@@ -102,13 +109,14 @@ export interface Party {
   };
   applicants: Applicant[];
   finishApproved: Applicant[];
-  status: "opening" | "accepted" | "playing" | "finished" | "cancelled";
+  status: PartyStatus;
   paidOption: "paid" | "free";
   currency: string;
   fee?: number;
   stickerCounts?: number;
   stickerConfirmed?: boolean;
   createdAt: Date;
+  images?: string[];
 }
 
 export interface Kyc {

@@ -52,6 +52,7 @@ const LoginScreen = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [googleLoading, setGoogleLoading] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [errors, setErrors] = useState<{
     email?: string;
@@ -307,7 +308,7 @@ const LoginScreen = () => {
 
   const handleGoogleLogin = async (): Promise<void> => {
     try {
-      setLoading(true);
+      setGoogleLoading(true);
 
       // Animation for button press
       Animated.sequence([
@@ -329,7 +330,7 @@ const LoginScreen = () => {
     } catch (error) {
       console.error("Error initiating Google sign in:", error);
       showToast("Failed to start Google sign in", "error");
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -703,6 +704,7 @@ const LoginScreen = () => {
                         icon={
                           <FontAwesome name="google" size={18} color="white" />
                         }
+                        loading={googleLoading}
                         onPress={handleGoogleLogin}
                       />
                     </View>

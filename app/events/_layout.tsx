@@ -1,9 +1,11 @@
 import { Stack } from "expo-router";
 
-export default function SubscriptionRootLayout() {
+export default function EventsLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="create" />
+      <Stack.Screen name="details/[id]" />
     </Stack>
   );
 }

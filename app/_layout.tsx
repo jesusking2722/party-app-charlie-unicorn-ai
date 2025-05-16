@@ -4,7 +4,7 @@ import * as Font from "expo-font";
 import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useCallback, useEffect, useState } from "react";
-import { Linking, StyleSheet, View } from "react-native";
+import { BackHandler, Linking, StyleSheet, View } from "react-native";
 import "./global.css";
 
 import { ToastProvider } from "@/contexts/ToastContext";
@@ -15,6 +15,7 @@ import { Provider } from "react-redux";
 
 import "@walletconnect/react-native-compat";
 
+import { applyBackHandlerPolyfill } from "@/utils/backHandlerPolyfill";
 import {
   AppKit,
   createAppKit,
@@ -61,6 +62,8 @@ const NAVIGATION_HIDDEN_ROUTES = [
   "/reset-password",
 ];
 
+applyBackHandlerPolyfill();
+
 export default function RootLayout() {
   const [publishableKey, setPublishableKey] = useState<string>("");
 
@@ -98,6 +101,15 @@ export default function RootLayout() {
 
   const onLayoutRootView = useCallback(async () => {
     await SplashScreen.hideAsync();
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => {
+        return true;
+      }
+    );
+
+    // remove
+    subscription.remove();
   }, []);
 
   // Stripe initialize
@@ -174,7 +186,10 @@ export default function RootLayout() {
                   <Stack.Screen name="start" />
                   <Stack.Screen name="auth" />
                   <Stack.Screen name="onboarding" />
-                  <Stack.Screen name="main" />
+                  <Stack.Screen name="home/index" />
+                  <Stack.Screen name="events" />
+                  <Stack.Screen name="subscription/index" />
+                  <Stack.Screen name="tickets/index" />
                 </Stack>
               </View>
 

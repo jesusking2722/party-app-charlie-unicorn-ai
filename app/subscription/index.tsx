@@ -1,4 +1,5 @@
 import {
+  Currency,
   MembershipRadioGroup,
   PaymentMethodType,
   SubscriptionPlan,
@@ -6,7 +7,6 @@ import {
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -36,15 +36,22 @@ import {
   CardPayment,
   CryptoPayment,
   PaymentModal,
+  Spinner,
 } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { User } from "@/types/data";
+import { useSelector } from "react-redux";
 
 const PremiumHeaderImage = require("@/assets/images/premium_onboarding.png");
 const { width, height } = Dimensions.get("window");
 
 const LIGHT_THEME_ACCENT = "#FF0099";
 
-const PremiumSubscriptionScreen = () => {
+const SubscriptionScreen = () => {
   const { isDarkMode } = useTheme();
 
   const subscriptionPlans: SubscriptionPlan[] = [
@@ -105,19 +112,119 @@ const PremiumSubscriptionScreen = () => {
   const [selectedPlanId, setSelectedPlanId] = useState<string>(
     subscriptionPlans[3].id
   );
-
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>("USD");
+  const [formattedAmount, setFormattedAmount] = useState<string>("$54");
   const [loading, setLoading] = useState<boolean>(false);
-
   const [paymentModalVisible, setPaymentModalVisible] =
     useState<boolean>(false);
-
   const [paymentFlow, setPaymentFlow] = useState<string | null>(null);
+  const [isPlanExpired, setIsPlanExpired] = useState<boolean>(true);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(30)).current;
   const cardScale = useRef(new Animated.Value(0.97)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
+  const { showToast } = useToast();
+
+  // Get current plan ID based on user's membership period
+  const getCurrentPlanId = (): string | undefined => {
+    if (!user || !user.membership || user.membership === "free") {
+      return "free";
+    }
+
+    switch (user.membershipPeriod) {
+      case 1:
+        return "monthly";
+      case 3:
+        return "quarterly";
+      case 6:
+        return "biannual";
+      case 12:
+        return "annual";
+      default:
+        return undefined;
+    }
+  };
+
+  const currentPlanId = getCurrentPlanId();
+
+  // Calculate premium expiration date and check if plan is expired
+  const calculateExpirationDetails = (): {
+    expirationDate: string;
+    isExpired: boolean;
+  } => {
+    if (
+      !user ||
+      !user.premiumStartedAt ||
+      !user.membershipPeriod ||
+      user.membership !== "premium"
+    ) {
+      return { expirationDate: "", isExpired: true };
+    }
+
+    const startDate = new Date(user.premiumStartedAt);
+    const expirationDate = new Date(startDate);
+
+    // Add months based on membership period
+    expirationDate.setMonth(expirationDate.getMonth() + user.membershipPeriod);
+
+    // Check if plan is expired
+    const now = new Date();
+    const isExpired = now >= expirationDate;
+
+    // Format date to string
+    const formattedDate = expirationDate.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    return { expirationDate: formattedDate, isExpired };
+  };
+
+  // Update expiration status when component mounts or user changes
+  useEffect(() => {
+    const { isExpired } = calculateExpirationDetails();
+    setIsPlanExpired(isExpired);
+  }, [user]);
+
+  // Calculate time remaining until expiration
+  const calculateTimeRemaining = (): string => {
+    if (
+      !user ||
+      !user.premiumStartedAt ||
+      !user.membershipPeriod ||
+      user.membership !== "premium"
+    ) {
+      return "";
+    }
+
+    const startDate = new Date(user.premiumStartedAt);
+    const expirationDate = new Date(startDate);
+    expirationDate.setMonth(expirationDate.getMonth() + user.membershipPeriod);
+
+    const now = new Date();
+    if (now >= expirationDate) {
+      return "Expired";
+    }
+
+    const diffTime = Math.abs(expirationDate.getTime() - now.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 30) {
+      const diffMonths = Math.floor(diffDays / 30);
+      return `${diffMonths} month${diffMonths > 1 ? "s" : ""} remaining`;
+    } else {
+      return `${diffDays} day${diffDays !== 1 ? "s" : ""} remaining`;
+    }
+  };
+
+  const timeRemaining = calculateTimeRemaining();
+  const { expirationDate, isExpired } = calculateExpirationDetails();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -235,6 +342,12 @@ const PremiumSubscriptionScreen = () => {
     setSelectedPlanId(plan.id);
   };
 
+  // Handle currency change
+  const handleCurrencyChange = (currency: Currency, formattedPrice: string) => {
+    setSelectedCurrency(currency);
+    setFormattedAmount(formattedPrice);
+  };
+
   // Handle subscription submission
   const handleSubscribe = () => {
     const selectedPlan = subscriptionPlans.find(
@@ -251,13 +364,30 @@ const PremiumSubscriptionScreen = () => {
   };
 
   // Handle free subscription
-  const handleFreeSubscription = () => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      router.push("/onboarding/congratulationsSetup");
-    }, 1000);
+  const handleFreeSubscription = async () => {
+    if (user) {
+      setLoading(true);
+      try {
+        const updatingUser: User = {
+          ...user,
+          membership: "free",
+          membershipPeriod: 0,
+          premiumStartedAt: undefined,
+        };
+
+        const response = await updateAuthUser(updatingUser);
+        if (response.ok) {
+          const { user: updatedUser } = response.data;
+          await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+          showToast("Successfully switched to Free plan", "success");
+        }
+      } catch (error) {
+        showToast("Something went wrong", "error");
+        console.error("handle free subscription error: ", error);
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   // Handle payment method selection
@@ -273,18 +403,54 @@ const PremiumSubscriptionScreen = () => {
   };
 
   // Handle payment completion
-  const handlePaymentComplete = (success: boolean) => {
-    if (success) {
-      // Reset payment flow
+  const handlePaymentComplete = async (success: boolean) => {
+    if (success && user) {
+      setLoading(true);
       setPaymentFlow(null);
 
-      // Navigate to next screen
-      console.log("Payment successful, navigating to home screen");
-      router.push("/onboarding/congratulationsSetup");
+      try {
+        // Map the selectedPlanId to the membershipPeriod
+        let membershipPeriod: 0 | 1 | 3 | 6 | 12 = 0;
+        switch (selectedPlanId) {
+          case "monthly":
+            membershipPeriod = 1;
+            break;
+          case "quarterly":
+            membershipPeriod = 3;
+            break;
+          case "biannual":
+            membershipPeriod = 6;
+            break;
+          case "annual":
+            membershipPeriod = 12;
+            break;
+        }
+
+        const updatingUser: User = {
+          ...user,
+          membership: "premium",
+          membershipPeriod,
+          premiumStartedAt: new Date(),
+        };
+
+        const response = await updateAuthUser(updatingUser);
+        if (response.ok) {
+          const { user: updatedUser } = response.data;
+          await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+          showToast("Subscription updated successfully", "success");
+        }
+      } catch (error) {
+        showToast("Something went wrong", "error");
+        console.error(
+          "handle premium membership payment complete error: ",
+          error
+        );
+      } finally {
+        setLoading(false);
+      }
     } else {
-      // Handle payment failure
       setPaymentFlow(null);
-      console.log("Payment failed");
+      showToast("Payment failed", "error");
     }
   };
 
@@ -334,7 +500,9 @@ const PremiumSubscriptionScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <CardPayment
-          amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+          amount={selectedPlan?.price.toString() || ""}
+          formattedAmount={formattedAmount}
+          currency={selectedCurrency}
           planTitle={selectedPlan?.title || ""}
           onPaymentComplete={handlePaymentComplete}
           onBack={handleBackFromPayment}
@@ -347,7 +515,9 @@ const PremiumSubscriptionScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <CryptoPayment
-          amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+          amount={selectedPlan?.price.toString() || ""}
+          formattedAmount={formattedAmount}
+          currency={selectedCurrency}
           planTitle={selectedPlan?.title || ""}
           onPaymentComplete={handlePaymentComplete}
           onBack={handleBackFromPayment}
@@ -355,6 +525,36 @@ const PremiumSubscriptionScreen = () => {
       </SafeAreaView>
     );
   }
+
+  // Check if subscribe button should be disabled
+  const isSubscribeDisabled = () => {
+    // Disable if current plan is selected
+    if (currentPlanId === selectedPlanId) {
+      return true;
+    }
+
+    // Disable if user has a premium plan that hasn't expired yet
+    if (user?.membership === "premium" && !isExpired) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Get button text based on subscription state
+  const getButtonText = () => {
+    if (currentPlanId === selectedPlanId) {
+      return "Current Plan";
+    }
+
+    if (user?.membership === "premium" && !isExpired) {
+      return `Wait Until Plan Expires`;
+    }
+
+    return selectedPlan?.isFree
+      ? "Switch to Free Plan"
+      : `Subscribe for ${formattedAmount}`;
+  };
 
   // Main subscription screen
   return (
@@ -364,6 +564,8 @@ const PremiumSubscriptionScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
+      <Spinner visible={loading} message="Processing..." />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoidingView}
@@ -383,6 +585,12 @@ const PremiumSubscriptionScreen = () => {
 
             {/* Add floating particles for fun effect */}
             {renderParticles()}
+
+            {/* Overlay gradient for readability */}
+            <LinearGradient
+              colors={["rgba(0,0,0,0.3)", "rgba(0,0,0,0)"]}
+              style={styles.imageOverlay}
+            />
           </View>
 
           {/* Bottom Half with Animated Background */}
@@ -432,8 +640,96 @@ const PremiumSubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      Upgrade to Premium
+                      Manage Subscription
                     </Text>
+
+                    {user?.membership === "premium" && (
+                      <View style={styles.subscriptionStatusContainer}>
+                        <View
+                          style={[
+                            styles.currentStatusBadge,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(0, 200, 150, 0.2)"
+                                : "rgba(0, 180, 130, 0.2)",
+                              borderColor: isDarkMode
+                                ? "rgba(0, 200, 150, 0.5)"
+                                : "rgba(0, 180, 130, 0.5)",
+                            },
+                          ]}
+                        >
+                          <FontAwesome5
+                            name="check-circle"
+                            size={12}
+                            color={
+                              isDarkMode
+                                ? "rgb(0, 200, 150)"
+                                : "rgb(0, 180, 130)"
+                            }
+                            style={styles.statusIcon}
+                          />
+                          <Text
+                            style={[
+                              styles.currentStatusText,
+                              {
+                                color: isDarkMode
+                                  ? "rgb(0, 200, 150)"
+                                  : "rgb(0, 180, 130)",
+                              },
+                            ]}
+                          >
+                            Active Premium Subscription
+                          </Text>
+                        </View>
+
+                        <View style={styles.subscriptionDetailRow}>
+                          <Text
+                            style={[
+                              styles.expirationText,
+                              {
+                                color: isDarkMode
+                                  ? COLORS.DARK_TEXT_SECONDARY
+                                  : COLORS.LIGHT_TEXT_SECONDARY,
+                              },
+                            ]}
+                          >
+                            Expires on: {expirationDate}
+                          </Text>
+
+                          {!isExpired && (
+                            <Text
+                              style={[
+                                styles.timeRemainingText,
+                                {
+                                  color: isDarkMode
+                                    ? "rgba(0, 200, 150, 0.8)"
+                                    : "rgb(0, 180, 130)",
+                                },
+                              ]}
+                            >
+                              {timeRemaining}
+                            </Text>
+                          )}
+                        </View>
+
+                        {!isExpired && (
+                          <Text
+                            style={[
+                              styles.planChangeWarning,
+                              {
+                                color: isDarkMode
+                                  ? "rgba(255, 165, 0, 0.8)"
+                                  : "rgba(255, 100, 0, 0.9)",
+                              },
+                            ]}
+                          >
+                            You can change your plan once the current plan
+                            expires.
+                          </Text>
+                        )}
+                      </View>
+                    )}
+
                     <Text
                       style={[
                         styles.subtitleText,
@@ -444,7 +740,11 @@ const PremiumSubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      Unlock all features and enhance your experience
+                      {user?.membership === "premium"
+                        ? isExpired
+                          ? "Your subscription has expired. Choose a new plan below."
+                          : "You can renew or change your plan after the current period ends."
+                        : "Upgrade to premium to access all features"}
                     </Text>
 
                     {/* Premium Features */}
@@ -567,13 +867,15 @@ const PremiumSubscriptionScreen = () => {
                           },
                         ]}
                       >
-                        Choose your plan
+                        Select a plan
                       </Text>
 
                       <MembershipRadioGroup
                         plans={subscriptionPlans}
                         selectedPlanId={selectedPlanId}
+                        currentPlanId={currentPlanId ?? ""}
                         onPlanSelect={handlePlanSelect}
+                        onCurrencyChange={handleCurrencyChange}
                       />
                     </View>
 
@@ -586,30 +888,23 @@ const PremiumSubscriptionScreen = () => {
                       }}
                     >
                       <Button
-                        title={
-                          loading
-                            ? "Processing..."
-                            : selectedPlan?.isFree
-                            ? "Continue with Free Plan"
-                            : `Subscribe for ${
-                                selectedPlan?.priceLabel.split(" ")[0]
-                              }`
-                        }
+                        title={getButtonText()}
                         onPress={handleSubscribe}
                         loading={loading}
                         variant={isDarkMode ? "primary" : "secondary"}
                         small={false}
                         icon={
-                          !loading && (
+                          !loading && !isSubscribeDisabled() ? (
                             <FontAwesome5
                               name="arrow-right"
                               size={14}
                               color="white"
                               style={{ marginLeft: SPACING.S }}
                             />
-                          )
+                          ) : undefined
                         }
                         iconPosition="right"
+                        disabled={isSubscribeDisabled()}
                       />
                     </Animated.View>
 
@@ -642,7 +937,8 @@ const PremiumSubscriptionScreen = () => {
         visible={paymentModalVisible}
         onClose={() => setPaymentModalVisible(false)}
         onSelectPaymentMethod={handleSelectPaymentMethod}
-        amount={selectedPlan?.priceLabel.split(" ")[0] || ""}
+        amount={formattedAmount}
+        currency={selectedCurrency}
         planTitle={selectedPlan?.title || ""}
       />
     </SafeAreaView>
@@ -674,6 +970,13 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  imageOverlay: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    top: 0,
+    left: 0,
   },
   bottomHalf: {
     minHeight: height * 0.75,
@@ -728,6 +1031,45 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.S,
     marginBottom: SPACING.M,
   },
+  subscriptionStatusContainer: {
+    marginBottom: SPACING.M,
+  },
+  currentStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SPACING.S,
+    paddingVertical: SPACING.XS,
+    borderRadius: BORDER_RADIUS.M,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    marginBottom: SPACING.XS,
+  },
+  statusIcon: {
+    marginRight: SPACING.XS,
+  },
+  currentStatusText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+  },
+  subscriptionDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: SPACING.XS,
+  },
+  expirationText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
+  },
+  timeRemainingText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+  },
+  planChangeWarning: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+    marginTop: SPACING.XS,
+  },
   featuresContainer: {
     padding: SPACING.M,
     borderRadius: BORDER_RADIUS.L,
@@ -760,16 +1102,6 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.S,
     marginBottom: SPACING.S,
   },
-
-  skipButton: {
-    alignSelf: "center",
-    marginTop: SPACING.M,
-    padding: SPACING.S,
-  },
-  skipButtonText: {
-    fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.XS,
-  },
   termsText: {
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.XS,
@@ -779,4 +1111,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PremiumSubscriptionScreen;
+export default SubscriptionScreen;

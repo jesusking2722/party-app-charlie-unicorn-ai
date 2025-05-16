@@ -1,10 +1,11 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { Link, router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -33,6 +34,7 @@ import {
   Slider,
   StatusBadge,
 } from "@/components/common";
+import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { RootState } from "@/redux/store";
 import { Party, PartyType } from "@/types/data";
@@ -311,6 +313,14 @@ const EventListScreen = () => {
   const applyFilters = () => {
     let filtered = [...totalEvents];
 
+    if (country?.name) {
+      filtered = filtered.filter((event) => event.country === country.name);
+    }
+
+    if (region?.name) {
+      filtered = filtered.filter((event) => event.region === region.name);
+    }
+
     // Apply filters
     if (eventType?.value !== "all") {
       filtered = filtered.filter((event) => event.type === eventType.value);
@@ -393,10 +403,12 @@ const EventListScreen = () => {
         ],
       }}
     >
-      <TouchableOpacity
+      <Link
+        href={{
+          pathname: "/events/details/[id]",
+          params: { id: item._id as string },
+        }}
         style={styles.eventCard}
-        activeOpacity={0.9}
-        onPress={() => router.push(`/main/events/preview`)}
       >
         <LinearGradient
           colors={getCardGradient(item.type as PartyType) as any}
@@ -439,7 +451,7 @@ const EventListScreen = () => {
                   type="date"
                   label={formatTimeAgo(item.createdAt)}
                 />
-                <StatusBadge type="status" status={item.status as any} />
+                <StatusBadge type="status" status={item.status} />
               </View>
             </View>
           </View>
@@ -473,23 +485,38 @@ const EventListScreen = () => {
 
             <View style={styles.attendeesContainer}>
               <View style={styles.avatarGroup}>
-                {Array(Math.min(3, Math.ceil(item.applicants.length / 5)))
-                  .fill(0)
-                  .map((_, i) => (
-                    <View
-                      key={`avatar-${i}`}
-                      style={[
-                        styles.avatarCircle,
-                        {
-                          backgroundColor: getEventGradientColors(
-                            item.type as PartyType
-                          )[0],
-                          right: i * 10,
-                          zIndex: 3 - i,
-                        },
-                      ]}
-                    />
-                  ))}
+                {item.applicants.slice(0, 3).map((applicant, i) => (
+                  <View
+                    key={`avatar-${applicant.applier._id || i}`}
+                    style={[
+                      styles.avatarCircle,
+                      {
+                        right: i * 10,
+                        zIndex: 3 - i,
+                      },
+                    ]}
+                  >
+                    {applicant.applier && applicant.applier.avatar ? (
+                      <Image
+                        source={{
+                          uri: BACKEND_BASE_URL + applicant.applier.avatar,
+                        }}
+                        style={styles.avatarImage}
+                      />
+                    ) : (
+                      <View
+                        style={[
+                          styles.avatarPlaceholder,
+                          {
+                            backgroundColor: getEventGradientColors(
+                              item.type as PartyType
+                            )[0],
+                          },
+                        ]}
+                      />
+                    )}
+                  </View>
+                ))}
               </View>
               <Text
                 style={[
@@ -522,32 +549,31 @@ const EventListScreen = () => {
             </View>
           )}
         </LinearGradient>
-      </TouchableOpacity>
+      </Link>
     </Animated.View>
   );
 
   // Updated getCardGradient function to match all party types
   const getCardGradient = (eventType: PartyType) => {
     if (isDarkMode) {
-      // Rich dark mode gradients based on event type
       switch (eventType) {
         case "corporate":
-          return ["rgba(4, 120, 87, 0.9)", "rgba(4, 120, 87, 0.6)"];
+          return ["rgba(4, 120, 87, 0.4)", "rgba(4, 120, 87, 0.2)"]; // More transparent green
         case "birthday":
-          return ["rgba(190, 24, 93, 0.9)", "rgba(109, 40, 217, 0.6)"];
+          return ["rgba(190, 24, 93, 0.4)", "rgba(109, 40, 217, 0.2)"]; // More transparent pink/purple
         case "wedding":
-          return ["rgba(67, 56, 202, 0.9)", "rgba(55, 48, 163, 0.6)"];
+          return ["rgba(67, 56, 202, 0.4)", "rgba(55, 48, 163, 0.2)"]; // More transparent blue
         case "sport":
-          return ["rgba(220, 38, 38, 0.9)", "rgba(185, 28, 28, 0.6)"];
+          return ["rgba(220, 38, 38, 0.4)", "rgba(185, 28, 28, 0.2)"]; // More transparent red
         case "movie":
-          return ["rgba(79, 70, 229, 0.9)", "rgba(67, 56, 202, 0.6)"];
+          return ["rgba(79, 70, 229, 0.4)", "rgba(67, 56, 202, 0.2)"]; // More transparent indigo
         case "common":
-          return ["rgba(245, 158, 11, 0.9)", "rgba(217, 119, 6, 0.6)"];
+          return ["rgba(245, 158, 11, 0.4)", "rgba(217, 119, 6, 0.2)"]; // More transparent amber
         default:
-          return ["rgba(31, 41, 55, 0.9)", "rgba(17, 24, 39, 0.7)"];
+          return ["rgba(31, 41, 55, 0.6)", "rgba(17, 24, 39, 0.4)"]; // More transparent gray
       }
     } else {
-      // Vibrant light mode gradients based on event type
+      // Keep the vibrant light mode gradients unchanged
       switch (eventType) {
         case "corporate":
           return ["rgba(255, 255, 255, 0.95)", "rgba(16, 185, 129, 0.15)"];
@@ -956,7 +982,14 @@ const EventListScreen = () => {
                       />
                     </View>
 
-                    <View style={{ flex: 1, marginLeft: 8 }}>
+                    <View
+                      style={{
+                        flex: 1,
+                        marginLeft: 8,
+                        zIndex: 9999,
+                        elevation: 9999,
+                      }}
+                    >
                       <Dropdown
                         label="Entry Type"
                         placeholder="All events"
@@ -1045,13 +1078,13 @@ const EventListScreen = () => {
                   >
                     <TouchableOpacity
                       style={styles.addEventButton}
-                      onPress={() => router.push("/main/events/create")}
+                      onPress={() => router.push("/events/create")}
                     >
                       <LinearGradient
                         colors={
                           isDarkMode
-                            ? ["#4F46E5", "#7C3AED"] // Purple gradient for dark mode
-                            : ["#FF0099", "#FF6D00"] // Pink to orange gradient for light mode
+                            ? ["#4F46E5", "#7C3AED"]
+                            : ["#FF0099", "#FF6D00"]
                         }
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
@@ -1164,7 +1197,7 @@ const styles = StyleSheet.create({
     left: 0,
   },
   bottomHalf: {
-    minHeight: height * 0.75,
+    // minHeight: ,
     width: "100%",
     position: "relative",
     flex: 1,
@@ -1517,6 +1550,16 @@ const styles = StyleSheet.create({
     bottom: -width * 0.2,
     left: -width * 0.2,
     zIndex: -1,
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
+  avatarPlaceholder: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
   },
 });
 

@@ -28,8 +28,14 @@ import {
 import { Slider, StatusBadge, Tabs, Textarea } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 
-import { Badge, CountdownProgress, Rating } from "@/components/common";
-import { EventStepper } from "@/components/molecules";
+import { CountdownProgress, Rating } from "@/components/common";
+import { EventStepper, ProfileBadge } from "@/components/molecules";
+import { BACKEND_BASE_URL } from "@/constant";
+import { RootState } from "@/redux/store";
+import { Party, PartyType } from "@/types/data";
+import { useLocalSearchParams } from "expo-router";
+import CountryFlag from "react-native-country-flag";
+import { useSelector } from "react-redux";
 
 // Get screen dimensions
 const { width, height } = Dimensions.get("window");
@@ -88,41 +94,31 @@ const mockEvent = {
   ],
   hasVideos: true,
   videoCount: 3,
-  steps: [
-    {
-      icon: "calendar-check",
-      label: "Created",
-      completed: true,
-    },
-    {
-      icon: "users",
-      label: "Accepting",
-      completed: true,
-    },
-    {
-      icon: "calendar-alt",
-      label: "Upcoming",
-      completed: false,
-    },
-    {
-      icon: "glass-cheers",
-      label: "Finished",
-      completed: false,
-    },
-  ],
+
   activeStep: 2,
 };
 
 // Format days left
-const formatDaysLeft = (date: Date) => {
+const formatDaysLeft = (date: Date | string) => {
   const now = new Date();
-  const diffTime = Math.abs(date.getTime() - now.getTime());
+  const targetDate = new Date(date);
+  const diffTime = targetDate.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+};
+
+const formatDaysAgo = (date: Date | string) => {
+  const now = new Date();
+  const diffTime = Math.abs(new Date(date).getTime() - now.getTime());
+  if (diffTime <= 0) {
+    return 0;
+  }
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   return diffDays;
 };
 
 // Main component
-const EventPreviewScreen = () => {
+const EventDetailScreen = () => {
   const { isDarkMode } = useTheme();
   const theme = isDarkMode ? "DARK" : "LIGHT";
 
@@ -132,28 +128,88 @@ const EventPreviewScreen = () => {
   const cardScale = useRef(new Animated.Value(0.97)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
 
-  // Image slider state
-  const [activeSlide, setActiveSlide] = useState(0);
-
-  // Selected tab
   const [activeTab, setActiveTab] = useState(0);
-
-  // Application form state
   const [applicationText, setApplicationText] = useState("");
+  const [event, setEvent] = useState<Party | null>(null);
+  const [daysLeft, setDaysLeft] = useState<number>(0);
+  const [eventSteps, setEventSteps] = useState<any[]>([
+    {
+      icon: "calendar-check",
+      label: "Opening",
+      completed: true,
+    },
+    {
+      icon: "users",
+      label: "Accepted",
+      completed: false,
+    },
+    {
+      icon: "calendar-alt",
+      label: "Playing",
+      completed: false,
+    },
+    {
+      icon: "glass-cheers",
+      label: "Finished",
+      completed: false,
+    },
+  ]);
+  const [activeStep, setActiveStep] = useState<number>(1);
+  const [alreadyApplied, setAlreadyApplied] = useState<boolean>(false);
 
-  // Scroll view ref for scrolling to apply section
   const scrollViewRef = useRef<any>(null);
+
+  const { id: eventId } = useLocalSearchParams();
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const { parties } = useSelector((state: RootState) => state.party);
+
+  useEffect(() => {
+    if (eventId && typeof eventId === "string" && user) {
+      const found = parties.find((event) => event._id === eventId);
+      if (found) {
+        setEvent(found);
+
+        setAlreadyApplied(
+          found.applicants.some((app) => app.applier._id === user._id)
+        );
+
+        const dl = formatDaysLeft(found.openingAt);
+        setDaysLeft(dl);
+
+        let steps = eventSteps;
+
+        if (found.status === "playing") {
+          steps = steps.map((step, index) =>
+            index < 3 ? { ...step, completed: true } : step
+          );
+          setActiveStep(3);
+          return;
+        }
+
+        if (
+          found.applicants.some(
+            (app) => app.applier._id === user._id && app.status === "accepted"
+          )
+        ) {
+          steps = steps.map((step, index) =>
+            index < 2 ? { ...step, completed: true } : step
+          );
+          setActiveStep(2);
+        }
+      }
+    }
+  }, [eventId]);
 
   // Handle apply button press
   const handleApplyPress = () => {
     scrollViewRef.current?.scrollTo({
-      y: height * 0.8, // Approximate position of apply section
+      y: height * 0.8,
       animated: true,
     });
   };
 
   // Format days left
-  const daysLeft = formatDaysLeft(mockEvent.startDate);
   const daysPercentage = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
 
   // Animation for particle effects
@@ -313,47 +369,8 @@ const EventPreviewScreen = () => {
         <View style={styles.sliderContainer}>
           <Slider />
 
-          {/* Video indicator */}
-          {mockEvent.hasVideos && (
-            <View style={styles.videoIndicator}>
-              <LinearGradient
-                colors={
-                  isDarkMode ? ["#4A00E0", "#8E2DE2"] : ["#FF6CAB", "#7366FF"]
-                }
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.videoIndicatorGradient}
-              >
-                <FontAwesome5 name="play" size={12} color="#FFFFFF" />
-                <Text style={styles.videoIndicatorText}>
-                  {mockEvent.videoCount} Videos
-                </Text>
-              </LinearGradient>
-            </View>
-          )}
-
           {/* Add floating particles for effect */}
           {renderParticles()}
-
-          {/* Pagination indicators */}
-          <View style={styles.paginationContainer}>
-            {mockEvent.images.map((_, index) => (
-              <TouchableOpacity
-                key={`dot-${index}`}
-                style={[
-                  styles.paginationDot,
-                  {
-                    backgroundColor:
-                      activeSlide === index
-                        ? "#FFFFFF"
-                        : "rgba(255, 255, 255, 0.4)",
-                    width: activeSlide === index ? 20 : 8,
-                  },
-                ]}
-                onPress={() => setActiveSlide(index)}
-              />
-            ))}
-          </View>
         </View>
 
         {/* Bottom Content Section */}
@@ -398,57 +415,40 @@ const EventPreviewScreen = () => {
                       },
                     ]}
                   >
-                    {mockEvent.title}
+                    {event?.title}
                   </Text>
 
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={handleApplyPress}
-                    >
-                      <LinearGradient
-                        colors={
-                          isDarkMode
-                            ? (EVENT_PREVIEW[theme].APPLY_BUTTON_BG as any)
-                            : EVENT_PREVIEW[theme].APPLY_BUTTON_BG
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.actionButtonGradient}
+                  {!alreadyApplied && (
+                    <View style={styles.actionButtons}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleApplyPress}
                       >
-                        <FontAwesome5
-                          name="check-circle"
-                          size={14}
-                          color="#FFFFFF"
-                        />
-                      </LinearGradient>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={styles.actionButton}>
-                      <LinearGradient
-                        colors={
-                          isDarkMode
-                            ? ["#4F46E5", "#7C3AED"]
-                            : ["#7F00FF", "#E100FF"]
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.actionButtonGradient}
-                      >
-                        <FontAwesome5
-                          name="share-alt"
-                          size={14}
-                          color="#FFFFFF"
-                        />
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
+                        <LinearGradient
+                          colors={
+                            isDarkMode
+                              ? (EVENT_PREVIEW[theme].APPLY_BUTTON_BG as any)
+                              : EVENT_PREVIEW[theme].APPLY_BUTTON_BG
+                          }
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.actionButtonGradient}
+                        >
+                          <FontAwesome5
+                            name="check-circle"
+                            size={14}
+                            color="#FFFFFF"
+                          />
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
 
                 {/* Compact Creator Profile */}
                 <TouchableOpacity style={styles.creatorCompact}>
                   <Image
-                    source={mockEvent.creator.avatar}
+                    source={{ uri: BACKEND_BASE_URL + event?.creator?.avatar }}
                     style={styles.creatorAvatar}
                   />
                   <View style={styles.creatorInfo}>
@@ -463,9 +463,9 @@ const EventPreviewScreen = () => {
                           },
                         ]}
                       >
-                        {mockEvent.creator.name}
+                        {event?.creator?.name}
                       </Text>
-                      {mockEvent.creator.isVerified && (
+                      {event?.creator?.kycVerified && (
                         <FontAwesome5
                           name="check-circle"
                           size={14}
@@ -479,21 +479,33 @@ const EventPreviewScreen = () => {
                         />
                       )}
                     </View>
-                    <Text
-                      style={[
-                        styles.creatorLocation,
-                        {
-                          color: isDarkMode
-                            ? COLORS.DARK_TEXT_SECONDARY
-                            : COLORS.LIGHT_TEXT_SECONDARY,
-                        },
-                      ]}
+                    <View
+                      style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        gap: 2,
+                        alignItems: "center",
+                      }}
                     >
-                      {mockEvent.creator.location.country.flag}{" "}
-                      {mockEvent.creator.location.region.name},{" "}
-                      {mockEvent.creator.location.country.name}
-                    </Text>
+                      <CountryFlag
+                        isoCode={event?.creator?.country?.toLowerCase() ?? "us"}
+                        size={10}
+                      />
+                      <Text
+                        style={[
+                          styles.creatorLocation,
+                          {
+                            color: isDarkMode
+                              ? COLORS.DARK_TEXT_SECONDARY
+                              : COLORS.LIGHT_TEXT_SECONDARY,
+                          },
+                        ]}
+                      >
+                        {event?.creator?.region}, {event?.creator?.country}{" "}
+                      </Text>
+                    </View>
                   </View>
+
                   <FontAwesome5
                     name="chevron-right"
                     size={12}
@@ -518,32 +530,28 @@ const EventPreviewScreen = () => {
                     },
                   ]}
                 >
-                  {mockEvent.description}
+                  {event?.description}
                 </Text>
               </View>
 
               {/* Badge Row */}
               <View style={styles.badgeRow}>
-                <StatusBadge
-                  type="payment"
-                  payment={mockEvent.paymentType as any}
-                />
+                <StatusBadge type="payment" payment={event?.paidOption} />
                 <StatusBadge
                   type="eventType"
-                  eventType={mockEvent.eventType}
-                  label={
-                    mockEvent.eventType.charAt(0).toUpperCase() +
-                    mockEvent.eventType.slice(1)
-                  }
+                  eventType={event?.type as PartyType}
+                  label={event?.type.toUpperCase()}
                 />
                 <StatusBadge
                   type="date"
-                  label={`${formatDaysLeft(mockEvent.createdAt)}d ago`}
+                  label={`${formatDaysAgo(
+                    event?.createdAt ?? new Date()
+                  )}d ago`}
                 />
               </View>
 
               {/* Countdown Progress Bar (only if days left > 0) */}
-              {daysLeft > 0 && (
+              {daysLeft > 0 ? (
                 <View style={styles.countdownContainer}>
                   <View style={styles.countdownHeader}>
                     <Text
@@ -577,6 +585,30 @@ const EventPreviewScreen = () => {
                     height={8}
                   />
                 </View>
+              ) : (
+                <View style={styles.countdownContainer}>
+                  <View style={styles.countdownHeader}>
+                    <Text
+                      style={[
+                        styles.countdownTitle,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_PRIMARY
+                            : COLORS.LIGHT_TEXT_PRIMARY,
+                        },
+                      ]}
+                    >
+                      Time is over
+                    </Text>
+                  </View>
+
+                  {/* Use the CountdownProgress component */}
+                  <CountdownProgress
+                    percentage={100}
+                    animated={true}
+                    height={8}
+                  />
+                </View>
               )}
 
               {/* Event Status Stepper */}
@@ -593,91 +625,8 @@ const EventPreviewScreen = () => {
                 >
                   Event Status
                 </Text>
-                <EventStepper
-                  steps={mockEvent.steps}
-                  activeStep={mockEvent.activeStep}
-                />
+                <EventStepper steps={eventSteps} activeStep={activeStep} />
               </View>
-
-              {/* Video Gallery (only if has videos) */}
-              {mockEvent.hasVideos && mockEvent.videoCount > 0 && (
-                <View style={styles.videoGalleryContainer}>
-                  <View style={styles.sectionTitleRow}>
-                    <Text
-                      style={[
-                        styles.sectionTitle,
-                        {
-                          color: isDarkMode
-                            ? COLORS.DARK_TEXT_PRIMARY
-                            : COLORS.LIGHT_TEXT_PRIMARY,
-                        },
-                      ]}
-                    >
-                      Event Videos
-                    </Text>
-                    <TouchableOpacity style={styles.viewAllButton}>
-                      <Text
-                        style={[
-                          styles.viewAllText,
-                          {
-                            color: getAccentColor(),
-                          },
-                        ]}
-                      >
-                        View All
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.videoScrollContent}
-                  >
-                    {/* Mock videos - in a real app, these would be actual video thumbnails */}
-                    {Array(mockEvent.videoCount)
-                      .fill(0)
-                      .map((_, index) => (
-                        <TouchableOpacity
-                          key={`video-${index}`}
-                          style={styles.videoThumbnailContainer}
-                        >
-                          <Image
-                            source={
-                              mockEvent.images[index % mockEvent.images.length]
-                            }
-                            style={styles.videoThumbnail}
-                            resizeMode="cover"
-                          />
-                          <View
-                            style={[
-                              styles.videoThumbnailOverlay,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? EVENT_PREVIEW.DARK.MEDIA_OVERLAY
-                                  : EVENT_PREVIEW.LIGHT.MEDIA_OVERLAY,
-                              },
-                            ]}
-                          >
-                            <FontAwesome5
-                              name="play"
-                              size={24}
-                              color="#FFFFFF"
-                            />
-                          </View>
-                          <View style={styles.videoDuration}>
-                            <Text style={styles.videoDurationText}>
-                              {Math.floor(Math.random() * 3) + 1}:
-                              {Math.floor(Math.random() * 60)
-                                .toString()
-                                .padStart(2, "0")}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                  </ScrollView>
-                </View>
-              )}
 
               {/* Creator Profile (Expanded) */}
               <View style={styles.creatorProfileContainer}>
@@ -709,7 +658,9 @@ const EventPreviewScreen = () => {
                 >
                   <View style={styles.creatorProfileHeader}>
                     <Image
-                      source={mockEvent.creator.avatar}
+                      source={{
+                        uri: BACKEND_BASE_URL + event?.creator?.avatar,
+                      }}
                       style={styles.creatorProfileAvatar}
                     />
                     <View style={styles.creatorProfileInfo}>
@@ -724,51 +675,22 @@ const EventPreviewScreen = () => {
                             },
                           ]}
                         >
-                          {mockEvent.creator.name}
+                          {event?.creator?.name}
                         </Text>
-                        {mockEvent.creator.isVerified && (
-                          <FontAwesome5
-                            name="check-circle"
-                            size={16}
-                            color={
-                              isDarkMode
-                                ? EVENT_PREVIEW.DARK.VERIFIED_BADGE[0]
-                                : EVENT_PREVIEW.LIGHT.VERIFIED_BADGE[0]
-                            }
-                            solid
-                            style={styles.verifiedIcon}
-                          />
-                        )}
                       </View>
 
                       <View style={styles.creatorBadgeRow}>
-                        {mockEvent.creator.isVerified && (
-                          <Badge
-                            icon="id-badge"
-                            label="Verified"
-                            colors={
-                              isDarkMode
-                                ? EVENT_PREVIEW.DARK.VERIFIED_BADGE
-                                : EVENT_PREVIEW.LIGHT.VERIFIED_BADGE
-                            }
-                          />
+                        {event?.creator?.kycVerified && (
+                          <ProfileBadge type="verified" />
                         )}
-                        {mockEvent.creator.isPremium && (
-                          <Badge
-                            icon="crown"
-                            label="Premium"
-                            colors={
-                              isDarkMode
-                                ? EVENT_PREVIEW.DARK.PREMIUM_BADGE
-                                : EVENT_PREVIEW.LIGHT.PREMIUM_BADGE
-                            }
-                          />
+                        {event?.creator?.membership === "premium" && (
+                          <ProfileBadge type="premium" />
                         )}
                       </View>
 
                       <View style={styles.creatorRatingRow}>
                         <Rating
-                          value={mockEvent.creator.rating}
+                          value={event?.creator?.rate ?? 0}
                           size={16}
                           color={
                             isDarkMode
@@ -791,7 +713,7 @@ const EventPreviewScreen = () => {
                             },
                           ]}
                         >
-                          ({mockEvent.creator.totalRatings})
+                          ({event?.creator?.rate})
                         </Text>
                       </View>
 
@@ -806,20 +728,31 @@ const EventPreviewScreen = () => {
                           }
                           style={styles.locationIcon}
                         />
-                        <Text
-                          style={[
-                            styles.creatorProfileLocation,
-                            {
-                              color: isDarkMode
-                                ? COLORS.DARK_TEXT_SECONDARY
-                                : COLORS.LIGHT_TEXT_SECONDARY,
-                            },
-                          ]}
+                        <View
+                          style={{
+                            display: "flex",
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
                         >
-                          {mockEvent.creator.location.country.flag}{" "}
-                          {mockEvent.creator.location.region.name},{" "}
-                          {mockEvent.creator.location.country.name}
-                        </Text>
+                          <CountryFlag
+                            isoCode={event?.creator?.country ?? "us"}
+                            size={10}
+                          />
+                          <Text
+                            style={[
+                              styles.creatorProfileLocation,
+                              {
+                                color: isDarkMode
+                                  ? COLORS.DARK_TEXT_SECONDARY
+                                  : COLORS.LIGHT_TEXT_SECONDARY,
+                              },
+                            ]}
+                          >
+                            {event?.creator?.region}, {event?.creator?.country}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   </View>
@@ -827,54 +760,56 @@ const EventPreviewScreen = () => {
               </View>
 
               {/* Apply Section */}
-              <View style={styles.applyContainer} id="apply-section">
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    {
-                      color: isDarkMode
-                        ? COLORS.DARK_TEXT_PRIMARY
-                        : COLORS.LIGHT_TEXT_PRIMARY,
-                    },
-                  ]}
-                >
-                  Apply for Event
-                </Text>
+              {!alreadyApplied && (
+                <View style={styles.applyContainer} id="apply-section">
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
+                      },
+                    ]}
+                  >
+                    Apply for Event
+                  </Text>
 
-                <Textarea
-                  label="Application Message"
-                  placeholder="Introduce yourself and tell us why you want to attend this event..."
-                  value={applicationText}
-                  onChangeText={setApplicationText}
-                  minHeight={120}
-                  maxLength={500}
-                  showCharCount
-                />
+                  <Textarea
+                    label="Application Message"
+                    placeholder="Introduce yourself and tell us why you want to attend this event..."
+                    value={applicationText}
+                    onChangeText={setApplicationText}
+                    minHeight={120}
+                    maxLength={500}
+                    showCharCount
+                  />
 
-                <Animated.View
-                  style={[
-                    styles.applyButtonContainer,
-                    { transform: [{ scale: buttonScale }] },
-                  ]}
-                >
-                  <TouchableOpacity style={styles.applyButton}>
-                    <LinearGradient
-                      colors={
-                        isDarkMode
-                          ? (EVENT_PREVIEW.DARK.APPLY_BUTTON_BG as any)
-                          : EVENT_PREVIEW.LIGHT.APPLY_BUTTON_BG
-                      }
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.applyButtonGradient}
-                    >
-                      <Text style={styles.applyButtonText}>
-                        Submit Application
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </Animated.View>
-              </View>
+                  <Animated.View
+                    style={[
+                      styles.applyButtonContainer,
+                      { transform: [{ scale: buttonScale }] },
+                    ]}
+                  >
+                    <TouchableOpacity style={styles.applyButton}>
+                      <LinearGradient
+                        colors={
+                          isDarkMode
+                            ? (EVENT_PREVIEW.DARK.APPLY_BUTTON_BG as any)
+                            : EVENT_PREVIEW.LIGHT.APPLY_BUTTON_BG
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.applyButtonGradient}
+                      >
+                        <Text style={styles.applyButtonText}>
+                          Submit Application
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </Animated.View>
+                </View>
+              )}
 
               {/* Applications Section with Tabs */}
               <View style={styles.applicationsContainer}>
@@ -1329,4 +1264,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default EventPreviewScreen;
+export default EventDetailScreen;

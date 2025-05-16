@@ -648,6 +648,7 @@ const PremiumSubscriptionScreen = () => {
 
                       <MembershipRadioGroup
                         plans={subscriptionPlans}
+                        currentPlanId="free"
                         selectedPlanId={selectedPlanId}
                         onPlanSelect={handlePlanSelect}
                         onCurrencyChange={handleCurrencyChange}

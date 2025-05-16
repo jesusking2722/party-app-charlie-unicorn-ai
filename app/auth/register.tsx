@@ -49,6 +49,7 @@ const RegisterScreen = () => {
   const [password, setPassword] = useState<string>("");
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [googleLoading, setGoogleLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -284,7 +285,7 @@ const RegisterScreen = () => {
   };
 
   const handleGoogleRegister = (): void => {
-    console.log("Register with Google");
+    
   };
 
   const handleSignIn = (): void => {
