@@ -18,6 +18,7 @@ interface InputProps extends Omit<TextInputProps, "style"> {
   containerStyle?: ViewStyle;
   icon?: React.ReactNode;
   error?: string;
+  readonly?: boolean;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -29,6 +30,7 @@ const Input: React.FC<InputProps> = ({
   containerStyle,
   icon,
   error,
+  readonly,
   ...restProps
 }) => {
   const { isDarkMode } = useTheme();
@@ -99,6 +101,7 @@ const Input: React.FC<InputProps> = ({
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={isPassword ? !isVisible : false}
+          readOnly={readonly}
           onFocus={handleFocus}
           onBlur={handleBlur}
           {...restProps}

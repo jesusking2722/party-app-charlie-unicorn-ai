@@ -2,6 +2,7 @@
   "expo": {
     "name": "charlie-house-party-mobile-frontend",
     "slug": "charlie-house-party-mobile-frontend",
+    "owner": "jesusking2722",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,6 +10,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "com.jesusking2722.charliehousepartymobilefrontend",
       "supportsTablet": true,
       "config": {
         "googleMapsApiKey": "AIzaSyD-ON7g5hfIjGcbJ0AySwZn1BEbLdqLLnQ"
@@ -35,7 +37,13 @@
           "apiKey": "AIzaSyD-ON7g5hfIjGcbJ0AySwZn1BEbLdqLLnQ"
         }
       },
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.jesusking2722.charliehousepartymobilefrontend"
     },
     "web": {
       "bundler": "metro",
@@ -68,10 +76,17 @@
         }
       ],
       "./enableGooglePay.js",
-      "./queries.js"
+      "./queries.js",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ad4ce393-c10b-40e5-968f-c3a68d1d671c"
+      }
     }
   }
 }

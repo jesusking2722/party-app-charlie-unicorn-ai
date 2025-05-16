@@ -25,7 +25,7 @@ const Start = () => {
   const authInitialized = useRef(false);
 
   // Get the initialization function and loading state
-  const { fetchAuthUser, initLoading } = useInit();
+  const { fetchAuthUser, fetchAllPartiesInfo, initLoading } = useInit();
 
   // Call fetchAuthUser only once when the component mounts
   useEffect(() => {
@@ -33,12 +33,12 @@ const Start = () => {
       if (!authInitialized.current) {
         authInitialized.current = true;
         try {
-          // Wait for the auth user to be properly updated in Redux
           await fetchAuthUser();
+          await fetchAllPartiesInfo();
           setIsAuthComplete(true);
         } catch (error) {
           console.error("Auth initialization failed:", error);
-          setIsAuthComplete(true); // Still mark as complete even on error to allow navigation
+          setIsAuthComplete(true);
         }
       }
     };

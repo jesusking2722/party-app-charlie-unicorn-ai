@@ -1,5 +1,7 @@
 import { fetchAuthUserById } from "@/lib/scripts/auth.scripts";
+import { fetchAllParties } from "@/lib/scripts/party.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { setPartySliceAsync } from "@/redux/actions/party.actions";
 import { useAppDispatch } from "@/redux/store";
 import { User } from "@/types/data";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -29,9 +31,8 @@ const useInit = () => {
       router.replace("/onboarding/profileSetup");
     } else if (!user.title) {
       router.replace("/onboarding/professionSetup");
-    } else if (!user.kycVerified) {
-      router.replace("/onboarding/kycSetup");
     }
+    router.replace("/main");
   };
 
   const fetchAuthUser = async () => {
@@ -74,10 +75,27 @@ const useInit = () => {
     }
   };
 
+  const fetchAllPartiesInfo = async () => {
+    try {
+      setInitLoading(true);
+
+      const response = await fetchAllParties();
+
+      if (response.ok) {
+        await dispatch(setPartySliceAsync(response.data.parties)).unwrap();
+      }
+    } catch (error) {
+      console.error("fetch all parties info error: ", error);
+    } finally {
+      setInitLoading(false);
+    }
+  };
+
   return {
     initLoading,
     initError,
     fetchAuthUser,
+    fetchAllPartiesInfo,
     checkRedirectPath,
   };
 };

@@ -34,8 +34,11 @@ import {
   StatusBadge,
 } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
+import { RootState } from "@/redux/store";
+import { Party, PartyType } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
 import { formatTimeAgo } from "@/utils/date";
+import { useSelector } from "react-redux";
 
 // Get screen dimensions
 const { width, height } = Dimensions.get("window");
@@ -43,17 +46,15 @@ const { width, height } = Dimensions.get("window");
 // Custom light theme accent color
 const LIGHT_THEME_ACCENT = "#FF0099";
 
-// Event type options
+// Event type options - Updated to match the PartyType from types
 const eventTypeOptions = [
   { label: "All Types", value: "all" },
-  { label: "Music Festival", value: "music" },
-  { label: "Nightclub Event", value: "nightclub" },
-  { label: "Private Event", value: "private" },
-  { label: "Beach Event", value: "beach" },
-  { label: "Corporate Event", value: "corporate" },
-  { label: "Birthday Event", value: "birthday" },
+  { label: "Birthday", value: "birthday" },
+  { label: "Common", value: "common" },
   { label: "Wedding", value: "wedding" },
-  { label: "Sports Event", value: "sport" },
+  { label: "Corporate", value: "corporate" },
+  { label: "Movie", value: "movie" },
+  { label: "Sports", value: "sport" },
 ];
 
 // Filter options
@@ -69,42 +70,6 @@ const paymentOptions = [
   { label: "Paid Entry", value: "paid" },
 ];
 
-// Dummy data for event list
-const DUMMY_EVENTS = Array(15)
-  .fill(0)
-  .map((_, index) => ({
-    id: `event-${index}`,
-    title: [
-      "Summer Beach Extravaganza",
-      "Techno Night Experience",
-      "Birthday Celebration Bash",
-      "Corporate Networking Summit",
-      "Wedding Reception Soirée",
-      "Sports Tournament Championship",
-      "Music Festival Showcase",
-      "Weekend Getaway Experience",
-    ][Math.floor(Math.random() * 8)],
-    createdAt: new Date(
-      Date.now() - Math.floor(Math.random() * 1000 * 60 * 60 * 24 * 14)
-    ), // Random time within last 14 days
-    status: ["active", "cancelled", "finished"][Math.floor(Math.random() * 3)],
-    description:
-      "Join us for an amazing event with great music, food, and people. Don't miss out on this opportunity to connect and have fun!",
-    paymentType: ["free", "paid"][Math.floor(Math.random() * 2)],
-    eventType: [
-      "music",
-      "nightclub",
-      "private",
-      "beach",
-      "corporate",
-      "birthday",
-      "wedding",
-      "sport",
-    ][Math.floor(Math.random() * 8)],
-    attendees: Math.floor(Math.random() * 100) + 5,
-    isMine: Math.random() > 0.7, // 30% chance of being the user's event
-  }));
-
 const EventListScreen = () => {
   const { isDarkMode } = useTheme();
 
@@ -115,15 +80,6 @@ const EventListScreen = () => {
   const buttonScale = useRef(new Animated.Value(0)).current;
   const filterHeight = useRef(new Animated.Value(0)).current;
   const filterOpacity = useRef(new Animated.Value(0)).current;
-
-  // Animation values for each card
-  const [cardAnims] = useState(() =>
-    DUMMY_EVENTS.map(() => ({
-      scale: new Animated.Value(0.95),
-      translateY: new Animated.Value(20),
-      opacity: new Animated.Value(0),
-    }))
-  );
 
   // Animated background particles
   const particles = Array(8)
@@ -155,14 +111,16 @@ const EventListScreen = () => {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [refreshing, setRefreshing] = useState(false);
   const ITEMS_PER_PAGE = 5;
+  const [cardAnims, setCardAnims] = useState<any>([]);
 
   // Filtered and paginated events
-  const [filteredEvents, setFilteredEvents] = useState(DUMMY_EVENTS);
-  const [paginatedEvents, setPaginatedEvents] = useState<typeof DUMMY_EVENTS>(
-    []
-  );
+  const [totalEvents, setTotalEvents] = useState<Party[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<Party[]>([]);
+  const [paginatedEvents, setPaginatedEvents] = useState<Party[]>([]);
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const { parties } = useSelector((state: RootState) => state.party);
 
   // Effect for initial animation
   useEffect(() => {
@@ -328,6 +286,20 @@ const EventListScreen = () => {
     applyFilters();
   }, [country, region, eventType, myEvents, paymentType]);
 
+  useEffect(() => {
+    setTotalEvents(parties);
+    const newCardAnims = parties.map(() => ({
+      scale: new Animated.Value(0.95),
+      translateY: new Animated.Value(20),
+      opacity: new Animated.Value(0),
+    }));
+    setCardAnims(newCardAnims);
+  }, [parties]);
+
+  useEffect(() => {
+    setFilteredEvents(totalEvents);
+  }, [totalEvents]);
+
   // Effect for pagination
   useEffect(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -337,29 +309,25 @@ const EventListScreen = () => {
 
   // Apply filters function
   const applyFilters = () => {
-    let filtered = [...DUMMY_EVENTS];
+    let filtered = [...totalEvents];
 
     // Apply filters
     if (eventType?.value !== "all") {
-      filtered = filtered.filter(
-        (event) => event.eventType === eventType.value
-      );
+      filtered = filtered.filter((event) => event.type === eventType.value);
     }
 
     if (myEvents?.value !== "all") {
-      filtered = filtered.filter((event) => event.isMine);
+      filtered = filtered.filter((event) => event.creator?._id === user?._id);
     }
 
     if (paymentType?.value !== "all") {
       filtered = filtered.filter(
-        (event) => event.paymentType === paymentType.value
+        (event) => event.paidOption === paymentType.value
       );
     }
 
-    // Country and region filters would apply here if we had location data
-
     setFilteredEvents(filtered);
-    setCurrentPage(1); // Reset to first page after filter change
+    setCurrentPage(1);
   };
 
   // Toggle filter expanded state
@@ -374,16 +342,7 @@ const EventListScreen = () => {
     setEventType({ label: "All Types", value: "all" });
     setMyEvents({ label: "All Events", value: "all" });
     setPaymentType({ label: "All Events", value: "all" });
-  };
-
-  // Handle refresh
-  const onRefresh = () => {
-    setRefreshing(true);
-    // Simulate a refresh
-    setTimeout(() => {
-      applyFilters();
-      setRefreshing(false);
-    }, 1500);
+    setTotalEvents(parties);
   };
 
   // Helper function to get accent color based on theme
@@ -424,13 +383,7 @@ const EventListScreen = () => {
   };
 
   // Render event item with animations
-  const renderEventItem = ({
-    item,
-    index,
-  }: {
-    item: (typeof DUMMY_EVENTS)[0];
-    index: number;
-  }) => (
+  const renderEventItem = ({ item, index }: { item: Party; index: number }) => (
     <Animated.View
       style={{
         opacity: cardAnims[index].opacity,
@@ -446,7 +399,7 @@ const EventListScreen = () => {
         onPress={() => router.push(`/main/events/preview`)}
       >
         <LinearGradient
-          colors={getCardGradient(item.eventType) as any}
+          colors={getCardGradient(item.type as PartyType) as any}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.cardGradient}
@@ -456,7 +409,9 @@ const EventListScreen = () => {
             style={[
               styles.cardAccent,
               {
-                backgroundColor: getEventGradientColors(item.eventType)[0],
+                backgroundColor: getEventGradientColors(
+                  item.type as PartyType
+                )[0],
               },
             ]}
           />
@@ -508,17 +463,17 @@ const EventListScreen = () => {
           {/* Event footer */}
           <View style={styles.eventFooter}>
             <View style={styles.badgeContainer}>
-              <StatusBadge type="payment" payment={item.paymentType as any} />
+              <StatusBadge type="payment" payment={item.paidOption as any} />
               <StatusBadge
                 type="eventType"
-                eventType={item.eventType}
-                label={getEventTypeLabel(item.eventType)}
+                eventType={item.type}
+                label={getEventTypeLabel(item.type)}
               />
             </View>
 
             <View style={styles.attendeesContainer}>
               <View style={styles.avatarGroup}>
-                {Array(Math.min(3, Math.ceil(item.attendees / 5)))
+                {Array(Math.min(3, Math.ceil(item.applicants.length / 5)))
                   .fill(0)
                   .map((_, i) => (
                     <View
@@ -527,7 +482,7 @@ const EventListScreen = () => {
                         styles.avatarCircle,
                         {
                           backgroundColor: getEventGradientColors(
-                            item.eventType
+                            item.type as PartyType
                           )[0],
                           right: i * 10,
                           zIndex: 3 - i,
@@ -546,13 +501,13 @@ const EventListScreen = () => {
                   },
                 ]}
               >
-                {item.attendees} attendees
+                {item.applicants.length} attendees
               </Text>
             </View>
           </View>
 
           {/* Glowing effect for active events */}
-          {item.status === "active" && (
+          {item.status === "opening" && (
             <View style={styles.glowContainer}>
               <View
                 style={[
@@ -571,67 +526,54 @@ const EventListScreen = () => {
     </Animated.View>
   );
 
-  const getCardGradient = (eventType: string) => {
+  // Updated getCardGradient function to match all party types
+  const getCardGradient = (eventType: PartyType) => {
     if (isDarkMode) {
       // Rich dark mode gradients based on event type
       switch (eventType) {
-        case "music":
-          return ["rgba(67, 56, 202, 0.9)", "rgba(67, 56, 202, 0.6)"];
-        case "nightclub":
-          return ["rgba(124, 58, 237, 0.9)", "rgba(124, 58, 237, 0.6)"];
-        case "private":
-          return ["rgba(190, 24, 93, 0.9)", "rgba(190, 24, 93, 0.6)"];
-        case "beach":
-          return ["rgba(5, 150, 105, 0.9)", "rgba(5, 150, 105, 0.6)"];
         case "corporate":
           return ["rgba(4, 120, 87, 0.9)", "rgba(4, 120, 87, 0.6)"];
         case "birthday":
-          // Updated birthday gradient - pink to purple gradient
           return ["rgba(190, 24, 93, 0.9)", "rgba(109, 40, 217, 0.6)"];
         case "wedding":
-          // Updated wedding gradient - indigo to blue gradient
           return ["rgba(67, 56, 202, 0.9)", "rgba(55, 48, 163, 0.6)"];
         case "sport":
-          // Distinct red gradient for sports
           return ["rgba(220, 38, 38, 0.9)", "rgba(185, 28, 28, 0.6)"];
+        case "movie":
+          return ["rgba(79, 70, 229, 0.9)", "rgba(67, 56, 202, 0.6)"];
+        case "common":
+          return ["rgba(245, 158, 11, 0.9)", "rgba(217, 119, 6, 0.6)"];
         default:
           return ["rgba(31, 41, 55, 0.9)", "rgba(17, 24, 39, 0.7)"];
       }
     } else {
       // Vibrant light mode gradients based on event type
       switch (eventType) {
-        case "music":
-          return ["rgba(255, 255, 255, 0.95)", "rgba(99, 102, 241, 0.15)"];
-        case "nightclub":
-          return ["rgba(255, 255, 255, 0.95)", "rgba(139, 92, 246, 0.15)"];
-        case "private":
-          return ["rgba(255, 255, 255, 0.95)", "rgba(236, 72, 153, 0.15)"];
-        case "beach":
-          return ["rgba(255, 255, 255, 0.95)", "rgba(52, 211, 153, 0.15)"];
         case "corporate":
           return ["rgba(255, 255, 255, 0.95)", "rgba(16, 185, 129, 0.15)"];
         case "birthday":
-          // Updated birthday gradient - more pink-purple tint
           return ["rgba(255, 255, 255, 0.95)", "rgba(147, 51, 234, 0.2)"];
         case "wedding":
-          // Updated wedding gradient - more indigo-blue tint
           return ["rgba(255, 255, 255, 0.95)", "rgba(99, 102, 241, 0.25)"];
         case "sport":
-          // More vibrant red for sports
           return ["rgba(255, 255, 255, 0.95)", "rgba(239, 68, 68, 0.25)"];
+        case "movie":
+          return ["rgba(255, 255, 255, 0.95)", "rgba(79, 70, 229, 0.25)"];
+        case "common":
+          return ["rgba(255, 255, 255, 0.95)", "rgba(245, 158, 11, 0.15)"];
         default:
           return ["rgba(255, 255, 255, 0.95)", "rgba(245, 158, 11, 0.15)"];
       }
     }
   };
 
-  // Get event gradient colors based on event type
-  const getEventGradientColors = (eventType: string) => {
+  // Updated getEventGradientColors function to match all party types
+  const getEventGradientColors = (eventType: PartyType) => {
     switch (eventType) {
-      case "music":
+      case "movie":
         return isDarkMode
-          ? THEME.DARK.MUSIC_GRADIENT
-          : THEME.LIGHT.MUSIC_GRADIENT;
+          ? THEME.DARK.MOVIE_GRADIENT
+          : THEME.LIGHT.MOVIE_GRADIENT;
       case "corporate":
         return isDarkMode
           ? THEME.DARK.CORPORATE_GRADIENT
@@ -648,6 +590,10 @@ const EventListScreen = () => {
         return isDarkMode
           ? THEME.DARK.SPORT_GRADIENT
           : THEME.LIGHT.SPORT_GRADIENT;
+      case "common":
+        return isDarkMode
+          ? THEME.DARK.DEFAULT_GRADIENT
+          : THEME.LIGHT.DEFAULT_GRADIENT;
       default:
         return isDarkMode
           ? THEME.DARK.DEFAULT_GRADIENT
@@ -831,13 +777,6 @@ const EventListScreen = () => {
       >
         Try adjusting your filters or create a new event
       </Text>
-      <Button
-        title="Create Event"
-        onPress={() => router.push("/main/events/create")}
-        variant={isDarkMode ? "primary" : "secondary"}
-        style={styles.createEventButton}
-        small
-      />
     </Animated.View>
   );
 
@@ -1129,7 +1068,7 @@ const EventListScreen = () => {
                 {paginatedEvents.length > 0 ? (
                   <View style={styles.eventsListContainer}>
                     {paginatedEvents.map((item, index) => (
-                      <View key={`event-${item.id}`}>
+                      <View key={`event-${item._id}`}>
                         {renderEventItem({ item, index })}
                       </View>
                     ))}

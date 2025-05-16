@@ -287,10 +287,6 @@ const RegisterScreen = () => {
     console.log("Register with Google");
   };
 
-  const handleAppleRegister = (): void => {
-    console.log("Register with Apple");
-  };
-
   const handleSignIn = (): void => {
     router.push("/auth/login");
   };
@@ -561,61 +557,14 @@ const RegisterScreen = () => {
                     </Text>
 
                     <View style={styles.socialButtonsContainer}>
-                      <Animated.View
-                        style={{
-                          transform: [{ scale: socialBtnAnimations[0] }],
-                          opacity: socialBtnAnimations[0],
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={[
-                            styles.socialButton,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(55, 65, 81, 0.7)"
-                                : "rgba(255, 255, 255, 0.9)",
-                              borderColor: isDarkMode
-                                ? COLORS.DARK_BORDER
-                                : "rgba(255, 0, 153, 0.2)",
-                            },
-                          ]}
-                          onPress={handleGoogleRegister}
-                        >
-                          <FontAwesome
-                            name="google"
-                            size={18}
-                            color="#DB4437"
-                          />
-                        </TouchableOpacity>
-                      </Animated.View>
-
-                      <Animated.View
-                        style={{
-                          transform: [{ scale: socialBtnAnimations[1] }],
-                          opacity: socialBtnAnimations[1],
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={[
-                            styles.socialButton,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(55, 65, 81, 0.7)"
-                                : "rgba(255, 255, 255, 0.9)",
-                              borderColor: isDarkMode
-                                ? COLORS.DARK_BORDER
-                                : "rgba(255, 0, 153, 0.2)",
-                            },
-                          ]}
-                          onPress={handleAppleRegister}
-                        >
-                          <FontAwesome
-                            name="apple"
-                            size={20}
-                            color={isDarkMode ? COLORS.WHITE : COLORS.BLACK}
-                          />
-                        </TouchableOpacity>
-                      </Animated.View>
+                      <Button
+                        title="Sign up with Google"
+                        variant={isDarkMode ? "secondary" : "primary"}
+                        icon={
+                          <FontAwesome name="google" size={18} color="white" />
+                        }
+                        onPress={handleGoogleRegister}
+                      />
                     </View>
 
                     {/* Sign In Text */}
@@ -791,9 +740,6 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.M,
   },
   socialButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
     width: "100%",
     marginBottom: SPACING.M,
   },

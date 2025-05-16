@@ -15,8 +15,6 @@ import { Provider } from "react-redux";
 
 import "@walletconnect/react-native-compat";
 
-import "@/global";
-
 import {
   AppKit,
   createAppKit,
@@ -162,7 +160,7 @@ export default function RootLayout() {
           <ToastProvider>
             <View style={styles.container} onLayout={onLayoutRootView}>
               {/* Header component */}
-              {showNavigation && <Header userAvatar={userData.avatar} />}
+              {showNavigation && <Header />}
 
               {/* Main content */}
               <View

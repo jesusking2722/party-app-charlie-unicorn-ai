@@ -195,7 +195,8 @@ export const THEME = {
     TEXT_COLOR: "white",
     TEXT_SECONDARY: "rgba(255, 255, 255, 0.8)",
     FILTER_BG: "rgba(0, 0, 0, 0.15)",
-
+    CORPORATE_GRADIENT: ["#10b981", "#0d9488"] as [string, string],
+    DEFAULT_GRADIENT: ["#f59e0b", "#ea580c"] as [string, string],
     // Modal specific colors
     MODAL_BG: "#7F00FF",
     INPUT_BG: "rgba(255, 255, 255, 0.1)",
@@ -220,6 +221,8 @@ export const THEME = {
     WEDDING_GRADIENT: ["#4338CA", "#3730A3"],
     MOVIE_GRADIENT: ["#6D28D9", "#5B21B6"],
     SPORT_GRADIENT: ["#991B1B", "#9F1239"],
+    CORPORATE_GRADIENT: ["#065F46", "#064E3B"] as [string, string],
+    DEFAULT_GRADIENT: ["#B45309", "#C2410C"] as [string, string],
     ACCENT_COLOR: "rgba(79, 70, 229, 0.4)",
     ACCENT_BG: "rgba(79, 70, 229, 0.2)",
     CARD_BG: "rgba(17, 24, 39, 0.95)",

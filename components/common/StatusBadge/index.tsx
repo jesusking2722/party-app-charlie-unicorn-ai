@@ -4,6 +4,7 @@ import { StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
 
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import { PartyType } from "@/types/data";
 
 type BadgeType = "date" | "status" | "payment" | "eventType";
 type BadgeStatus = "active" | "cancelled" | "finished";
@@ -91,7 +92,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
         }
 
       case "eventType":
-        return getEventTypeBadge(eventType);
+        return getEventTypeBadge(eventType as any);
 
       default:
         return {
@@ -107,40 +108,8 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
   };
 
   // Get event type specific badge
-  const getEventTypeBadge = (type?: string) => {
+  const getEventTypeBadge = (type?: PartyType) => {
     switch (type) {
-      case "music":
-        return {
-          text: label || "Music",
-          colors: isDarkMode
-            ? ["rgba(99, 102, 241, 0.8)", "rgba(79, 70, 229, 0.8)"]
-            : ["rgba(99, 102, 241, 0.2)", "rgba(79, 70, 229, 0.2)"],
-          textColor: isDarkMode ? "#FFFFFF" : "#4F46E5",
-        };
-      case "nightclub":
-        return {
-          text: label || "Nightclub",
-          colors: isDarkMode
-            ? ["rgba(139, 92, 246, 0.8)", "rgba(124, 58, 237, 0.8)"]
-            : ["rgba(139, 92, 246, 0.2)", "rgba(124, 58, 237, 0.2)"],
-          textColor: isDarkMode ? "#FFFFFF" : "#7C3AED",
-        };
-      case "private":
-        return {
-          text: label || "Private",
-          colors: isDarkMode
-            ? ["rgba(236, 72, 153, 0.8)", "rgba(219, 39, 119, 0.8)"]
-            : ["rgba(236, 72, 153, 0.2)", "rgba(219, 39, 119, 0.2)"],
-          textColor: isDarkMode ? "#FFFFFF" : "#DB2777",
-        };
-      case "beach":
-        return {
-          text: label || "Beach",
-          colors: isDarkMode
-            ? ["rgba(52, 211, 153, 0.8)", "rgba(16, 185, 129, 0.8)"]
-            : ["rgba(52, 211, 153, 0.2)", "rgba(16, 185, 129, 0.2)"],
-          textColor: isDarkMode ? "#FFFFFF" : "#10B981",
-        };
       case "corporate":
         return {
           text: label || "Corporate",

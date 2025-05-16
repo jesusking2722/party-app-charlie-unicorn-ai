@@ -5,7 +5,9 @@
 
 export const formatTimeAgo = (date: Date): string => {
   const now = new Date();
-  const secondsAgo = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const secondsAgo = Math.floor(
+    (now.getTime() - new Date(date).getTime()) / 1000
+  );
 
   // Less than a minute
   if (secondsAgo < 60) {
@@ -52,6 +54,7 @@ export const formatTimeAgo = (date: Date): string => {
  * Example: "May 15, 2025"
  */
 export const formatDate = (date: Date): string => {
+  if (!date) return "";
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
@@ -66,6 +69,7 @@ export const formatDate = (date: Date): string => {
  * Example: "3:30 PM"
  */
 export const formatTime = (date: Date): string => {
+  if (!date) return "";
   const options: Intl.DateTimeFormatOptions = {
     hour: "numeric",
     minute: "numeric",
@@ -80,6 +84,7 @@ export const formatTime = (date: Date): string => {
  * Example: "May 15, 2025, 3:30 PM"
  */
 export const formatDateTime = (date: Date): string => {
+  if (!date) return "";
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
@@ -96,6 +101,7 @@ export const formatDateTime = (date: Date): string => {
  * Returns "Today", "Tomorrow", "Yesterday", or the formatted date
  */
 export const getRelativeDay = (date: Date): string => {
+  if (!date) return "";
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);

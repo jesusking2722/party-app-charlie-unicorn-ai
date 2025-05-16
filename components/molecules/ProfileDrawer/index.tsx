@@ -6,9 +6,14 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, Drawer, LanguageSelector } from "@/components/common";
+import { Button, Drawer, Input, LanguageSelector } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Feather, FontAwesome5 } from "@expo/vector-icons";
+import { useToast } from "@/contexts/ToastContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { User } from "@/types/data";
+import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -23,10 +28,10 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSelector } from "react-redux";
 
 const DEFAULT_AVATAR = require("@/assets/images/bnb.png");
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -44,11 +49,6 @@ interface ProfileDrawerProps {
   email?: string;
   currentLanguage?: string;
   onLanguageChange?: (language: string) => void;
-  onProfileUpdate?: (data: {
-    userName: string;
-    professionalTitle: string;
-    description: string;
-  }) => void;
 }
 
 const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
@@ -61,7 +61,6 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   email = "johndoe@example.com",
   currentLanguage = "EN",
   onLanguageChange,
-  onProfileUpdate,
 }) => {
   // Theme context
   const { isDarkMode, toggleTheme } = useTheme();
@@ -83,6 +82,11 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
+
+  const { showToast } = useToast();
 
   // Helper function to get accent color based on theme
   const getAccentColor = () =>
@@ -244,31 +248,30 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
   // Save profile changes
   const handleSaveProfile = async () => {
-    if (!validateProfileForm()) {
-      return;
-    }
+    if (!validateProfileForm() || !user) return;
 
     setIsSaving(true);
 
     try {
-      // Simulate API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const updatingUser: User = {
+        ...user,
+        name: editedUserName,
+        title: editedProfessionalTitle,
+        about: editedDescription,
+      };
 
-      // Call the update callback if provided
-      if (onProfileUpdate) {
-        onProfileUpdate({
-          userName: editedUserName,
-          professionalTitle: editedProfessionalTitle,
-          description: editedDescription,
-        });
+      const response = await updateAuthUser(updatingUser);
+
+      if (response.ok) {
+        const { user: updatedUser } = response.data;
+        await dispatch(setAuthUserAsync(updatedUser));
+
+        // Exit edit mode
+        setActiveSection(null);
+        setIsSaving(false);
+
+        showToast("Profile is updated successfully", "success");
       }
-
-      // Exit edit mode
-      setActiveSection(null);
-      setIsSaving(false);
-
-      // Show success message
-      Alert.alert("Success", "Your profile has been updated successfully.");
     } catch (error) {
       setIsSaving(false);
       Alert.alert("Error", "Failed to update profile. Please try again.");
@@ -374,7 +377,12 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
               <View style={styles.profileHeaderLarge}>
                 <View style={styles.avatarContainerLarge}>
                   <Image
-                    source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
+                    source={
+                      typeof userAvatar === "string" &&
+                      userAvatar.trim().length > 0
+                        ? { uri: userAvatar }
+                        : DEFAULT_AVATAR
+                    }
                     style={styles.avatarLarge}
                     resizeMode="cover"
                   />
@@ -426,8 +434,14 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                   ]}
                 >
                   <Image
-                    source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
-                    style={styles.avatar}
+                    source={
+                      typeof userAvatar === "string" &&
+                      userAvatar.trim().length > 0
+                        ? { uri: userAvatar }
+                        : DEFAULT_AVATAR
+                    }
+                    style={styles.avatarLarge}
+                    resizeMode="cover"
                   />
                   {activeSection === "profile" && (
                     <TouchableOpacity
@@ -464,121 +478,35 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                   {activeSection === "profile" ? (
                     // Profile Edit Form
                     <>
-                      <View style={styles.inputContainer}>
-                        <Text
-                          style={[
-                            styles.inputLabel,
-                            { color: getAccentColor() },
-                          ]}
-                        >
-                          Name
-                        </Text>
-                        <View
-                          style={[
-                            styles.inputWrapper,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(40, 45, 55, 0.65)"
-                                : "rgba(255, 255, 255, 0.65)",
-                              borderColor: isDarkMode
-                                ? errors.userName
-                                  ? COLORS.ERROR
-                                  : "rgba(255, 255, 255, 0.1)"
-                                : errors.userName
-                                ? COLORS.ERROR
-                                : "rgba(0, 0, 0, 0.05)",
-                              borderWidth: errors.userName ? 1 : 0.5,
-                            },
-                          ]}
-                        >
-                          <TextInput
-                            style={[styles.input, { color: getTextColor() }]}
-                            value={editedUserName}
-                            onChangeText={setEditedUserName}
-                            placeholder="Your name"
-                            placeholderTextColor={
-                              isDarkMode
-                                ? "rgba(255, 255, 255, 0.5)"
-                                : "rgba(0, 0, 0, 0.35)"
-                            }
+                      <Input
+                        label="Name"
+                        value={editedUserName}
+                        onChangeText={setEditedUserName}
+                        placeholder="Your name"
+                        error={errors.userName}
+                        icon={
+                          <FontAwesome
+                            name="user"
+                            size={16}
+                            color={getIconColor()}
                           />
-                          {errors.userName ? null : (
-                            <View
-                              style={[
-                                styles.focusAccent,
-                                {
-                                  backgroundColor: getAccentColor(),
-                                },
-                              ]}
-                            />
-                          )}
-                        </View>
-                        {errors.userName ? (
-                          <Text
-                            style={[styles.errorText, { color: COLORS.ERROR }]}
-                          >
-                            {errors.userName}
-                          </Text>
-                        ) : null}
-                      </View>
+                        }
+                      />
 
-                      <View style={styles.inputContainer}>
-                        <Text
-                          style={[
-                            styles.inputLabel,
-                            { color: getAccentColor() },
-                          ]}
-                        >
-                          Professional Title
-                        </Text>
-                        <View
-                          style={[
-                            styles.inputWrapper,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(40, 45, 55, 0.65)"
-                                : "rgba(255, 255, 255, 0.65)",
-                              borderColor: isDarkMode
-                                ? errors.professionalTitle
-                                  ? COLORS.ERROR
-                                  : "rgba(255, 255, 255, 0.1)"
-                                : errors.professionalTitle
-                                ? COLORS.ERROR
-                                : "rgba(0, 0, 0, 0.05)",
-                              borderWidth: errors.professionalTitle ? 1 : 0.5,
-                            },
-                          ]}
-                        >
-                          <TextInput
-                            style={[styles.input, { color: getTextColor() }]}
-                            value={editedProfessionalTitle}
-                            onChangeText={setEditedProfessionalTitle}
-                            placeholder="Your professional title"
-                            placeholderTextColor={
-                              isDarkMode
-                                ? "rgba(255, 255, 255, 0.5)"
-                                : "rgba(0, 0, 0, 0.35)"
-                            }
+                      <Input
+                        label="Professional Title"
+                        value={editedProfessionalTitle}
+                        onChangeText={setEditedProfessionalTitle}
+                        placeholder="Your professional title"
+                        error={errors.professionalTitle}
+                        icon={
+                          <FontAwesome
+                            name="briefcase"
+                            size={16}
+                            color={getIconColor()}
                           />
-                          {errors.professionalTitle ? null : (
-                            <View
-                              style={[
-                                styles.focusAccent,
-                                {
-                                  backgroundColor: getAccentColor(),
-                                },
-                              ]}
-                            />
-                          )}
-                        </View>
-                        {errors.professionalTitle ? (
-                          <Text
-                            style={[styles.errorText, { color: COLORS.ERROR }]}
-                          >
-                            {errors.professionalTitle}
-                          </Text>
-                        ) : null}
-                      </View>
+                        }
+                      />
 
                       <View style={styles.inputContainer}>
                         <Text
@@ -608,106 +536,45 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                             },
                           ]}
                         >
-                          <TextInput
-                            style={[
-                              styles.input,
-                              styles.textareaInput,
-                              { color: getTextColor() },
-                            ]}
+                          <Input
                             value={editedDescription}
                             onChangeText={setEditedDescription}
                             placeholder="Describe yourself"
-                            placeholderTextColor={
-                              isDarkMode
-                                ? "rgba(255, 255, 255, 0.5)"
-                                : "rgba(0, 0, 0, 0.35)"
-                            }
                             multiline
                             numberOfLines={4}
-                            textAlignVertical="top"
+                            error={errors.description}
+                            icon={
+                              <FontAwesome
+                                name="info-circle"
+                                size={16}
+                                color={getIconColor()}
+                              />
+                            }
+                            containerStyle={styles.textareaContainerStyle}
                           />
-                          {errors.description ? null : (
-                            <View
-                              style={[
-                                styles.focusAccent,
-                                {
-                                  backgroundColor: getAccentColor(),
-                                },
-                              ]}
-                            />
-                          )}
                         </View>
-                        {errors.description ? (
-                          <Text
-                            style={[styles.errorText, { color: COLORS.ERROR }]}
-                          >
-                            {errors.description}
-                          </Text>
-                        ) : null}
                       </View>
                     </>
                   ) : activeSection === "account" ? (
                     // Account Edit Form
                     <>
-                      <View style={styles.inputContainer}>
-                        <Text
-                          style={[
-                            styles.inputLabel,
-                            { color: getAccentColor() },
-                          ]}
-                        >
-                          Email
-                        </Text>
-                        <View
-                          style={[
-                            styles.inputWrapper,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(40, 45, 55, 0.65)"
-                                : "rgba(255, 255, 255, 0.65)",
-                              borderColor: isDarkMode
-                                ? errors.email
-                                  ? COLORS.ERROR
-                                  : "rgba(255, 255, 255, 0.1)"
-                                : errors.email
-                                ? COLORS.ERROR
-                                : "rgba(0, 0, 0, 0.05)",
-                              borderWidth: errors.email ? 1 : 0.5,
-                            },
-                          ]}
-                        >
-                          <TextInput
-                            style={[styles.input, { color: getTextColor() }]}
-                            value={editedEmail}
-                            onChangeText={setEditedEmail}
-                            placeholder="Your email"
-                            placeholderTextColor={
-                              isDarkMode
-                                ? "rgba(255, 255, 255, 0.5)"
-                                : "rgba(0, 0, 0, 0.35)"
-                            }
-                            keyboardType="email-address"
-                            autoCapitalize="none"
+                      <Input
+                        label="Email"
+                        value={editedEmail}
+                        onChangeText={setEditedEmail}
+                        placeholder="Your email"
+                        error={errors.email}
+                        readonly={true}
+                        icon={
+                          <FontAwesome
+                            name="envelope"
+                            size={16}
+                            color={getIconColor()}
                           />
-                          {errors.email ? null : (
-                            <View
-                              style={[
-                                styles.focusAccent,
-                                {
-                                  backgroundColor: getAccentColor(),
-                                },
-                              ]}
-                            />
-                          )}
-                        </View>
-                        {errors.email ? (
-                          <Text
-                            style={[styles.errorText, { color: COLORS.ERROR }]}
-                          >
-                            {errors.email}
-                          </Text>
-                        ) : null}
-                      </View>
+                        }
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                      />
 
                       <View style={styles.passwordSection}>
                         <Text
@@ -719,191 +586,53 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                           Change Password
                         </Text>
 
-                        <View style={styles.inputContainer}>
-                          <Text
-                            style={[
-                              styles.inputLabel,
-                              { color: getAccentColor() },
-                            ]}
-                          >
-                            Current Password
-                          </Text>
-                          <View
-                            style={[
-                              styles.inputWrapper,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(40, 45, 55, 0.65)"
-                                  : "rgba(255, 255, 255, 0.65)",
-                                borderColor: isDarkMode
-                                  ? errors.currentPassword
-                                    ? COLORS.ERROR
-                                    : "rgba(255, 255, 255, 0.1)"
-                                  : errors.currentPassword
-                                  ? COLORS.ERROR
-                                  : "rgba(0, 0, 0, 0.05)",
-                                borderWidth: errors.currentPassword ? 1 : 0.5,
-                              },
-                            ]}
-                          >
-                            <TextInput
-                              style={[styles.input, { color: getTextColor() }]}
-                              value={currentPassword}
-                              onChangeText={setCurrentPassword}
-                              placeholder="Enter current password"
-                              placeholderTextColor={
-                                isDarkMode
-                                  ? "rgba(255, 255, 255, 0.5)"
-                                  : "rgba(0, 0, 0, 0.35)"
-                              }
-                              secureTextEntry
+                        <Input
+                          label="Current Password"
+                          value={currentPassword}
+                          onChangeText={setCurrentPassword}
+                          placeholder="Enter current password"
+                          error={errors.currentPassword}
+                          icon={
+                            <FontAwesome
+                              name="lock"
+                              size={16}
+                              color={getIconColor()}
                             />
-                            {errors.currentPassword ? null : (
-                              <View
-                                style={[
-                                  styles.focusAccent,
-                                  {
-                                    backgroundColor: getAccentColor(),
-                                  },
-                                ]}
-                              />
-                            )}
-                          </View>
-                          {errors.currentPassword ? (
-                            <Text
-                              style={[
-                                styles.errorText,
-                                { color: COLORS.ERROR },
-                              ]}
-                            >
-                              {errors.currentPassword}
-                            </Text>
-                          ) : null}
-                        </View>
+                          }
+                          isPassword
+                        />
 
-                        <View style={styles.inputContainer}>
-                          <Text
-                            style={[
-                              styles.inputLabel,
-                              { color: getAccentColor() },
-                            ]}
-                          >
-                            New Password
-                          </Text>
-                          <View
-                            style={[
-                              styles.inputWrapper,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(40, 45, 55, 0.65)"
-                                  : "rgba(255, 255, 255, 0.65)",
-                                borderColor: isDarkMode
-                                  ? errors.newPassword
-                                    ? COLORS.ERROR
-                                    : "rgba(255, 255, 255, 0.1)"
-                                  : errors.newPassword
-                                  ? COLORS.ERROR
-                                  : "rgba(0, 0, 0, 0.05)",
-                                borderWidth: errors.newPassword ? 1 : 0.5,
-                              },
-                            ]}
-                          >
-                            <TextInput
-                              style={[styles.input, { color: getTextColor() }]}
-                              value={newPassword}
-                              onChangeText={setNewPassword}
-                              placeholder="Enter new password"
-                              placeholderTextColor={
-                                isDarkMode
-                                  ? "rgba(255, 255, 255, 0.5)"
-                                  : "rgba(0, 0, 0, 0.35)"
-                              }
-                              secureTextEntry
+                        <Input
+                          label="New Password"
+                          value={newPassword}
+                          onChangeText={setNewPassword}
+                          placeholder="Enter new password"
+                          error={errors.newPassword}
+                          icon={
+                            <FontAwesome
+                              name="key"
+                              size={16}
+                              color={getIconColor()}
                             />
-                            {errors.newPassword ? null : (
-                              <View
-                                style={[
-                                  styles.focusAccent,
-                                  {
-                                    backgroundColor: getAccentColor(),
-                                  },
-                                ]}
-                              />
-                            )}
-                          </View>
-                          {errors.newPassword ? (
-                            <Text
-                              style={[
-                                styles.errorText,
-                                { color: COLORS.ERROR },
-                              ]}
-                            >
-                              {errors.newPassword}
-                            </Text>
-                          ) : null}
-                        </View>
+                          }
+                          isPassword
+                        />
 
-                        <View style={styles.inputContainer}>
-                          <Text
-                            style={[
-                              styles.inputLabel,
-                              { color: getAccentColor() },
-                            ]}
-                          >
-                            Confirm New Password
-                          </Text>
-                          <View
-                            style={[
-                              styles.inputWrapper,
-                              {
-                                backgroundColor: isDarkMode
-                                  ? "rgba(40, 45, 55, 0.65)"
-                                  : "rgba(255, 255, 255, 0.65)",
-                                borderColor: isDarkMode
-                                  ? errors.confirmPassword
-                                    ? COLORS.ERROR
-                                    : "rgba(255, 255, 255, 0.1)"
-                                  : errors.confirmPassword
-                                  ? COLORS.ERROR
-                                  : "rgba(0, 0, 0, 0.05)",
-                                borderWidth: errors.confirmPassword ? 1 : 0.5,
-                              },
-                            ]}
-                          >
-                            <TextInput
-                              style={[styles.input, { color: getTextColor() }]}
-                              value={confirmPassword}
-                              onChangeText={setConfirmPassword}
-                              placeholder="Confirm new password"
-                              placeholderTextColor={
-                                isDarkMode
-                                  ? "rgba(255, 255, 255, 0.5)"
-                                  : "rgba(0, 0, 0, 0.35)"
-                              }
-                              secureTextEntry
+                        <Input
+                          label="Confirm New Password"
+                          value={confirmPassword}
+                          onChangeText={setConfirmPassword}
+                          placeholder="Confirm new password"
+                          error={errors.confirmPassword}
+                          icon={
+                            <FontAwesome
+                              name="check"
+                              size={16}
+                              color={getIconColor()}
                             />
-                            {errors.confirmPassword ? null : (
-                              <View
-                                style={[
-                                  styles.focusAccent,
-                                  {
-                                    backgroundColor: getAccentColor(),
-                                  },
-                                ]}
-                              />
-                            )}
-                          </View>
-                          {errors.confirmPassword ? (
-                            <Text
-                              style={[
-                                styles.errorText,
-                                { color: COLORS.ERROR },
-                              ]}
-                            >
-                              {errors.confirmPassword}
-                            </Text>
-                          ) : null}
-                        </View>
+                          }
+                          isPassword
+                        />
                       </View>
                     </>
                   ) : null}
@@ -1240,6 +969,7 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     borderWidth: 2,
     overflow: "hidden",
+    marginTop: SPACING.M,
     marginBottom: SPACING.M,
     position: "relative",
     ...SHADOWS.SMALL,
@@ -1360,6 +1090,10 @@ const styles = StyleSheet.create({
     height: 120,
     alignItems: "flex-start",
   },
+  textareaContainerStyle: {
+    height: 120,
+    marginBottom: 0,
+  },
   focusAccent: {
     position: "absolute",
     left: 0,
@@ -1367,18 +1101,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderTopRightRadius: BORDER_RADIUS.S,
     borderBottomRightRadius: BORDER_RADIUS.S,
-  },
-  input: {
-    flex: 1,
-    height: "100%",
-    paddingHorizontal: SPACING.M,
-    fontSize: FONT_SIZES.XS,
-    fontFamily: FONTS.REGULAR,
-  },
-  textareaInput: {
-    paddingTop: SPACING.S,
-    height: "100%",
-    textAlignVertical: "top",
   },
   errorText: {
     fontSize: FONT_SIZES.XS,

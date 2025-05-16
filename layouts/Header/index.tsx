@@ -14,7 +14,6 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  Dimensions,
   Image,
   Platform,
   StatusBar,
@@ -26,7 +25,9 @@ import {
 
 import { ProfileDrawer } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
+import { RootState } from "@/redux/store";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { useSelector } from "react-redux";
 
 // Logo asset path
 const LOGO_IMAGE = require("@/assets/images/logo.png");
@@ -36,15 +37,8 @@ const DEFAULT_AVATAR = require("@/assets/images/bnb.png");
 // Custom light theme accent color
 const LIGHT_THEME_ACCENT = "#FF0099";
 
-const { width, height } = Dimensions.get("window");
-
 interface HeaderProps {
   title?: string;
-  userAvatar?: string; // URL for the user's avatar
-  userName?: string; // User's name for the profile drawer
-  professionalTitle?: string; // User's professional title
-  description?: string; // User's description
-  email?: string; // User's email
   currentLanguage?: string;
   onLanguageChange?: (language: string) => void;
   onProfileUpdate?: (data: {
@@ -57,12 +51,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({
-  title = "Party Events",
-  userAvatar,
-  userName = "John Doe",
-  professionalTitle = "Software Developer",
-  description = "Experienced software developer with a passion for creating beautiful and functional applications.",
-  email = "johndoe@example.com",
+  title,
   currentLanguage = "EN",
   onLanguageChange,
   onProfileUpdate,
@@ -79,11 +68,7 @@ const Header: React.FC<HeaderProps> = ({
 
   const [profileDrawerVisible, setProfileDrawerVisible] = useState(false);
 
-  const [userInfo, setUserInfo] = useState({
-    userName: userName,
-    professionalTitle: professionalTitle,
-    description: description,
-  });
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // Helper function to get accent color based on theme
   const getAccentColor = () =>
@@ -110,19 +95,6 @@ const Header: React.FC<HeaderProps> = ({
       }),
     ]).start();
   }, []);
-
-  // Handle profile update
-  const handleProfileUpdate = (data: {
-    userName: string;
-    professionalTitle: string;
-    description: string;
-  }) => {
-    setUserInfo(data);
-    // Call the parent callback if provided
-    if (onProfileUpdate) {
-      onProfileUpdate(data);
-    }
-  };
 
   // Handle avatar press - opens profile drawer
   const handleAvatarPress = () => {
@@ -215,7 +187,7 @@ const Header: React.FC<HeaderProps> = ({
           <View style={styles.rightSection}>
             {/* Notification Button */}
             <TouchableOpacity
-              onPress={() => {}}
+              onPress={handleNotificationPress}
               activeOpacity={0.8}
               style={[
                 styles.iconButton,
@@ -307,7 +279,11 @@ const Header: React.FC<HeaderProps> = ({
                   ]}
                 >
                   <Image
-                    source={userAvatar ? { uri: userAvatar } : DEFAULT_AVATAR}
+                    source={
+                      user?.avatar && user?.avatar.trim().length > 0
+                        ? { uri: user.avatar }
+                        : DEFAULT_AVATAR
+                    }
                     style={styles.avatar}
                   />
                 </View>
@@ -321,12 +297,11 @@ const Header: React.FC<HeaderProps> = ({
       <ProfileDrawer
         visible={profileDrawerVisible}
         onClose={handleProfileDrawerClose}
-        userAvatar={userAvatar}
-        userName={userInfo.userName}
-        professionalTitle={userInfo.professionalTitle}
-        description={userInfo.description}
-        email={email}
-        onProfileUpdate={handleProfileUpdate}
+        userAvatar={user?.avatar ?? DEFAULT_AVATAR}
+        userName={user?.name ?? ""}
+        professionalTitle={user?.title ?? ""}
+        description={user?.about ?? ""}
+        email={user?.email ?? ""}
         currentLanguage={currentLanguage}
         onLanguageChange={onLanguageChange}
       />

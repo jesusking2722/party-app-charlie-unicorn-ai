@@ -31,10 +31,13 @@ import {
 import { Button, Input, ThemeToggle } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
+import useInit from "@/hooks/useInit";
 import { setAuthToken } from "@/lib/axiosInstance";
 import { loginByEmail } from "@/lib/scripts/auth.scripts";
-import { setAuth } from "@/redux/slices/auth.slice";
-import { useDispatch } from "react-redux";
+import { setAuthAsync } from "@/redux/actions/auth.actions";
+import { useAppDispatch } from "@/redux/store";
+
+import GoogleAuthService from "@/lib/services/google.auth.services";
 
 const PartyImage = require("@/assets/images/login_bg.png");
 
@@ -67,7 +70,13 @@ const LoginScreen = () => {
 
   const { showToast } = useToast();
 
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
+
+  const { checkRedirectPath } = useInit();
+
+  // google auth
+  const [googleRequest, googleResponse, promptGoogleAsync] =
+    GoogleAuthService.useGoogleAuth();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -282,8 +291,9 @@ const LoginScreen = () => {
       if (response.ok) {
         const { user, token } = response.data;
         setAuthToken(token);
-        dispatch(setAuth({ isAuthenticated: true, user }));
+        await dispatch(setAuthAsync({ isAuthenticated: true, user })).unwrap();
         showToast("Welcome back !!!", "success");
+        checkRedirectPath(user);
       } else {
         showToast(response.message, "error");
       }
@@ -295,12 +305,100 @@ const LoginScreen = () => {
     }
   };
 
-  const handleGoogleLogin = (): void => {
-    console.log("Login with Google");
+  const handleGoogleLogin = async (): Promise<void> => {
+    try {
+      setLoading(true);
+
+      // Animation for button press
+      Animated.sequence([
+        Animated.timing(socialBtnAnimations[0], {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(socialBtnAnimations[0], {
+          toValue: 1,
+          tension: 200,
+          friction: 20,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Prompt Google sign-in
+      await promptGoogleAsync();
+    } catch (error) {
+      console.error("Error initiating Google sign in:", error);
+      showToast("Failed to start Google sign in", "error");
+      setLoading(false);
+    }
   };
 
-  const handleAppleLogin = (): void => {
-    console.log("Login with Apple");
+  const handleGoogleAuthResponse = async (response: any) => {
+    try {
+      setLoading(true);
+
+      // Animation for button press
+      Animated.sequence([
+        Animated.timing(socialBtnAnimations[0], {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(socialBtnAnimations[0], {
+          toValue: 1,
+          tension: 200,
+          friction: 20,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Get auth token
+      const { authentication } = response;
+
+      if (!authentication?.accessToken) {
+        throw new Error("No access token returned");
+      }
+
+      // Fetch user info from Google
+      const userInfo = await GoogleAuthService.fetchUserInfo(
+        authentication.accessToken
+      );
+
+      if (!userInfo || !userInfo.email) {
+        throw new Error("Failed to get user information");
+      }
+
+      console.log("Google user info:", userInfo);
+
+      // Call your API to login or register with Google
+      // You can use the email from userInfo.email
+      try {
+        // Example of how you might integrate with your existing login API
+        // Replace this with your actual API call
+
+        const response = await loginByEmail(userInfo.email, userInfo.id);
+
+        if (response.ok) {
+          const { user, token } = response.data;
+          setAuthToken(token);
+          await dispatch(
+            setAuthAsync({ isAuthenticated: true, user })
+          ).unwrap();
+          showToast("Signed in with Google!", "success");
+          checkRedirectPath(user);
+        } else {
+          showToast(response.message, "error");
+        }
+      } catch (error) {
+        console.error("Google login API error:", error);
+        showToast("Error processing Google login", "error");
+      }
+    } catch (error) {
+      console.error("Google auth error:", error);
+      showToast("Failed to sign in with Google", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleForgotPassword = (): void => {
@@ -324,6 +422,16 @@ const LoginScreen = () => {
   const handleSignUp = (): void => {
     router.push("/auth/register");
   };
+
+  useEffect(() => {
+    if (googleResponse?.type === "success") {
+      handleGoogleAuthResponse(googleResponse);
+    } else if (googleResponse?.type === "error") {
+      console.error("Google sign in error:", googleResponse.error);
+      showToast("Google sign in failed", "error");
+      setLoading(false);
+    }
+  }, [googleResponse]);
 
   const renderParticles = () => {
     return particles.map((particle, index) => (
@@ -589,61 +697,14 @@ const LoginScreen = () => {
                     </Text>
 
                     <View style={styles.socialButtonsContainer}>
-                      <Animated.View
-                        style={{
-                          transform: [{ scale: socialBtnAnimations[0] }],
-                          opacity: socialBtnAnimations[0],
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={[
-                            styles.socialButton,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(55, 65, 81, 0.7)"
-                                : "rgba(255, 255, 255, 0.9)",
-                              borderColor: isDarkMode
-                                ? COLORS.DARK_BORDER
-                                : "rgba(255, 0, 153, 0.2)",
-                            },
-                          ]}
-                          onPress={handleGoogleLogin}
-                        >
-                          <FontAwesome
-                            name="google"
-                            size={18}
-                            color="#DB4437"
-                          />
-                        </TouchableOpacity>
-                      </Animated.View>
-
-                      <Animated.View
-                        style={{
-                          transform: [{ scale: socialBtnAnimations[1] }],
-                          opacity: socialBtnAnimations[1],
-                        }}
-                      >
-                        <TouchableOpacity
-                          style={[
-                            styles.socialButton,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(55, 65, 81, 0.7)"
-                                : "rgba(255, 255, 255, 0.9)",
-                              borderColor: isDarkMode
-                                ? COLORS.DARK_BORDER
-                                : "rgba(255, 0, 153, 0.2)",
-                            },
-                          ]}
-                          onPress={handleAppleLogin}
-                        >
-                          <FontAwesome
-                            name="apple"
-                            size={20}
-                            color={isDarkMode ? COLORS.WHITE : COLORS.BLACK}
-                          />
-                        </TouchableOpacity>
-                      </Animated.View>
+                      <Button
+                        title="Sign in with Google"
+                        variant={isDarkMode ? "secondary" : "primary"}
+                        icon={
+                          <FontAwesome name="google" size={18} color="white" />
+                        }
+                        onPress={handleGoogleLogin}
+                      />
                     </View>
 
                     {/* Sign Up Text */}
@@ -834,9 +895,6 @@ const styles = StyleSheet.create({
     marginVertical: SPACING.M,
   },
   socialButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
     width: "100%",
     marginBottom: SPACING.M,
   },

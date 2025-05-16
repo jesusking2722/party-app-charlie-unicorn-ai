@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -33,11 +34,14 @@ import {
   RegionPicker,
   Slider,
 } from "@/components/common";
+import { EVENT_TYPES } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Geo, Party } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
 
 const { width, height } = Dimensions.get("window");
+
+const PartyImage = require("@/assets/images/profile_onboarding.png");
 
 // Custom light theme accent color
 const LIGHT_THEME_ACCENT = "#FF0099";
@@ -46,43 +50,100 @@ const LIGHT_THEME_ACCENT = "#FF0099";
 const sampleParties: Party[] = [
   {
     _id: "1",
-    name: "Summer Music Festival",
+    title: "Summer Music Festival",
     type: "music",
-    geo: { lat: 48.8566, lng: 2.3522 }, // Paris
-    attendees: 1250,
-    date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+    geo: { lat: 48.8566, lng: 2.3522 },
+    openingAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    description:
+      "The hottest music festival of the summer featuring top artists",
+    country: "France",
+    address: "Paris, France",
+    region: "Île-de-France",
+    creator: null,
+    applicants: [],
+    finishApproved: [],
+    status: "opening",
+    paidOption: "paid",
+    currency: "EUR",
+    fee: 50,
+    createdAt: new Date(),
   },
   {
     _id: "2",
-    name: "Corporate Networking Event",
+    title: "Corporate Networking Event",
     type: "corporate",
     geo: { lat: 48.8606, lng: 2.3376 }, // Near Paris
-    attendees: 350,
-    date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
+    openingAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
+    description: "Connect with industry professionals and expand your network",
+    country: "France",
+    address: "Paris, France",
+    region: "Île-de-France",
+    creator: null,
+    applicants: [],
+    finishApproved: [],
+    status: "opening",
+    paidOption: "paid",
+    currency: "EUR",
+    fee: 75,
+    createdAt: new Date(),
   },
   {
     _id: "3",
-    name: "Emily's Birthday Bash",
+    title: "Emily's Birthday Bash",
     type: "birthday",
     geo: { lat: 48.8495, lng: 2.3589 }, // Near Paris
-    attendees: 85,
-    date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+    openingAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+    description:
+      "Join us for Emily's 30th birthday celebration with food and dancing",
+    country: "France",
+    address: "Paris, France",
+    region: "Île-de-France",
+    creator: null,
+    applicants: [],
+    finishApproved: [],
+    status: "opening",
+    paidOption: "free",
+    currency: "EUR",
+    createdAt: new Date(),
   },
   {
     _id: "4",
-    name: "Williams-Johnson Wedding",
+    title: "Williams-Johnson Wedding",
     type: "wedding",
     geo: { lat: 48.8738, lng: 2.3749 }, // Near Paris
-    attendees: 175,
-    date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+    openingAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+    description:
+      "Celebrate the wedding of Sarah and Michael at this beautiful venue",
+    country: "France",
+    address: "Paris, France",
+    region: "Île-de-France",
+    creator: null,
+    applicants: [],
+    finishApproved: [],
+    status: "opening",
+    paidOption: "free",
+    currency: "EUR",
+    createdAt: new Date(),
   },
   {
     _id: "5",
-    name: "Champions Sports Tournament",
+    title: "Champions Sports Tournament",
     type: "sport",
     geo: { lat: 48.8417, lng: 2.3197 }, // Near Paris
-    attendees: 520,
-    date: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000), // 21 days from now
+    openingAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000), // 21 days from now
+    description:
+      "Watch top athletes compete in this exciting sports tournament",
+    country: "France",
+    address: "Paris, France",
+    region: "Île-de-France",
+    creator: null,
+    applicants: [],
+    finishApproved: [],
+    status: "opening",
+    paidOption: "paid",
+    currency: "EUR",
+    fee: 35,
+    createdAt: new Date(),
   },
 ];
 
@@ -124,19 +185,6 @@ const HomeScreen = () => {
       opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
       speed: Math.random() * 3000 + 2000,
     }));
-
-  // Party type options for dropdown
-  const partyTypeOptions = [
-    { label: "All Events", value: "all" },
-    { label: "Music Festivals", value: "music" },
-    { label: "Nightclub Events", value: "nightclub" },
-    { label: "Private Parties", value: "private" },
-    { label: "Beach Parties", value: "beach" },
-    { label: "Corporate Events", value: "corporate" },
-    { label: "Birthday Parties", value: "birthday" },
-    { label: "Weddings", value: "wedding" },
-    { label: "Sports Events", value: "sport" },
-  ];
 
   // Run animations when component mounts
   useEffect(() => {
@@ -327,9 +375,30 @@ const HomeScreen = () => {
         return isDarkMode ? ["#4338CA", "#3730A3"] : ["#6366f1", "#2563eb"];
       case "sport":
         return isDarkMode ? ["#991B1B", "#9F1239"] : ["#ef4444", "#e11d48"];
+      case "movie":
+        return isDarkMode ? ["#6D28D9", "#5B21B6"] : ["#8b5cf6", "#6d28d9"];
+      case "common":
+        return isDarkMode ? ["#B45309", "#C2410C"] : ["#f59e0b", "#ea580c"];
+      case "nightclub":
+        return isDarkMode ? ["#4338CA", "#3730A3"] : ["#6366f1", "#2563eb"];
+      case "private":
+        return isDarkMode ? ["#064E3B", "#065F46"] : ["#059669", "#10b981"];
+      case "beach":
+        return isDarkMode ? ["#0E7490", "#0891B2"] : ["#06b6d4", "#0ea5e9"];
       default:
         return isDarkMode ? ["#B45309", "#C2410C"] : ["#f59e0b", "#ea580c"];
     }
+  };
+
+  // Format date for display
+  const formatDate = (date: Date) => {
+    const options: Intl.DateTimeFormatOptions = {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    };
+    return date.toLocaleDateString("en-US", options);
   };
 
   // Render particles for background effect
@@ -572,7 +641,7 @@ const HomeScreen = () => {
                             placeholder="Select Party Type"
                             value={partyType}
                             onSelect={setPartyType}
-                            options={partyTypeOptions}
+                            options={EVENT_TYPES}
                           />
                         </View>
                       </View>
@@ -706,7 +775,7 @@ const HomeScreen = () => {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Event Cards (preview) */}
+                    {/* Redesigned Event Cards (preview) */}
                     {filteredParties.slice(0, 3).map((party) => (
                       <TouchableOpacity
                         key={party._id}
@@ -723,52 +792,48 @@ const HomeScreen = () => {
                         ]}
                         activeOpacity={0.9}
                       >
-                        <LinearGradient
-                          colors={getEventGradient(party.type) as any}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.eventCardAccent}
-                        />
-
-                        <View style={styles.eventCardContent}>
-                          <View style={styles.eventCardHeader}>
-                            <Text
-                              style={[
-                                styles.eventCardTitle,
-                                {
-                                  color: isDarkMode
-                                    ? COLORS.DARK_TEXT_PRIMARY
-                                    : COLORS.LIGHT_TEXT_PRIMARY,
-                                },
-                              ]}
+                        {/* Event Image */}
+                        <View style={styles.eventImageContainer}>
+                          <Image
+                            source={PartyImage}
+                            style={styles.eventImage}
+                            resizeMode="cover"
+                          />
+                          <LinearGradient
+                            colors={["transparent", "rgba(0,0,0,0.7)"]}
+                            style={styles.imageGradient}
+                          />
+                          <View style={styles.eventTypeContainer}>
+                            <LinearGradient
+                              colors={getEventGradient(party.type) as any}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.eventTypeBadge}
                             >
-                              {party.name}
-                            </Text>
-                            <View
-                              style={[
-                                styles.eventCardBadge,
-                                {
-                                  backgroundColor: isDarkMode
-                                    ? "rgba(31, 41, 55, 0.7)"
-                                    : "rgba(255, 255, 255, 0.7)",
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.eventCardBadgeText,
-                                  {
-                                    color: isDarkMode
-                                      ? COLORS.DARK_TEXT_PRIMARY
-                                      : COLORS.LIGHT_TEXT_PRIMARY,
-                                  },
-                                ]}
-                              >
+                              <Text style={styles.eventTypeText}>
                                 {party.type.charAt(0).toUpperCase() +
                                   party.type.slice(1)}
                               </Text>
-                            </View>
+                            </LinearGradient>
                           </View>
+                        </View>
+
+                        {/* Event Details */}
+                        <View style={styles.eventCardContent}>
+                          <Text
+                            style={[
+                              styles.eventCardTitle,
+                              {
+                                color: isDarkMode
+                                  ? COLORS.DARK_TEXT_PRIMARY
+                                  : COLORS.LIGHT_TEXT_PRIMARY,
+                              },
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {party.title}
+                          </Text>
 
                           <View style={styles.eventCardDetails}>
                             <View style={styles.eventCardDetail}>
@@ -791,10 +856,7 @@ const HomeScreen = () => {
                                   },
                                 ]}
                               >
-                                {party.date?.toLocaleDateString("en-US", {
-                                  month: "short",
-                                  day: "numeric",
-                                })}
+                                {formatDate(party.openingAt)}
                               </Text>
                             </View>
 
@@ -818,7 +880,7 @@ const HomeScreen = () => {
                                   },
                                 ]}
                               >
-                                {party.attendees} attendees
+                                {party.applicants.length} attendees
                               </Text>
                             </View>
 
@@ -841,8 +903,40 @@ const HomeScreen = () => {
                                       : COLORS.LIGHT_TEXT_SECONDARY,
                                   },
                                 ]}
+                                numberOfLines={1}
                               >
-                                Paris, France
+                                {party.address}
+                              </Text>
+                            </View>
+
+                            <View style={styles.paidStatusContainer}>
+                              <FontAwesome5
+                                name={
+                                  party.paidOption === "free"
+                                    ? "ticket-alt"
+                                    : "money-bill"
+                                }
+                                size={14}
+                                color={
+                                  party.paidOption === "free"
+                                    ? "#10b981"
+                                    : "#f59e0b"
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.paidStatusText,
+                                  {
+                                    color:
+                                      party.paidOption === "free"
+                                        ? "#10b981"
+                                        : "#f59e0b",
+                                  },
+                                ]}
+                              >
+                                {party.paidOption === "free"
+                                  ? "Free Event"
+                                  : `${party.fee} ${party.currency}`}
                               </Text>
                             </View>
                           </View>
@@ -1074,39 +1168,52 @@ const styles = StyleSheet.create({
   eventsSectionContainer: {
     marginBottom: SPACING.M,
   },
+  // Redesigned event card styles
   eventCard: {
     borderRadius: BORDER_RADIUS.L,
     marginBottom: SPACING.M,
     overflow: "hidden",
     borderWidth: 1,
   },
-  eventCardAccent: {
-    height: 6,
+  eventImageContainer: {
+    height: 250,
     width: "100%",
+    position: "relative",
+  },
+  eventImage: {
+    width: "100%",
+    height: "100%",
+  },
+  imageGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "50%",
+  },
+  eventTypeContainer: {
+    position: "absolute",
+    top: SPACING.S,
+    right: SPACING.S,
+    zIndex: 2,
+  },
+  eventTypeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: BORDER_RADIUS.M,
+  },
+  eventTypeText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.SEMIBOLD,
+    fontSize: FONT_SIZES.XS,
   },
   eventCardContent: {
     padding: SPACING.M,
   },
-  eventCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SPACING.S,
-  },
   eventCardTitle: {
     fontSize: FONT_SIZES.M,
     fontFamily: FONTS.SEMIBOLD,
-    flex: 1,
-    marginRight: 8,
-  },
-  eventCardBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  eventCardBadgeText: {
-    fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.XS,
+    marginBottom: SPACING.S,
   },
   eventCardDetails: {
     gap: 8,
@@ -1117,6 +1224,17 @@ const styles = StyleSheet.create({
   },
   eventCardDetailText: {
     fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
+    marginLeft: 8,
+    flex: 1,
+  },
+  paidStatusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: SPACING.XS,
+  },
+  paidStatusText: {
+    fontFamily: FONTS.MEDIUM,
     fontSize: FONT_SIZES.XS,
     marginLeft: 8,
   },
