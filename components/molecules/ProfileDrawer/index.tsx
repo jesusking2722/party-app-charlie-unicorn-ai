@@ -3,10 +3,12 @@ import {
   COLORS,
   FONTS,
   FONT_SIZES,
+  GRADIENTS,
   SHADOWS,
   SPACING,
 } from "@/app/theme";
 import { Button, Drawer, Input, LanguageSelector } from "@/components/common";
+import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { updateAuthUser } from "@/lib/scripts/auth.scripts";
@@ -376,16 +378,50 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
               // View mode with large avatar
               <View style={styles.profileHeaderLarge}>
                 <View style={styles.avatarContainerLarge}>
-                  <Image
-                    source={
-                      typeof userAvatar === "string" &&
-                      userAvatar.trim().length > 0
-                        ? { uri: userAvatar }
-                        : DEFAULT_AVATAR
-                    }
-                    style={styles.avatarLarge}
-                    resizeMode="cover"
-                  />
+                  {user?.avatar ? (
+                    <Image
+                      source={{
+                        uri: BACKEND_BASE_URL + user?.avatar,
+                      }}
+                      style={styles.avatarLarge}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View>
+                      <LinearGradient
+                        colors={
+                          isDarkMode
+                            ? GRADIENTS.PRIMARY
+                            : ["#FF0099", "#FF6D00"]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[
+                          styles.avatarLarge,
+                          {
+                            width: "60%",
+                            height: "100%",
+                            borderRadius: "50%",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            margin: "auto",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: COLORS.WHITE,
+                            fontFamily: FONTS.SEMIBOLD,
+                            fontSize: FONT_SIZES.M,
+                          }}
+                        >
+                          {user?.name
+                            ? user.name.slice(0, 2).toUpperCase()
+                            : ""}
+                        </Text>
+                      </LinearGradient>
+                    </View>
+                  )}
                   <LinearGradient
                     colors={["transparent", "rgba(0, 0, 0, 0.7)"]}
                     style={styles.avatarGradient}
@@ -433,16 +469,49 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                     },
                   ]}
                 >
-                  <Image
-                    source={
-                      typeof userAvatar === "string" &&
-                      userAvatar.trim().length > 0
-                        ? { uri: userAvatar }
-                        : DEFAULT_AVATAR
-                    }
-                    style={styles.avatarLarge}
-                    resizeMode="cover"
-                  />
+                  {user?.avatar ? (
+                    <Image
+                      source={{
+                        uri: BACKEND_BASE_URL + user?.avatar,
+                      }}
+                      style={styles.avatarLarge}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View>
+                      <LinearGradient
+                        colors={
+                          isDarkMode
+                            ? GRADIENTS.PRIMARY
+                            : ["#FF0099", "#FF6D00"]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[
+                          styles.avatarLarge,
+                          {
+                            width: "100%",
+                            height: "100%",
+                            borderRadius: BORDER_RADIUS.CIRCLE,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: COLORS.WHITE,
+                            fontFamily: FONTS.SEMIBOLD,
+                            fontSize: FONT_SIZES.M,
+                          }}
+                        >
+                          {user?.name
+                            ? user.name.slice(0, 2).toUpperCase()
+                            : ""}
+                        </Text>
+                      </LinearGradient>
+                    </View>
+                  )}
                   {activeSection === "profile" && (
                     <TouchableOpacity
                       style={[

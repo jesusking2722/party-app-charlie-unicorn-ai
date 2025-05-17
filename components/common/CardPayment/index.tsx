@@ -1,5 +1,5 @@
 import { FONTS } from "@/app/theme";
-import { Button } from "@/components/common";
+import { Button, Spinner } from "@/components/common";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -41,6 +41,7 @@ import { extractNumericPrice } from "@/utils/price";
 import {
   confirmPlatformPayPayment,
   PlatformPay,
+  PlatformPayButton,
   usePlatformPay,
   useStripe,
 } from "@stripe/stripe-react-native";
@@ -388,6 +389,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
       });
 
       if (error) {
+        console.error(error);
         showToast(error.message, "error");
         setGooglePayLoading(false);
         return;
@@ -545,7 +547,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                         },
                       ]}
                     >
-                      {planTitle} Plan • {formattedAmount} (
+                      {planTitle} • {formattedAmount} (
                       {getCurrencyText(currency)})
                     </Text>
 
@@ -698,7 +700,15 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          <Button
+                          <PlatformPayButton
+                            type={PlatformPay.ButtonType.Pay}
+                            onPress={handleGooglePay}
+                            style={{
+                              width: "100%",
+                              height: 50,
+                            }}
+                          />
+                          {/* <Button
                             title="Google pay"
                             variant={isDarkMode ? "secondary" : "primary"}
                             onPress={handleGooglePay}
@@ -711,7 +721,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                                 color="white"
                               />
                             }
-                          />
+                          /> */}
                         </View>
                       )}
 
@@ -731,7 +741,17 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          <Button
+                          <PlatformPayButton
+                            onPress={handleApplePay}
+                            type={PlatformPay.ButtonType.Order}
+                            appearance={PlatformPay.ButtonStyle.Black}
+                            borderRadius={4}
+                            style={{
+                              width: "100%",
+                              height: 50,
+                            }}
+                          />
+                          {/* <Button
                             title="Apple pay"
                             variant={isDarkMode ? "secondary" : "primary"}
                             onPress={handleApplePay}
@@ -744,7 +764,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                                 color="white"
                               />
                             }
-                          />
+                          /> */}
                         </View>
                       )}
 
@@ -991,6 +1011,8 @@ const CardPayment: React.FC<CardPaymentProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Spinner visible={googlePayLoading || applePayLoading} />
     </SafeAreaView>
   );
 };

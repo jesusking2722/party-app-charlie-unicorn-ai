@@ -4,6 +4,7 @@ export { default as CardPayment } from "./CardPayment";
 export { default as CountdownProgress } from "./CountdownProgress";
 export { default as CountryPicker } from "./CountryPicker";
 export { default as CryptoPayment } from "./CryptoPayment";
+export { default as DatePicker } from "./DatePicker";
 export { default as Drawer } from "./Drawer";
 export { default as Dropdown } from "./Dropdown";
 export type { DropdownOption } from "./Dropdown";

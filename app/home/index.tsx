@@ -36,8 +36,12 @@ import {
 } from "@/components/common";
 import { EVENT_TYPES } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
+import { RootState } from "@/redux/store";
 import { Geo, Party } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
+import { formatPrice } from "@/utils/currency";
+import { router } from "expo-router";
+import { useSelector } from "react-redux";
 
 const { width, height } = Dimensions.get("window");
 
@@ -45,107 +49,6 @@ const PartyImage = require("@/assets/images/profile_onboarding.png");
 
 // Custom light theme accent color
 const LIGHT_THEME_ACCENT = "#FF0099";
-
-// Sample party data for demo purposes
-const sampleParties: Party[] = [
-  {
-    _id: "1",
-    title: "Summer Music Festival",
-    type: "music",
-    geo: { lat: 48.8566, lng: 2.3522 },
-    openingAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    description:
-      "The hottest music festival of the summer featuring top artists",
-    country: "France",
-    address: "Paris, France",
-    region: "Île-de-France",
-    creator: null,
-    applicants: [],
-    finishApproved: [],
-    status: "opening",
-    paidOption: "paid",
-    currency: "EUR",
-    fee: 50,
-    createdAt: new Date(),
-  },
-  {
-    _id: "2",
-    title: "Corporate Networking Event",
-    type: "corporate",
-    geo: { lat: 48.8606, lng: 2.3376 }, // Near Paris
-    openingAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
-    description: "Connect with industry professionals and expand your network",
-    country: "France",
-    address: "Paris, France",
-    region: "Île-de-France",
-    creator: null,
-    applicants: [],
-    finishApproved: [],
-    status: "opening",
-    paidOption: "paid",
-    currency: "EUR",
-    fee: 75,
-    createdAt: new Date(),
-  },
-  {
-    _id: "3",
-    title: "Emily's Birthday Bash",
-    type: "birthday",
-    geo: { lat: 48.8495, lng: 2.3589 }, // Near Paris
-    openingAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-    description:
-      "Join us for Emily's 30th birthday celebration with food and dancing",
-    country: "France",
-    address: "Paris, France",
-    region: "Île-de-France",
-    creator: null,
-    applicants: [],
-    finishApproved: [],
-    status: "opening",
-    paidOption: "free",
-    currency: "EUR",
-    createdAt: new Date(),
-  },
-  {
-    _id: "4",
-    title: "Williams-Johnson Wedding",
-    type: "wedding",
-    geo: { lat: 48.8738, lng: 2.3749 }, // Near Paris
-    openingAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-    description:
-      "Celebrate the wedding of Sarah and Michael at this beautiful venue",
-    country: "France",
-    address: "Paris, France",
-    region: "Île-de-France",
-    creator: null,
-    applicants: [],
-    finishApproved: [],
-    status: "opening",
-    paidOption: "free",
-    currency: "EUR",
-    createdAt: new Date(),
-  },
-  {
-    _id: "5",
-    title: "Champions Sports Tournament",
-    type: "sport",
-    geo: { lat: 48.8417, lng: 2.3197 }, // Near Paris
-    openingAt: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000), // 21 days from now
-    description:
-      "Watch top athletes compete in this exciting sports tournament",
-    country: "France",
-    address: "Paris, France",
-    region: "Île-de-France",
-    creator: null,
-    applicants: [],
-    finishApproved: [],
-    status: "opening",
-    paidOption: "paid",
-    currency: "EUR",
-    fee: 35,
-    createdAt: new Date(),
-  },
-];
 
 const HomeScreen = () => {
   const { isDarkMode } = useTheme();
@@ -162,18 +65,20 @@ const HomeScreen = () => {
   const [region, setRegion] = useState<RegionType | null>(null);
   const [partyType, setPartyType] = useState<DropdownOption | null>(null);
   const [zoom, setZoom] = useState<number>(2);
-  const [parties, setParties] = useState<Party[]>(sampleParties);
-  const [filteredParties, setFilteredParties] =
-    useState<Party[]>(sampleParties);
+  const [filteredParties, setFilteredParties] = useState<Party[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Party[]>([]);
 
-  // Your GEO location
-  const myLocation = {
-    lat: 48.8566, // Paris latitude
-    lng: 2.3522, // Paris longitude
-  };
+  // // Your GEO location
+  // const myLocation = {
+  //   lat: 48.8566, // Paris latitude
+  //   lng: 2.3522, // Paris longitude
+  // };
 
   // Map center state
-  const [mapCenter, setMapCenter] = useState<Geo | null>(myLocation);
+  const [mapCenter, setMapCenter] = useState<Geo | null>(null);
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const { parties } = useSelector((state: RootState) => state.party);
 
   // Particle animations for the background
   const particles = Array(6)
@@ -286,9 +191,65 @@ const HomeScreen = () => {
     });
   };
 
+  const isValidGeoPosition = (position: any) => {
+    if (!position) return false;
+    const { lat, lng } = position;
+    return (
+      typeof lat === "number" &&
+      typeof lng === "number" &&
+      !isNaN(lat) &&
+      !isNaN(lng) &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lng >= -180 &&
+      lng <= 180
+    );
+  };
+
+  // Then modify the filteredParties useEffect:
+  useEffect(() => {
+    // Filter out parties with invalid geo data
+    const validParties = parties.filter((party) =>
+      isValidGeoPosition(party.geo)
+    );
+
+    console.log(
+      `Found ${validParties.length} valid parties out of ${parties.length}`
+    );
+
+    setFilteredParties(validParties);
+
+    const sorted = [...validParties].sort((a, b) => {
+      const now = new Date().getTime();
+      const bTime = new Date(b.openingAt).getTime();
+      const aTime = new Date(a.openingAt).getTime();
+      return now - bTime - (now - aTime);
+    });
+
+    const hasImage = sorted.filter((p) => p.medias && p.medias?.length > 0);
+    setUpcomingEvents(hasImage);
+  }, [parties]);
+
+  // Update the user geo useEffect:
+  useEffect(() => {
+    if (user?.geo && isValidGeoPosition(user.geo)) {
+      console.log("Valid user location:", user.geo);
+      setMapCenter(user.geo);
+    } else {
+      console.log("Invalid user location:", user?.geo);
+      // Only set a default center if needed
+      if (!mapCenter) {
+        setMapCenter({
+          lat: 48.8566,
+          lng: 2.3522, // Paris as default
+        });
+      }
+    }
+  }, [user?.geo]);
+
   // Filter parties based on selections
   useEffect(() => {
-    let filtered = [...sampleParties];
+    let filtered = [...parties];
 
     // Filter by party type
     if (partyType && partyType.value !== "all") {
@@ -297,9 +258,14 @@ const HomeScreen = () => {
 
     // Filter by country (in a real app, you'd have country info in party data)
     if (country) {
-      // Just simulating country filtering here
-      // In a real app, filter based on actual country code
+      filtered = filtered.filter((p) => p.country === country.name);
     }
+
+    if (region) {
+      filtered = filtered.filter((p) => p.region === region.name);
+    }
+
+    setZoom(2);
 
     // Update the filtered parties
     setFilteredParties(filtered);
@@ -308,8 +274,6 @@ const HomeScreen = () => {
   // Update map center when country changes
   useEffect(() => {
     if (country) {
-      // In a real app, you'd get the coordinates for the selected country
-      // For this example, we'll just use Paris for France
       if (country.code === "FR") {
         setMapCenter({
           lat: 48.8566,
@@ -328,7 +292,7 @@ const HomeScreen = () => {
       }
     } else {
       // If no country is selected, center on user location
-      setMapCenter(myLocation);
+      setMapCenter(user?.geo ?? null);
       setZoom(12);
     }
   }, [country]);
@@ -343,8 +307,8 @@ const HomeScreen = () => {
     setCountry(null);
     setRegion(null);
     setPartyType(null);
-    setFilteredParties(sampleParties);
-    setMapCenter(myLocation);
+    setFilteredParties(parties);
+    setMapCenter(user?.geo ?? null);
     setZoom(12);
   };
 
@@ -391,14 +355,14 @@ const HomeScreen = () => {
   };
 
   // Format date for display
-  const formatDate = (date: Date) => {
+  const formatDate = (date: Date | string) => {
     const options: Intl.DateTimeFormatOptions = {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     };
-    return date.toLocaleDateString("en-US", options);
+    return new Date(date).toLocaleDateString("en-US", options);
   };
 
   // Render particles for background effect
@@ -616,6 +580,7 @@ const HomeScreen = () => {
                           <CountryPicker
                             label="Country"
                             placeholder="Select Country"
+                            value={country as any}
                             onSelect={(selectedCountry) => {
                               setCountry(selectedCountry);
                               setRegion(null);
@@ -700,6 +665,7 @@ const HomeScreen = () => {
                               : COLORS.LIGHT_BORDER,
                           },
                         ]}
+                        onPress={() => router.replace("/events")}
                       >
                         <Text
                           style={[
@@ -722,7 +688,7 @@ const HomeScreen = () => {
                         parties={filteredParties}
                         center={mapCenter}
                         zoom={zoom}
-                        myGeo={myLocation}
+                        myGeo={user?.geo ?? null}
                         setZoom={setZoom}
                         onClick={handlePartyClick}
                         selectedCountry={country}
@@ -776,7 +742,7 @@ const HomeScreen = () => {
                     </View>
 
                     {/* Redesigned Event Cards (preview) */}
-                    {filteredParties.slice(0, 3).map((party) => (
+                    {upcomingEvents.slice(0, 3).map((party) => (
                       <TouchableOpacity
                         key={party._id}
                         style={[
@@ -795,7 +761,11 @@ const HomeScreen = () => {
                         {/* Event Image */}
                         <View style={styles.eventImageContainer}>
                           <Image
-                            source={PartyImage}
+                            source={
+                              party.medias
+                                ? { uri: party.medias[0] }
+                                : PartyImage
+                            }
                             style={styles.eventImage}
                             resizeMode="cover"
                           />
@@ -884,31 +854,6 @@ const HomeScreen = () => {
                               </Text>
                             </View>
 
-                            <View style={styles.eventCardDetail}>
-                              <FontAwesome5
-                                name="map-marker-alt"
-                                size={14}
-                                color={
-                                  isDarkMode
-                                    ? COLORS.DARK_TEXT_SECONDARY
-                                    : COLORS.LIGHT_TEXT_SECONDARY
-                                }
-                              />
-                              <Text
-                                style={[
-                                  styles.eventCardDetailText,
-                                  {
-                                    color: isDarkMode
-                                      ? COLORS.DARK_TEXT_SECONDARY
-                                      : COLORS.LIGHT_TEXT_SECONDARY,
-                                  },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {party.address}
-                              </Text>
-                            </View>
-
                             <View style={styles.paidStatusContainer}>
                               <FontAwesome5
                                 name={
@@ -936,7 +881,10 @@ const HomeScreen = () => {
                               >
                                 {party.paidOption === "free"
                                   ? "Free Event"
-                                  : `${party.fee} ${party.currency}`}
+                                  : formatPrice(
+                                      party.fee ?? 0,
+                                      party.currency.toUpperCase() ?? "USD"
+                                    )}
                               </Text>
                             </View>
                           </View>
@@ -964,7 +912,7 @@ const HomeScreen = () => {
                           />
                         }
                         iconPosition="right"
-                        onPress={() => {}}
+                        onPress={() => router.replace("/events")}
                         small={true}
                       />
                     </Animated.View>
@@ -1158,7 +1106,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.MEDIUM,
   },
   mapContainer: {
-    height: 440,
+    height: 400,
     width: "100%",
     borderRadius: BORDER_RADIUS.L,
     overflow: "hidden",

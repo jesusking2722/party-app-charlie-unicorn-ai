@@ -25,7 +25,12 @@ const Start = () => {
   const authInitialized = useRef(false);
 
   // Get the initialization function and loading state
-  const { fetchAuthUser, fetchAllPartiesInfo, initLoading } = useInit();
+  const {
+    fetchAuthUser,
+    fetchAllPartiesInfo,
+    fetchAllTicketsInfo,
+    initLoading,
+  } = useInit();
 
   // Call fetchAuthUser only once when the component mounts
   useEffect(() => {
@@ -35,6 +40,7 @@ const Start = () => {
         try {
           await fetchAuthUser();
           await fetchAllPartiesInfo();
+          await fetchAllTicketsInfo();
           setIsAuthComplete(true);
         } catch (error) {
           console.error("Auth initialization failed:", error);

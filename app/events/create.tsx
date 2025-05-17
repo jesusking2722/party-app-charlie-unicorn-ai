@@ -2,11 +2,10 @@ import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import * as VideoThumbnails from "expo-video-thumbnails";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Dimensions,
@@ -34,15 +33,31 @@ import {
 import {
   Button,
   CountryPicker,
+  DatePicker,
   Dropdown,
   Input,
   LocationPicker,
   RegionPicker,
   Textarea,
 } from "@/components/common";
+import {
+  CURRENCY_OPTIONS,
+  EUR_FEE_OPTIONS,
+  EVENT_PAYMENT_OPTIONS,
+  EVENT_TYPES,
+  PLN_FEE_OPTIONS,
+  USD_FEE_OPTIONS,
+} from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
+import { uploadMultipleToImgBB } from "@/lib/services/imgbb.uploads.servce";
+import socket from "@/lib/socketInstance";
+import { addNewPartyAsync } from "@/redux/actions/party.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { Party } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
+import { router } from "expo-router";
 import LottieView from "lottie-react-native";
+import { useSelector } from "react-redux";
 
 // Get screen dimensions
 const { width, height } = Dimensions.get("window");
@@ -59,47 +74,11 @@ const PartyLocationImage = require("@/assets/images/party-location.png");
 const PartyMediaImage = require("@/assets/images/party-image.png");
 const PartyCongratulationsImage = require("@/assets/images/congratulations.png");
 
-// Media type
-type MediaItem = {
+// Media type - simplified to only support images
+export type MediaItem = {
   uri: string;
-  type: "image" | "video";
-  thumbnail?: string; // For videos
   id: string;
 };
-
-// Party type options
-const partyTypeOptions = [
-  { label: "Music Festival", value: "music" },
-  { label: "Nightclub Event", value: "nightclub" },
-  { label: "Private Party", value: "private" },
-  { label: "Beach Party", value: "beach" },
-  { label: "Corporate Event", value: "corporate" },
-  { label: "Birthday Party", value: "birthday" },
-  { label: "Wedding", value: "wedding" },
-  { label: "Sports Event", value: "sport" },
-];
-
-// Payment options
-const paymentOptions = [
-  { label: "Free Entry", value: "free" },
-  { label: "Paid Entry", value: "paid" },
-];
-
-// Fee options
-const feeOptions = [
-  { label: "$5", value: "5" },
-  { label: "$10", value: "10" },
-  { label: "$20", value: "20" },
-  { label: "$50", value: "50" },
-  { label: "$100", value: "100" },
-];
-
-// Currency options
-const currencyOptions = [
-  { label: "USD", value: "USD" },
-  { label: "EUR", value: "EUR" },
-  { label: "PLN", value: "PLN" },
-];
 
 const CreatePartyScreen = () => {
   const { isDarkMode } = useTheme();
@@ -127,18 +106,26 @@ const CreatePartyScreen = () => {
   const [addressData, setAddressData] = useState<any>(null);
   const [paymentType, setPaymentType] = useState<any>(null);
   const [fee, setFee] = useState<any>(null);
-  const [currency, setCurrency] = useState<any>(null);
+  const [currency, setCurrency] = useState<any>("usd");
 
   // Media form state
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  // Opening date
+  const [openingDate, setOpeningDate] = useState<Date | null>(null);
+
   // Form validation state
   const [errors, setErrors] = useState<Record<string, string> | any>({});
   const [loading, setLoading] = useState<boolean>(false);
 
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+
   // Scroll view reference for programmatic scrolling
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
 
   // Particle animations for the background (matching other screens)
   const particles = Array(6)
@@ -204,7 +191,7 @@ const CreatePartyScreen = () => {
       if (mediaLibraryStatus !== "granted") {
         Alert.alert(
           "Permission Required",
-          "Please allow access to your media library to upload images and videos."
+          "Please allow access to your media library to upload images."
         );
       }
 
@@ -213,7 +200,7 @@ const CreatePartyScreen = () => {
       if (cameraStatus !== "granted") {
         Alert.alert(
           "Permission Required",
-          "Please allow access to your camera to take photos and videos."
+          "Please allow access to your camera to take photos."
         );
       }
     })();
@@ -278,7 +265,7 @@ const CreatePartyScreen = () => {
   const pickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Images only
         allowsEditing: true,
         quality: 0.8,
         allowsMultipleSelection: true,
@@ -291,63 +278,28 @@ const CreatePartyScreen = () => {
         const newMediaItems: MediaItem[] = [];
 
         for (const asset of result.assets) {
-          const fileExtension = asset.uri.split(".").pop()?.toLowerCase();
-          const isVideo =
-            fileExtension === "mp4" ||
-            fileExtension === "mov" ||
-            fileExtension === "3gp";
-
-          if (isVideo) {
-            try {
-              // Generate thumbnail for video
-              const { uri } = await VideoThumbnails.getThumbnailAsync(
-                asset.uri,
-                {
-                  time: 1000,
-                  quality: 0.8,
-                }
-              );
-
-              newMediaItems.push({
-                uri: asset.uri,
-                type: "video",
-                thumbnail: uri,
-                id: Date.now().toString() + Math.random().toString(),
-              });
-            } catch (e) {
-              console.error("Error generating video thumbnail:", e);
-              // Still add the video even without thumbnail
-              newMediaItems.push({
-                uri: asset.uri,
-                type: "video",
-                id: Date.now().toString() + Math.random().toString(),
-              });
-            }
-          } else {
-            // It's an image
-            newMediaItems.push({
-              uri: asset.uri,
-              type: "image",
-              id: Date.now().toString() + Math.random().toString(),
-            });
-          }
+          // Add the image
+          newMediaItems.push({
+            uri: asset.uri,
+            id: Date.now().toString() + Math.random().toString(),
+          });
         }
 
         setMediaItems((prevItems) => [...prevItems, ...newMediaItems]);
         setIsUploading(false);
       }
     } catch (error) {
-      console.error("Error picking media:", error);
+      console.error("Error picking images:", error);
       setIsUploading(false);
-      Alert.alert("Error", "Failed to select media. Please try again.");
+      Alert.alert("Error", "Failed to select images. Please try again.");
     }
   };
 
-  // Function to capture media with camera
+  // Function to capture image with camera
   const takePhoto = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Images only
         allowsEditing: true,
         quality: 0.8,
       });
@@ -356,59 +308,22 @@ const CreatePartyScreen = () => {
         setIsUploading(true);
 
         const asset = result.assets[0];
-        const fileExtension = asset.uri.split(".").pop()?.toLowerCase();
-        const isVideo =
-          fileExtension === "mp4" ||
-          fileExtension === "mov" ||
-          fileExtension === "3gp";
 
-        if (isVideo) {
-          try {
-            // Generate thumbnail for video
-            const { uri } = await VideoThumbnails.getThumbnailAsync(asset.uri, {
-              time: 1000,
-              quality: 0.8,
-            });
-
-            setMediaItems((prevItems) => [
-              ...prevItems,
-              {
-                uri: asset.uri,
-                type: "video",
-                thumbnail: uri,
-                id: Date.now().toString() + Math.random().toString(),
-              },
-            ]);
-          } catch (e) {
-            console.error("Error generating video thumbnail:", e);
-            // Still add the video even without thumbnail
-            setMediaItems((prevItems) => [
-              ...prevItems,
-              {
-                uri: asset.uri,
-                type: "video",
-                id: Date.now().toString() + Math.random().toString(),
-              },
-            ]);
-          }
-        } else {
-          // It's an image
-          setMediaItems((prevItems) => [
-            ...prevItems,
-            {
-              uri: asset.uri,
-              type: "image",
-              id: Date.now().toString() + Math.random().toString(),
-            },
-          ]);
-        }
+        // Add the image
+        setMediaItems((prevItems) => [
+          ...prevItems,
+          {
+            uri: asset.uri,
+            id: Date.now().toString() + Math.random().toString(),
+          },
+        ]);
 
         setIsUploading(false);
       }
     } catch (error) {
-      console.error("Error taking photo/video:", error);
+      console.error("Error taking photo:", error);
       setIsUploading(false);
-      Alert.alert("Error", "Failed to capture media. Please try again.");
+      Alert.alert("Error", "Failed to capture image. Please try again.");
     }
   };
 
@@ -460,8 +375,11 @@ const CreatePartyScreen = () => {
       // Media is optional, but we could add validation if needed
       // For example, requiring at least one image:
       // if (mediaItems.length === 0) {
-      //   newErrors.media = "Please add at least one photo or video";
+      //   newErrors.media = "Please add at least one image";
       // }
+      if (!openingDate) {
+        newErrors.openingDate = "Please add your opening date";
+      }
     }
 
     setErrors(newErrors);
@@ -469,7 +387,7 @@ const CreatePartyScreen = () => {
   };
 
   // Handle next step
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     setLoading(true);
 
     // Button press animation
@@ -487,20 +405,37 @@ const CreatePartyScreen = () => {
       }),
     ]).start();
 
-    setTimeout(() => {
+    try {
       switch (currentStep) {
         case "details":
-          // if (validateForm("details")) {
-          changeStep("location");
-          // }
+          if (validateForm("details")) {
+            changeStep("location");
+          }
           break;
         case "location":
-          // if (validateForm("location")) {
-          changeStep("media");
-          // }
+          if (validateForm("location")) {
+            changeStep("media");
+          }
           break;
         case "media":
           if (validateForm("media")) {
+            // If we have media items, upload them first
+            if (mediaItems.length > 0) {
+              setLoading(false);
+              setIsUploading(true);
+              try {
+                // Upload images before proceeding
+                const muls = await uploadMultipleToImgBB(mediaItems);
+                setMediaUrls(muls);
+                setIsUploading(false);
+              } catch (error) {
+                console.error("Failed to upload images:", error);
+                setIsUploading(false);
+                setLoading(false);
+                return;
+              }
+            }
+
             changeStep("congratulations");
             // Play confetti animation if we're moving to congratulations
             setTimeout(() => {
@@ -518,8 +453,12 @@ const CreatePartyScreen = () => {
           }
           break;
       }
+    } catch (error) {
+      console.error("Error in handleNextStep:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   // Handle back step
@@ -565,9 +504,18 @@ const CreatePartyScreen = () => {
     });
   };
 
+  const createNewEvent = (partyData: Party, userId: string): Promise<Party> => {
+    return new Promise((resolve) => {
+      socket.once("party:created", (newParty: Party) => {
+        resolve(newParty);
+      });
+      socket.emit("party:creating", partyData, userId);
+    });
+  };
+
   // Handle completion
-  const handleComplete = () => {
-    setLoading(true);
+  const handleComplete = async () => {
+    if (!user?._id || !region?.name || !country?.name || !openingDate) return;
 
     // Button press animation
     Animated.sequence([
@@ -584,11 +532,39 @@ const CreatePartyScreen = () => {
       }),
     ]).start();
 
-    // Simulate API call
-    setTimeout(() => {
+    setLoading(true);
+
+    try {
+      const newEvent: Party = {
+        title: partyTitle,
+        description: partyDescription,
+        type: partyType.value,
+        address,
+        country: country.name,
+        paidOption: paymentType.value,
+        creator: user,
+        region: region.name,
+        geo: addressData.geometry.location,
+        fee: fee.value,
+        currency: currency.value,
+        status: "opening",
+        medias: mediaUrls,
+        applicants: [],
+        finishApproved: [],
+        openingAt: openingDate,
+        createdAt: new Date(),
+      };
+
+      const createdEvent = await createNewEvent(newEvent, user._id);
+
+      await dispatch(addNewPartyAsync(createdEvent)).unwrap();
+
+      router.replace("/events");
+    } catch (error) {
+      console.error("handle create event error: ", error);
+    } finally {
       setLoading(false);
-      router.push("/main/events");
-    }, 800);
+    }
   };
 
   // Helper function to get accent color based on theme
@@ -622,14 +598,103 @@ const CreatePartyScreen = () => {
     ));
   };
 
+  // Render media buttons or loading indicator
+  const renderMediaButtons = () => {
+    if (isUploading) {
+      return (
+        <View style={styles.mediaLoadingContainer}>
+          <View style={styles.mediaLoadingIndicator}>
+            <LinearGradient
+              colors={
+                isDarkMode
+                  ? ["rgba(40, 45, 55, 0.8)", "rgba(30, 35, 45, 0.8)"]
+                  : ["rgba(255, 255, 255, 0.8)", "rgba(245, 245, 245, 0.8)"]
+              }
+              style={styles.mediaLoadingGradient}
+            >
+              <ActivityIndicator
+                size="small"
+                color={isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT}
+              />
+              <Text
+                style={[
+                  styles.mediaLoadingText,
+                  {
+                    color: isDarkMode
+                      ? COLORS.DARK_TEXT_SECONDARY
+                      : COLORS.LIGHT_TEXT_SECONDARY,
+                  },
+                ]}
+              >
+                Processing images...
+              </Text>
+            </LinearGradient>
+          </View>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.mediaButtonsContainer}>
+        {/* Upload from gallery button */}
+        <TouchableOpacity
+          style={styles.mediaButton}
+          onPress={pickImage}
+          disabled={isUploading}
+        >
+          <LinearGradient
+            colors={
+              isDarkMode
+                ? ["#4A00E0", "#8E2DE2"] // Deep purple to violet gradient for dark mode
+                : ["#FF6CAB", "#7366FF"] // Pink to blue gradient for light mode
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.mediaButtonGradient}
+          >
+            <View style={styles.mediaButtonContent}>
+              <View style={styles.mediaButtonIconContainer}>
+                <FontAwesome5 name="images" size={24} color="#FFFFFF" />
+              </View>
+              <Text style={styles.mediaButtonText}>Upload Photos</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Take photo button */}
+        <TouchableOpacity
+          style={styles.mediaButton}
+          onPress={takePhoto}
+          disabled={isUploading}
+        >
+          <LinearGradient
+            colors={
+              isDarkMode
+                ? ["#11998E", "#38EF7D"] // Deep teal to bright green for dark mode
+                : ["#FF5F6D", "#FFC371"] // Red-orange to yellow gradient for light mode
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.mediaButtonGradient}
+          >
+            <View style={styles.mediaButtonContent}>
+              <View style={styles.mediaButtonIconContainer}>
+                <FontAwesome5 name="camera" size={24} color="#FFFFFF" />
+              </View>
+              <Text style={styles.mediaButtonText}>Take Photo</Text>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   // Render a media item
   const renderMediaItem = (item: MediaItem) => {
     return (
       <View key={item.id} style={styles.mediaItemContainer}>
         <Image
-          source={{
-            uri: item.type === "video" ? item.thumbnail || item.uri : item.uri,
-          }}
+          source={{ uri: item.uri }}
           style={styles.mediaItemImage}
           resizeMode="cover"
         />
@@ -648,22 +713,6 @@ const CreatePartyScreen = () => {
             <FontAwesome5 name="times" size={10} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>
-
-        {/* Video indicator */}
-        {item.type === "video" && (
-          <View style={styles.videoIndicator}>
-            <LinearGradient
-              colors={
-                isDarkMode
-                  ? ["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]
-                  : ["rgba(0,0,0,0.7)", "rgba(0,0,0,0.5)"]
-              }
-              style={styles.videoIndicatorGradient}
-            >
-              <FontAwesome5 name="play" size={12} color="#FFFFFF" />
-            </LinearGradient>
-          </View>
-        )}
       </View>
     );
   };
@@ -746,7 +795,6 @@ const CreatePartyScreen = () => {
 
             {/* Add floating particles for fun effect */}
             {renderParticles()}
-
           </View>
 
           {/* Bottom Half with Animated Background */}
@@ -838,9 +886,9 @@ const CreatePartyScreen = () => {
                         />
 
                         <Dropdown
-                          label="Party Type"
-                          placeholder="Select party type"
-                          options={partyTypeOptions}
+                          label="Event Type"
+                          placeholder="Select event type"
+                          options={EVENT_TYPES}
                           value={partyType}
                           onSelect={(value) => {
                             setPartyType(value);
@@ -1015,8 +1063,8 @@ const CreatePartyScreen = () => {
                           value={address}
                           onSelect={(locationData) => {
                             setAddress(
-                              locationData.formattedAddress ||
-                                locationData.description
+                              locationData.description ||
+                                locationData.formattedAddress
                             );
                             setAddressData(locationData);
                             if (errors.address)
@@ -1030,7 +1078,7 @@ const CreatePartyScreen = () => {
                         <Dropdown
                           label="Entry Type"
                           placeholder="Select entry type"
-                          options={paymentOptions}
+                          options={EVENT_PAYMENT_OPTIONS}
                           value={paymentType}
                           onSelect={(value) => {
                             setPaymentType(value);
@@ -1046,26 +1094,11 @@ const CreatePartyScreen = () => {
 
                         {paymentType?.value === "paid" && (
                           <View style={styles.paymentRow}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
-                              <Dropdown
-                                label="Entry Fee"
-                                placeholder="Select amount"
-                                options={feeOptions}
-                                value={fee}
-                                onSelect={(value) => {
-                                  setFee(value);
-                                  if (errors.fee)
-                                    setErrors({ ...errors, fee: undefined });
-                                }}
-                                error={errors.fee}
-                              />
-                            </View>
-
                             <View style={{ flex: 1, marginLeft: 8 }}>
                               <Dropdown
                                 label="Currency"
                                 placeholder="Select currency"
-                                options={currencyOptions}
+                                options={CURRENCY_OPTIONS}
                                 value={currency}
                                 onSelect={(value) => {
                                   setCurrency(value);
@@ -1076,6 +1109,27 @@ const CreatePartyScreen = () => {
                                     });
                                 }}
                                 error={errors.currency}
+                              />
+                            </View>
+
+                            <View style={{ flex: 1, marginRight: 8 }}>
+                              <Dropdown
+                                label="Entry Fee"
+                                placeholder="Select amount"
+                                options={
+                                  currency.value === "usd"
+                                    ? USD_FEE_OPTIONS
+                                    : currency.value === "eur"
+                                    ? EUR_FEE_OPTIONS
+                                    : PLN_FEE_OPTIONS
+                                }
+                                value={fee}
+                                onSelect={(value) => {
+                                  setFee(value);
+                                  if (errors.fee)
+                                    setErrors({ ...errors, fee: undefined });
+                                }}
+                                error={errors.fee}
                               />
                             </View>
                           </View>
@@ -1203,7 +1257,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Add Media
+                          Add Photos
                         </Text>
                         <Text
                           style={[
@@ -1215,76 +1269,15 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Upload photos and videos of your event
+                          Upload photos of your event
                         </Text>
 
                         {/* Media grid */}
                         <View style={styles.mediaGrid}>
                           {mediaItems.map((item) => renderMediaItem(item))}
 
-                          <View style={styles.mediaButtonsContainer}>
-                            {/* Upload from gallery button */}
-                            <TouchableOpacity
-                              style={styles.mediaButton}
-                              onPress={pickImage}
-                              disabled={isUploading}
-                            >
-                              <LinearGradient
-                                colors={
-                                  isDarkMode
-                                    ? ["#4A00E0", "#8E2DE2"] // Deep purple to violet gradient for dark mode
-                                    : ["#FF6CAB", "#7366FF"] // Pink to blue gradient for light mode
-                                }
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.mediaButtonGradient}
-                              >
-                                <View style={styles.mediaButtonContent}>
-                                  <View style={styles.mediaButtonIconContainer}>
-                                    <FontAwesome5
-                                      name="images"
-                                      size={24}
-                                      color="#FFFFFF"
-                                    />
-                                  </View>
-                                  <Text style={styles.mediaButtonText}>
-                                    Upload Photos
-                                  </Text>
-                                </View>
-                              </LinearGradient>
-                            </TouchableOpacity>
-
-                            {/* Take photo button */}
-                            <TouchableOpacity
-                              style={styles.mediaButton}
-                              onPress={takePhoto}
-                              disabled={isUploading}
-                            >
-                              <LinearGradient
-                                colors={
-                                  isDarkMode
-                                    ? ["#11998E", "#38EF7D"] // Deep teal to bright green for dark mode
-                                    : ["#FF5F6D", "#FFC371"] // Red-orange to yellow gradient for light mode
-                                }
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.mediaButtonGradient}
-                              >
-                                <View style={styles.mediaButtonContent}>
-                                  <View style={styles.mediaButtonIconContainer}>
-                                    <FontAwesome5
-                                      name="camera"
-                                      size={24}
-                                      color="#FFFFFF"
-                                    />
-                                  </View>
-                                  <Text style={styles.mediaButtonText}>
-                                    Take Photo
-                                  </Text>
-                                </View>
-                              </LinearGradient>
-                            </TouchableOpacity>
-                          </View>
+                          {/* Render media buttons or loading indicator */}
+                          {renderMediaButtons()}
                         </View>
 
                         {/* Help text */}
@@ -1298,8 +1291,8 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          You can upload multiple photos and videos. Tap an item
-                          to remove it.
+                          You can upload multiple photos. Tap an item to remove
+                          it.
                         </Text>
 
                         {/* Progress Indicator */}
@@ -1327,6 +1320,16 @@ const CreatePartyScreen = () => {
                             >
                               {getStepText()}
                             </Text>
+                          </View>
+
+                          <View style={{ width: "100%" }}>
+                            <DatePicker
+                              label="Opening date"
+                              value={openingDate}
+                              error={errors.openingDate}
+                              onSelect={setOpeningDate}
+                              minDate={new Date()}
+                            />
                           </View>
 
                           <View
@@ -1555,6 +1558,7 @@ const CreatePartyScreen = () => {
                             width: "100%",
                             transform: [{ scale: buttonScale }],
                             marginTop: SPACING.M,
+                            zIndex: 999,
                           }}
                         >
                           <Button
@@ -1607,6 +1611,30 @@ const styles = StyleSheet.create({
   partyImage: {
     width: "100%",
     height: "100%",
+  },
+  mediaLoadingContainer: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    margin: SPACING.S,
+  },
+  mediaLoadingIndicator: {
+    width: width * 0.7,
+    borderRadius: BORDER_RADIUS.L,
+    overflow: "hidden",
+    ...SHADOWS.MEDIUM,
+  },
+  mediaLoadingGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: SPACING.M,
+    paddingHorizontal: SPACING.L,
+  },
+  mediaLoadingText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.S,
+    marginLeft: SPACING.S,
   },
   particle: {
     position: "absolute",
@@ -1770,22 +1798,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   mediaDeleteButtonGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  videoIndicator: {
-    position: "absolute",
-    bottom: 4,
-    right: 4,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    overflow: "hidden",
-    zIndex: 10,
-  },
-  videoIndicatorGradient: {
     width: "100%",
     height: "100%",
     justifyContent: "center",

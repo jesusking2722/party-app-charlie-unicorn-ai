@@ -1,6 +1,9 @@
-<application>
-  ...
-  <meta-data
-    android:name="com.google.android.gms.wallet.api.enabled"
-    android:value="true" />
-</application>
+<manifest ...>
+  <uses-permission android:name="android.permission.INTERNET" />
+  <application ...>
+    <meta-data
+      android:name="com.google.android.gms.wallet.api.enabled"
+      android:value="true" />
+    ...
+  </application>
+</manifest>

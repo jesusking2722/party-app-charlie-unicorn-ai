@@ -17,9 +17,6 @@ import {
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Custom light theme accent color
-const LIGHT_THEME_ACCENT = "#FF0099";
-
 interface DrawerProps {
   visible: boolean;
   onClose: () => void;

@@ -1,6 +1,5 @@
-import { User } from "@/types/data";
+import { Notification, User } from "@/types/data";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { createTrackedPromise } from "../middlewares/promise.tracking.middleware";
 
 // Create thunks with proper handling of promises
 export const setAuthAsync = createAsyncThunk(
@@ -24,24 +23,9 @@ export const clearAuthAsync = createAsyncThunk("auth/clearAuth", async () => {
   return null;
 });
 
-// Helper functions to create tracked promises for these actions
-export const trackSetAuth = (
-  payload: { isAuthenticated: boolean; user: User | null },
-  dispatch: any
-): Promise<any> => {
-  const action = createTrackedPromise(setAuthAsync, payload);
-  dispatch(action);
-  return Promise.resolve(); // This will be resolved by the middleware
-};
-
-export const trackSetAuthUser = (user: User, dispatch: any): Promise<any> => {
-  const action = createTrackedPromise(setAuthUserAsync, user);
-  dispatch(action);
-  return Promise.resolve(); // This will be resolved by the middleware
-};
-
-export const trackClearAuth = (dispatch: any): Promise<any> => {
-  const action = createTrackedPromise(clearAuthAsync);
-  dispatch(action);
-  return Promise.resolve(); // This will be resolved by the middleware
-};
+export const addNewNotificationAsync = createAsyncThunk(
+  "auth/addNewNotification",
+  async (notification: Notification) => {
+    return notification;
+  }
+);

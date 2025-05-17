@@ -38,7 +38,7 @@ const NAV_ITEMS = [
     path: "/tickets",
   },
   {
-    name: "Subscription",
+    name: "Shop",
     icon: "tag",
     path: "/subscription",
   },
@@ -277,7 +277,6 @@ const styles = StyleSheet.create({
     height: 16,
     zIndex: 20,
     borderRadius: 8,
-    overflow: "hidden",
   },
   badge: {
     width: "100%",

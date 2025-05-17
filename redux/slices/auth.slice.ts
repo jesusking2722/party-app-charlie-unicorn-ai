@@ -1,6 +1,7 @@
 import { User } from "@/types/data";
 import { createSlice } from "@reduxjs/toolkit";
 import {
+  addNewNotificationAsync,
   clearAuthAsync,
   setAuthAsync,
   setAuthUserAsync,
@@ -41,6 +42,10 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.user = null;
       state.lastUpdated = Date.now();
+    });
+
+    builder.addCase(addNewNotificationAsync.fulfilled, (state, action) => {
+      state.user?.notifications?.unshift(action.payload);
     });
   },
 });

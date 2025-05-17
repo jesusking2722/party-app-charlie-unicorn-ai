@@ -20,6 +20,7 @@ import {
   SPACING,
 } from "@/app/theme";
 import { Button } from "@/components/common";
+import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const { width } = Dimensions.get("window");
@@ -413,7 +414,7 @@ const Ticket: React.FC<TicketProps> = ({
             {/* Ticket Image */}
             <View style={styles.imageContainer}>
               <Image
-                source={{ uri: image }}
+                source={{ uri: BACKEND_BASE_URL + image }}
                 style={styles.ticketImage}
                 resizeMode="cover"
               />

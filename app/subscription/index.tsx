@@ -904,7 +904,7 @@ const SubscriptionScreen = () => {
                           ) : undefined
                         }
                         iconPosition="right"
-                        disabled={isSubscribeDisabled()}
+                        // disabled={isSubscribeDisabled()}
                       />
                     </Animated.View>
 

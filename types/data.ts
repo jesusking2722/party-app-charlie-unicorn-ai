@@ -95,7 +95,7 @@ export type PartyStatus =
 
 export interface Party {
   _id?: string;
-  type: PartyType | string;
+  type: PartyType;
   title: string;
   description: string;
   openingAt: Date;
@@ -116,7 +116,7 @@ export interface Party {
   stickerCounts?: number;
   stickerConfirmed?: boolean;
   createdAt: Date;
-  images?: string[];
+  medias?: string[];
 }
 
 export interface Kyc {

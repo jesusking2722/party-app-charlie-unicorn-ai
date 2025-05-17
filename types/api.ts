@@ -1,4 +1,4 @@
-import { Party, User } from "./data";
+import { Party, Ticket, User } from "./data";
 
 export interface ApiResponse<T> {
   ok: boolean;
@@ -28,4 +28,8 @@ export interface StripeClientSecretResponse {
 
 export interface PartyAllResponse {
   parties: Party[];
+}
+
+export interface TicketResponse {
+  stickers: Ticket[];
 }

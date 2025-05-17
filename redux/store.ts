@@ -3,11 +3,13 @@ import { TypedUseSelectorHook, useDispatch, useSelector } from "react-redux";
 import { promiseTrackingMiddleware } from "./middlewares/promise.tracking.middleware";
 import authReducer from "./slices/auth.slice";
 import partyReducer from "./slices/party.slice";
+import ticketReducer from "./slices/ticket.slice";
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     party: partyReducer,
+    ticket: ticketReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

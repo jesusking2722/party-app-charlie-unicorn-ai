@@ -40,64 +40,6 @@ import { useSelector } from "react-redux";
 // Get screen dimensions
 const { width, height } = Dimensions.get("window");
 
-// Mock event data
-const mockEvent = {
-  id: "event-1",
-  title: "Summer Music Festival Extravaganza",
-  description:
-    "Join us for an amazing three-day music festival featuring top artists from around the world. Experience incredible performances, delicious food, and unforgettable memories in a beautiful outdoor setting. Don't miss this opportunity to connect with music lovers and have the time of your life!",
-  eventType: "music",
-  status: "active",
-  paymentType: "paid",
-  price: "75",
-  currency: "USD",
-  createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5),
-  startDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 4),
-  location: {
-    country: {
-      name: "United States",
-      code: "US",
-      flag: "🇺🇸",
-    },
-    region: {
-      name: "California",
-      code: "CA",
-    },
-    address: "123 Festival Avenue, Los Angeles, CA",
-  },
-  creator: {
-    id: "user-1",
-    name: "Alex Johnson",
-    avatar: require("@/assets/images/bnb.png"),
-    rating: 4.8,
-    totalRatings: 127,
-    isVerified: true,
-    isPremium: true,
-    location: {
-      country: {
-        name: "United States",
-        code: "US",
-        flag: "🇺🇸",
-      },
-      region: {
-        name: "California",
-        code: "CA",
-      },
-    },
-  },
-  attendees: 358,
-  maxCapacity: 500,
-  images: [
-    require("@/assets/images/bnb.png"),
-    require("@/assets/images/bnb.png"),
-    require("@/assets/images/bnb.png"),
-  ],
-  hasVideos: true,
-  videoCount: 3,
-
-  activeStep: 2,
-};
-
 // Format days left
 const formatDaysLeft = (date: Date | string) => {
   const now = new Date();
@@ -367,7 +309,7 @@ const EventDetailScreen = () => {
       >
         {/* Slider Section (Top 40%) */}
         <View style={styles.sliderContainer}>
-          <Slider />
+          <Slider images={event?.medias} />
 
           {/* Add floating particles for effect */}
           {renderParticles()}
@@ -418,7 +360,7 @@ const EventDetailScreen = () => {
                     {event?.title}
                   </Text>
 
-                  {!alreadyApplied && (
+                  {!alreadyApplied && event?.creator?._id !== user?._id && (
                     <View style={styles.actionButtons}>
                       <TouchableOpacity
                         style={styles.actionButton}
@@ -447,10 +389,48 @@ const EventDetailScreen = () => {
 
                 {/* Compact Creator Profile */}
                 <TouchableOpacity style={styles.creatorCompact}>
-                  <Image
-                    source={{ uri: BACKEND_BASE_URL + event?.creator?.avatar }}
-                    style={styles.creatorAvatar}
-                  />
+                  {event?.creator?.avatar ? (
+                    <Image
+                      source={{
+                        uri: BACKEND_BASE_URL + event?.creator?.avatar,
+                      }}
+                      style={styles.creatorAvatar}
+                    />
+                  ) : (
+                    <View>
+                      <LinearGradient
+                        colors={
+                          isDarkMode
+                            ? GRADIENTS.PRIMARY
+                            : ["#FF0099", "#FF6D00"]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[
+                          styles.creatorAvatar,
+                          {
+                            width: 50,
+                            height: 50,
+                            borderRadius: BORDER_RADIUS.CIRCLE,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: COLORS.WHITE,
+                            fontFamily: FONTS.SEMIBOLD,
+                            fontSize: FONT_SIZES.M,
+                          }}
+                        >
+                          {event?.creator?.name
+                            ? event.creator.name.slice(0, 2).toUpperCase()
+                            : ""}
+                        </Text>
+                      </LinearGradient>
+                    </View>
+                  )}
                   <View style={styles.creatorInfo}>
                     <View style={styles.creatorNameRow}>
                       <Text
@@ -657,12 +637,48 @@ const EventDetailScreen = () => {
                   ]}
                 >
                   <View style={styles.creatorProfileHeader}>
-                    <Image
-                      source={{
-                        uri: BACKEND_BASE_URL + event?.creator?.avatar,
-                      }}
-                      style={styles.creatorProfileAvatar}
-                    />
+                    {event?.creator?.avatar ? (
+                      <Image
+                        source={{
+                          uri: BACKEND_BASE_URL + event?.creator?.avatar,
+                        }}
+                        style={styles.creatorAvatar}
+                      />
+                    ) : (
+                      <View>
+                        <LinearGradient
+                          colors={
+                            isDarkMode
+                              ? GRADIENTS.PRIMARY
+                              : ["#FF0099", "#FF6D00"]
+                          }
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[
+                            styles.creatorAvatar,
+                            {
+                              width: 50,
+                              height: 50,
+                              borderRadius: BORDER_RADIUS.CIRCLE,
+                              justifyContent: "center",
+                              alignItems: "center",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={{
+                              color: COLORS.WHITE,
+                              fontFamily: FONTS.SEMIBOLD,
+                              fontSize: FONT_SIZES.M,
+                            }}
+                          >
+                            {event?.creator?.name
+                              ? event.creator.name.slice(0, 2).toUpperCase()
+                              : ""}
+                          </Text>
+                        </LinearGradient>
+                      </View>
+                    )}
                     <View style={styles.creatorProfileInfo}>
                       <View style={styles.creatorProfileNameRow}>
                         <Text
@@ -760,7 +776,7 @@ const EventDetailScreen = () => {
               </View>
 
               {/* Apply Section */}
-              {!alreadyApplied && (
+              {!alreadyApplied && event?.creator?._id !== user?._id && (
                 <View style={styles.applyContainer} id="apply-section">
                   <Text
                     style={[
@@ -812,6 +828,7 @@ const EventDetailScreen = () => {
               )}
 
               {/* Applications Section with Tabs */}
+
               <View style={styles.applicationsContainer}>
                 <Text
                   style={[
@@ -1018,7 +1035,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  // Compact Creator Profile
   creatorCompact: {
     flexDirection: "row",
     alignItems: "center",

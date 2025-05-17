@@ -2,7 +2,6 @@ import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
 import countryRegionData from "country-region-data";
-import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -13,7 +12,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
   ViewStyle,
 } from "react-native";
@@ -56,6 +54,7 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
   const [regions, setRegions] = useState<RegionType[]>([]);
   const [filteredRegions, setFilteredRegions] = useState<RegionType[]>([]);
   const [isFocused, setIsFocused] = useState(false);
+  const searchInputRef = useRef<TextInput>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -103,6 +102,13 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
         duration: 300,
         useNativeDriver: true,
       }).start();
+
+      // Focus the search input when modal opens
+      setTimeout(() => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
+      }, 300);
     } else {
       modalSlideAnim.setValue(Dimensions.get("window").height);
     }
@@ -135,17 +141,8 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
     }
   }, [countryCode]);
 
-  // Filter regions based on search text
-  useEffect(() => {
-    if (searchText) {
-      const filtered = regions.filter((region) =>
-        region.name.toLowerCase().includes(searchText.toLowerCase())
-      );
-      setFilteredRegions(filtered);
-    } else {
-      setFilteredRegions(regions);
-    }
-  }, [searchText, regions]);
+  // Filter regions based on search text - we're not using this anymore
+  useEffect(() => {}, [searchText, regions]);
 
   // Handle region selection
   const handleSelect = (item: RegionType) => {
@@ -218,80 +215,20 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
     </TouchableOpacity>
   );
 
-  // Render list header
-  const ListHeader = () => (
-    <View style={styles.listHeaderContainer}>
-      <LinearGradient
-        colors={isDarkMode ? ["#111827", "#1F2937"] : ["#FF0099", "#FF6D00"]}
-        style={styles.gradientBackground}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      />
+  // Function to handle text change with focus maintenance
+  // const handleTextChange = (text: string) => {
+  //   setSearchText(text);
 
-      <View
-        style={[
-          styles.modalHeader,
-          {
-            borderBottomColor: isDarkMode
-              ? "rgba(255, 255, 255, 0.1)"
-              : "rgba(0, 0, 0, 0.1)",
-          },
-        ]}
-      >
-        <Text style={[styles.modalTitle, { color: COLORS.WHITE }]}>
-          Select a Region
-        </Text>
-      </View>
-
-      <View
-        style={[
-          styles.searchContainer,
-          {
-            backgroundColor: isDarkMode
-              ? "rgba(40, 45, 55, 0.65)"
-              : "rgba(255, 255, 255, 0.8)",
-            borderColor: isDarkMode
-              ? "rgba(255, 255, 255, 0.1)"
-              : "rgba(0, 0, 0, 0.05)",
-          },
-        ]}
-      >
-        <FontAwesome
-          name="search"
-          size={16}
-          color={
-            isDarkMode
-              ? COLORS.DARK_TEXT_SECONDARY
-              : COLORS.LIGHT_TEXT_SECONDARY
-          }
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={[styles.searchInput, { color: getTextColor() }]}
-          placeholder="Search regions..."
-          placeholderTextColor={getPlaceholderColor()}
-          value={searchText}
-          onChangeText={setSearchText}
-        />
-        {searchText.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => setSearchText("")}
-          >
-            <FontAwesome
-              name="times-circle"
-              size={16}
-              color={
-                isDarkMode
-                  ? COLORS.DARK_TEXT_SECONDARY
-                  : COLORS.LIGHT_TEXT_SECONDARY
-              }
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+  //   // Fixed the filter logic - correctly using the new text parameter
+  //   if (text) {
+  //     const filtered = regions.filter((region) =>
+  //       region.name.toLowerCase().includes(text.toLowerCase())
+  //     );
+  //     setFilteredRegions(filtered);
+  //   } else {
+  //     setFilteredRegions(regions);
+  //   }
+  // };
 
   // If no regions are available for the country
   const NoRegionsMessage = () => (
@@ -425,56 +362,66 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
         animationType="none"
         onRequestClose={handleCloseModal}
       >
-        <TouchableWithoutFeedback onPress={handleCloseModal}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <Animated.View
-                style={[
-                  styles.modalContainer,
-                  {
-                    transform: [{ translateY: modalSlideAnim }],
-                    backgroundColor: isDarkMode
-                      ? COLORS.DARK_BG_SECONDARY
-                      : "#FFFFFF",
-                  },
-                ]}
-              >
-                {regions.length > 0 ? (
-                  <FlatList
-                    data={filteredRegions}
-                    renderItem={renderItem}
-                    keyExtractor={(item) => item.code}
-                    ListHeaderComponent={ListHeader}
-                    style={styles.regionList}
-                    contentContainerStyle={styles.listContent}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                      <View style={styles.noResults}>
-                        <Text
-                          style={[
-                            styles.noResultsText,
-                            {
-                              color: isDarkMode
-                                ? COLORS.DARK_TEXT_SECONDARY
-                                : COLORS.LIGHT_TEXT_SECONDARY,
-                            },
-                          ]}
-                        >
-                          No regions found matching your search
-                        </Text>
-                      </View>
-                    }
-                  />
-                ) : (
-                  <>
-                    <ListHeader />
-                    <NoRegionsMessage />
-                  </>
-                )}
-              </Animated.View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              {
+                transform: [{ translateY: modalSlideAnim }],
+                backgroundColor: isDarkMode
+                  ? COLORS.DARK_BG_SECONDARY
+                  : "#FFFFFF",
+              },
+            ]}
+          >
+            {regions.length > 0 ? (
+              <FlatList
+                data={filteredRegions}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.code}
+                style={styles.regionList}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="always"
+                keyboardDismissMode="none"
+                ListEmptyComponent={
+                  <View style={styles.noResults}>
+                    <Text
+                      style={[
+                        styles.noResultsText,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_SECONDARY
+                            : COLORS.LIGHT_TEXT_SECONDARY,
+                        },
+                      ]}
+                    >
+                      No regions found matching your search
+                    </Text>
+                  </View>
+                }
+              />
+            ) : (
+              <>
+                <NoRegionsMessage />
+              </>
+            )}
+
+            {/* Add a backdrop to handle click outside to close modal */}
+            <TouchableOpacity
+              style={styles.closeTouchable}
+              activeOpacity={1}
+              onPress={handleCloseModal}
+            >
+              <FontAwesome
+                name="times"
+                size={14}
+                color={COLORS.WHITE}
+                style={styles.closeIcon}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
       </Modal>
     </View>
   );
@@ -551,6 +498,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: "hidden",
+    position: "relative",
+    zIndex: 1,
   },
   gradientBackground: {
     position: "absolute",
@@ -564,6 +513,7 @@ const styles = StyleSheet.create({
   listHeaderContainer: {
     width: "100%",
     position: "relative",
+    zIndex: 2,
   },
   modalHeader: {
     paddingVertical: SPACING.M,
@@ -583,6 +533,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.S,
     height: 40,
     borderWidth: 1,
+    zIndex: 3,
   },
   searchIcon: {
     marginRight: SPACING.S,
@@ -592,9 +543,11 @@ const styles = StyleSheet.create({
     height: "100%",
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.S,
+    paddingVertical: 0, // Helps with focus issues on Android
   },
   clearButton: {
     padding: 4,
+    zIndex: 4,
   },
   regionList: {
     flex: 1,
@@ -628,6 +581,21 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.S,
     textAlign: "center",
+  },
+  closeTouchable: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 0, 0, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 5,
+  },
+  closeIcon: {
+    opacity: 0.8,
   },
 });
 

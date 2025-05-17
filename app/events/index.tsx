@@ -289,7 +289,11 @@ const EventListScreen = () => {
   }, [country, region, eventType, myEvents, paymentType]);
 
   useEffect(() => {
-    setTotalEvents(parties);
+    const sorted = [...parties].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    setTotalEvents(sorted);
     const newCardAnims = parties.map(() => ({
       scale: new Animated.Value(0.95),
       translateY: new Animated.Value(20),
@@ -352,7 +356,11 @@ const EventListScreen = () => {
     setEventType({ label: "All Types", value: "all" });
     setMyEvents({ label: "All Events", value: "all" });
     setPaymentType({ label: "All Events", value: "all" });
-    setTotalEvents(parties);
+    const sorted = [...parties].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    setTotalEvents(sorted);
   };
 
   // Helper function to get accent color based on theme
@@ -478,7 +486,7 @@ const EventListScreen = () => {
               <StatusBadge type="payment" payment={item.paidOption as any} />
               <StatusBadge
                 type="eventType"
-                eventType={item.type}
+                eventType={item.type as any}
                 label={getEventTypeLabel(item.type)}
               />
             </View>

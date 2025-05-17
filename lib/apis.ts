@@ -18,3 +18,6 @@ export const FETCH_STRIPE_CLIENT_SECRET = "/stripe/create-payment-intent";
 
 // Party apis
 export const FETCH_ALL_PARTIES = "/party/all";
+
+// Ticket apis
+export const FETCH_ALL_TICKETS = "/sticker/all";

@@ -36,4 +36,18 @@ const fetchUsdRates = async (): Promise<{ eur: number; pln: number }> => {
   }
 };
 
+// Format price in different currencies
+export const formatPrice = (price: number, currency: any): string => {
+  switch (currency) {
+    case "USD":
+      return `$${price}`;
+    case "EUR":
+      return `€${price}`;
+    case "PLN":
+      return `zł${price}`;
+    default:
+      return `$${price}`;
+  }
+};
+
 export default fetchUsdRates;

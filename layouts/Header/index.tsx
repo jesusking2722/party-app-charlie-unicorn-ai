@@ -24,6 +24,7 @@ import {
 } from "react-native";
 
 import { ProfileDrawer } from "@/components/molecules";
+import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { RootState } from "@/redux/store";
 import { FontAwesome5, Ionicons } from "@expo/vector-icons";
@@ -41,22 +42,14 @@ interface HeaderProps {
   title?: string;
   currentLanguage?: string;
   onLanguageChange?: (language: string) => void;
-  onProfileUpdate?: (data: {
-    userName: string;
-    professionalTitle: string;
-    description: string;
-  }) => void;
   onNotificationPress?: () => void;
-  hasNotifications?: boolean;
 }
 
 const Header: React.FC<HeaderProps> = ({
   title,
   currentLanguage = "EN",
   onLanguageChange,
-  onProfileUpdate,
   onNotificationPress,
-  hasNotifications = false,
 }) => {
   const router = useRouter();
   const { isDarkMode } = useTheme();
@@ -67,6 +60,7 @@ const Header: React.FC<HeaderProps> = ({
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
 
   const [profileDrawerVisible, setProfileDrawerVisible] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
 
   const { user } = useSelector((state: RootState) => state.auth);
 
@@ -111,9 +105,15 @@ const Header: React.FC<HeaderProps> = ({
     if (onNotificationPress) {
       onNotificationPress();
     } else {
-      router.push("/main/notification");
+      router.push("/notification");
     }
   };
+
+  useEffect(() => {
+    if (user?.notifications) {
+      setUnreadNotifications(user.notifications.filter((n) => !n.read).length);
+    }
+  }, [user?.notifications]);
 
   return (
     <>
@@ -208,7 +208,7 @@ const Header: React.FC<HeaderProps> = ({
               />
 
               {/* Notification dot */}
-              {hasNotifications && (
+              {unreadNotifications > 0 && (
                 <View
                   style={[
                     styles.notificationDot,
@@ -242,7 +242,7 @@ const Header: React.FC<HeaderProps> = ({
               />
 
               {/* Notification dot */}
-              {hasNotifications && (
+              {unreadNotifications > 0 && (
                 <View
                   style={[
                     styles.notificationDot,
@@ -278,14 +278,48 @@ const Header: React.FC<HeaderProps> = ({
                     },
                   ]}
                 >
-                  <Image
-                    source={
-                      user?.avatar && user?.avatar.trim().length > 0
-                        ? { uri: user.avatar }
-                        : DEFAULT_AVATAR
-                    }
-                    style={styles.avatar}
-                  />
+                  {user?.avatar ? (
+                    <Image
+                      source={{
+                        uri: BACKEND_BASE_URL + user?.avatar,
+                      }}
+                      style={styles.creatorAvatar}
+                    />
+                  ) : (
+                    <View>
+                      <LinearGradient
+                        colors={
+                          isDarkMode
+                            ? GRADIENTS.PRIMARY
+                            : ["#FF0099", "#FF6D00"]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[
+                          styles.creatorAvatar,
+                          {
+                            width: 50,
+                            height: 50,
+                            borderRadius: BORDER_RADIUS.CIRCLE,
+                            justifyContent: "center",
+                            alignItems: "center",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={{
+                            color: COLORS.WHITE,
+                            fontFamily: FONTS.SEMIBOLD,
+                            fontSize: FONT_SIZES.M,
+                          }}
+                        >
+                          {user?.name
+                            ? user.name.slice(0, 2).toUpperCase()
+                            : ""}
+                        </Text>
+                      </LinearGradient>
+                    </View>
+                  )}
                 </View>
               </BlurView>
             </TouchableOpacity>
@@ -333,6 +367,21 @@ const styles = StyleSheet.create({
     height: "100%",
     position: "relative",
     zIndex: 10,
+  },
+  creatorCompact: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: SPACING.S,
+    marginTop: SPACING.XS,
+  },
+  creatorAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  creatorInfo: {
+    flex: 1,
+    marginLeft: SPACING.S,
   },
   leftSection: {
     flexDirection: "row",

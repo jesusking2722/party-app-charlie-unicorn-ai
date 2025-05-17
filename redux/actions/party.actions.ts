@@ -7,3 +7,10 @@ export const setPartySliceAsync = createAsyncThunk(
     return payload;
   }
 );
+
+export const addNewPartyAsync = createAsyncThunk(
+  "party/addNewPartySlice",
+  async (payload: Party) => {
+    return payload;
+  }
+);

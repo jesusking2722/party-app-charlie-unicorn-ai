@@ -1,7 +1,9 @@
 import { fetchAuthUserById } from "@/lib/scripts/auth.scripts";
 import { fetchAllParties } from "@/lib/scripts/party.scripts";
+import { fetchAllTickets } from "@/lib/scripts/ticket.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { setPartySliceAsync } from "@/redux/actions/party.actions";
+import { setTicketSliceAsync } from "@/redux/actions/ticket.actions";
 import { useAppDispatch } from "@/redux/store";
 import { User } from "@/types/data";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -91,11 +93,29 @@ const useInit = () => {
     }
   };
 
+  const fetchAllTicketsInfo = async () => {
+    try {
+      setInitLoading(true);
+
+      const response = await fetchAllTickets();
+
+      if (response.ok) {
+        const { stickers } = response.data;
+        await dispatch(setTicketSliceAsync(stickers)).unwrap();
+      }
+    } catch (error) {
+      console.error("fetch all tickets info error: ", error);
+    } finally {
+      setInitLoading(false);
+    }
+  };
+
   return {
     initLoading,
     initError,
     fetchAuthUser,
     fetchAllPartiesInfo,
+    fetchAllTicketsInfo,
     checkRedirectPath,
   };
 };

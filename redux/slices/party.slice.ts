@@ -1,6 +1,6 @@
 import { Party } from "@/types/data";
 import { createSlice } from "@reduxjs/toolkit";
-import { setPartySliceAsync } from "../actions/party.actions";
+import { addNewPartyAsync, setPartySliceAsync } from "../actions/party.actions";
 
 interface PartySliceState {
   parties: Party[];
@@ -17,6 +17,9 @@ const partySlice = createSlice({
   extraReducers(builder) {
     builder.addCase(setPartySliceAsync.fulfilled, (state, action) => {
       state.parties = action.payload;
+    });
+    builder.addCase(addNewPartyAsync.fulfilled, (state, action) => {
+      state.parties.unshift(action.payload);
     });
   },
 });

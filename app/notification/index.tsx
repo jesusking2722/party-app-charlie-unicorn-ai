@@ -26,8 +26,12 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { NotificationAlert } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { Notification, User } from "@/types/data";
+import { useSelector } from "react-redux";
 
 const NotificationBannerImage = require("@/assets/images/notification-banner.png");
 
@@ -40,85 +44,15 @@ const LIGHT_THEME_ACCENT = "#FF0099";
 // Define notification type
 export type NotificationType = "success" | "warning" | "error" | "info";
 
-interface Notification {
-  id: string;
+interface NotificationProps {
+  _id: string;
   title: string;
-  description: string;
+  content: string;
   createdAt: Date;
-  type?: NotificationType;
-  path?: string;
-  isRead: boolean;
+  type: NotificationType;
+  link?: string;
+  read: boolean;
 }
-
-// Sample notification data for demo purposes
-const sampleNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "New Event Invitation",
-    description:
-      "You've been invited to attend the 'Summer Beach Party' this weekend. Check your events list for details.",
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-    type: "success",
-    path: "/main/events",
-    isRead: false,
-  },
-  {
-    id: "2",
-    title: "Payment Confirmation",
-    description:
-      "Your payment for 'Music Festival Tickets' has been processed successfully.",
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-    type: "info",
-    isRead: true,
-  },
-  {
-    id: "3",
-    title: "Profile Verification Required",
-    description:
-      "Please complete your profile verification to access all features of the app.",
-    createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-    type: "warning",
-    path: "/main/profile/edit",
-    isRead: false,
-  },
-  {
-    id: "4",
-    title: "Event Cancellation",
-    description:
-      "The 'Networking Summit' scheduled for next week has been cancelled due to unforeseen circumstances.",
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-    type: "error",
-    isRead: true,
-  },
-  {
-    id: "5",
-    title: "New Message",
-    description:
-      "You have a new message from Alex Johnson regarding the upcoming event. Check your messages for details.",
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-    type: "info",
-    path: "/main/messages",
-    isRead: false,
-  },
-  {
-    id: "6",
-    title: "Event Reminder",
-    description:
-      "Don't forget about the 'Workshop on Digital Marketing' tomorrow at 10:00 AM.",
-    createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
-    type: "info",
-    isRead: true,
-  },
-  {
-    id: "7",
-    title: "Birthday Discount",
-    description:
-      "Happy Birthday month! Enjoy a special 20% discount on all premium events this month.",
-    createdAt: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000), // 12 days ago
-    type: "success",
-    isRead: false,
-  },
-];
 
 // Animation interface
 interface ParticleAnimation {
@@ -136,12 +70,14 @@ interface NotificationAnimation {
 }
 
 // Filter type
-type FilterType = "all" | "unread" | "read";
+type FilterType = "all" | "unread";
 
 // Format time ago
-const formatTimeAgo = (date: Date): string => {
+const formatTimeAgo = (date: Date | string): string => {
   const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  const diffInSeconds = Math.floor(
+    (now.getTime() - new Date(date).getTime()) / 1000
+  );
 
   if (diffInSeconds < 60) {
     return "Just now";
@@ -182,18 +118,16 @@ const NotificationScreen: React.FC = () => {
   const buttonScale = useRef(new Animated.Value(0)).current;
 
   // Animation values for each notification
-  const [notificationAnims] = useState<NotificationAnimation[]>(() =>
-    sampleNotifications.map(() => ({
-      scale: new Animated.Value(0.95),
-      translateY: new Animated.Value(20),
-      opacity: new Animated.Value(0),
-    }))
-  );
+  const [notificationAnims, setNotificationAmins] = useState<
+    NotificationAnimation[]
+  >([]);
 
   // State
-  const [notifications, setNotifications] =
-    useState<Notification[]>(sampleNotifications);
-  const [filter, setFilter] = useState<FilterType>("all"); // "all", "unread", "read"
+  const [notifications, setNotifications] = useState<NotificationProps[]>([]);
+  const [filter, setFilter] = useState<FilterType>("all");
+
+  const { user } = useSelector((state: RootState) => state.auth);
+  const dispatch = useAppDispatch();
 
   // Animated background particles
   const particles: ParticleAnimation[] = Array(6)
@@ -250,6 +184,23 @@ const NotificationScreen: React.FC = () => {
       animateParticles();
     }, 100);
   }, []);
+
+  useEffect(() => {
+    if (user?.notifications) {
+      const props: any[] = user.notifications.map((n) =>
+        n.title.includes("opened new party")
+          ? { ...n, type: "success" }
+          : { ...n, type: "info" }
+      );
+      setNotifications(props);
+      const amins = user.notifications.map(() => ({
+        scale: new Animated.Value(0.95),
+        translateY: new Animated.Value(20),
+        opacity: new Animated.Value(0),
+      }));
+      setNotificationAmins(amins);
+    }
+  }, [user?.notifications]);
 
   // Animate notifications when they appear
   useEffect(() => {
@@ -337,68 +288,105 @@ const NotificationScreen: React.FC = () => {
     });
   };
 
-  // Render particles for background effect
-  const renderParticles = (): React.ReactNode => {
-    return particles.map((particle, index) => (
-      <Animated.View
-        key={`particle-${index}`}
-        style={[
-          styles.particle,
-          {
-            transform: [
-              { translateX: particle.x },
-              { translateY: particle.y },
-              { scale: particle.scale },
-            ],
-            opacity: particle.opacity,
-            backgroundColor: isDarkMode
-              ? `rgba(${127 + Math.floor(Math.random() * 128)}, ${Math.floor(
-                  Math.random() * 100
-                )}, ${Math.floor(Math.random() * 255)}, 0.7)`
-              : `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(
-                  Math.random() * 255
-                )}, ${Math.floor(Math.random() * 255)}, 0.5)`,
-          },
-        ]}
-      />
-    ));
-  };
-
   // Filter notifications
-  const getFilteredNotifications = (): Notification[] => {
+  const getFilteredNotifications = (): NotificationProps[] => {
     switch (filter) {
       case "unread":
-        return notifications.filter((notification) => !notification.isRead);
-      case "read":
-        return notifications.filter((notification) => notification.isRead);
+        return notifications.filter((notification) => !notification.read);
       default:
         return notifications;
     }
   };
 
   // Mark notification as read
-  const markAsRead = (id: string): void => {
+  const markAsRead = async (id: string) => {
+    if (!user?.notifications) return;
+
+    const notifications = user.notifications.map((n) =>
+      n._id === id ? { ...n, read: true } : n
+    );
+
+    console.log(notifications);
+
     setNotifications((prevNotifications) =>
       prevNotifications.map((notification) =>
-        notification.id === id
-          ? { ...notification, isRead: true }
-          : notification
+        notification._id === id ? { ...notification, read: true } : notification
       )
     );
+
+    const updatingUser: User = {
+      ...user,
+      notifications,
+    };
+
+    const response = await updateAuthUser(updatingUser);
+
+    if (response.ok) {
+      const { user: updatedUser } = response.data;
+      await dispatch(setAuthUserAsync(updatedUser));
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (
+      !user?.notifications ||
+      notifications.filter((n) => !n.read).length === 0
+    )
+      return;
+
+    const updatedNotifications = user.notifications.map((n) => ({
+      ...n,
+      read: true,
+    }));
+
+    const updatingUser: User = {
+      ...user,
+      notifications: updatedNotifications,
+    };
+
+    setNotifications((prevNotifications) =>
+      prevNotifications.map((notification) => ({
+        ...notification,
+        read: true,
+      }))
+    );
+
+    const response = await updateAuthUser(updatingUser);
+
+    if (response.ok) {
+      const { user: updatedUser } = response.data;
+      await dispatch(setAuthUserAsync(updatedUser));
+    }
   };
 
   // Delete notification
-  const deleteNotification = (id: string): void => {
+  const deleteNotification = async (id: string) => {
+    if (!user?.notifications) return;
+
+    const notifications = user.notifications.filter((n) => n._id !== id);
+
+    const updatingUser: User = {
+      ...user,
+      notifications,
+    };
+
     setNotifications((prevNotifications) =>
-      prevNotifications.filter((notification) => notification.id !== id)
+      prevNotifications.filter((notification) => notification._id !== id)
     );
+
+    const response = await updateAuthUser(updatingUser);
+
+    if (response.ok) {
+      const { user: updatedUser } = response.data;
+      await dispatch(setAuthUserAsync(updatedUser));
+    }
   };
 
   // Handle notification press
   const handleNotificationPress = (notification: Notification): void => {
-    markAsRead(notification.id);
-    if (notification.path) {
-      router.push(notification.path as any);
+    markAsRead(notification._id ?? "");
+    if (notification.link) {
+      router.push(notification.link as any);
     }
   };
 
@@ -408,12 +396,12 @@ const NotificationScreen: React.FC = () => {
 
   // Render notification item
   const renderNotificationItem = (
-    notification: Notification,
+    notification: NotificationProps,
     index: number
   ): React.ReactNode => {
     return (
       <Animated.View
-        key={notification.id}
+        key={notification._id}
         style={[
           styles.notificationContainer,
           {
@@ -427,7 +415,7 @@ const NotificationScreen: React.FC = () => {
               { translateY: notificationAnims[index].translateY },
             ],
           },
-          !notification.isRead && {
+          !notification.read && {
             borderLeftWidth: 3,
             borderLeftColor: getAccentColor(),
           },
@@ -441,9 +429,7 @@ const NotificationScreen: React.FC = () => {
                 color: isDarkMode
                   ? COLORS.DARK_TEXT_PRIMARY
                   : COLORS.LIGHT_TEXT_PRIMARY,
-                fontFamily: notification.isRead
-                  ? FONTS.REGULAR
-                  : FONTS.SEMIBOLD,
+                fontFamily: notification.read ? FONTS.REGULAR : FONTS.SEMIBOLD,
               },
             ]}
           >
@@ -474,11 +460,11 @@ const NotificationScreen: React.FC = () => {
               },
             ]}
             onPress={() =>
-              notification.isRead ? markAsRead(notification.id) : null
+              !notification.read ? markAsRead(notification._id as any) : null
             }
           >
             <FontAwesome5
-              name={notification.isRead ? "envelope-open" : "envelope"}
+              name={notification.read ? "envelope-open" : "envelope"}
               size={12}
               color={
                 isDarkMode
@@ -497,7 +483,7 @@ const NotificationScreen: React.FC = () => {
                   : "rgba(0, 0, 0, 0.05)",
               },
             ]}
-            onPress={() => deleteNotification(notification.id)}
+            onPress={() => deleteNotification(notification._id as any)}
           >
             <FontAwesome5
               name="trash-alt"
@@ -521,17 +507,17 @@ const NotificationScreen: React.FC = () => {
             },
           ]}
         >
-          {notification.description}
+          {notification.content}
         </Text>
 
-        {notification.type && (
+        {/* {notification. && (
           <NotificationAlert
             type={notification.type}
             message={`This is a ${notification.type} notification.`}
             path={notification.path ? "View details" : null}
             onNavigate={() => handleNotificationPress(notification)}
           />
-        )}
+        )} */}
       </Animated.View>
     );
   };
@@ -558,9 +544,6 @@ const NotificationScreen: React.FC = () => {
             alt="Banner"
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
-
-          {/* Add floating particles for fun effect */}
-          {renderParticles()}
         </View>
 
         {/* Bottom Content Section */}
@@ -658,6 +641,7 @@ const NotificationScreen: React.FC = () => {
                   <TouchableOpacity
                     style={[
                       styles.filterButton,
+                      { zIndex: 999 }, // Add this line to ensure it's always above particles
                       filter === "unread" && {
                         backgroundColor: isDarkMode
                           ? "rgba(79, 70, 229, 0.2)"
@@ -683,37 +667,6 @@ const NotificationScreen: React.FC = () => {
                       ]}
                     >
                       Unread
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.filterButton,
-                      filter === "read" && {
-                        backgroundColor: isDarkMode
-                          ? "rgba(79, 70, 229, 0.2)"
-                          : "rgba(255, 0, 153, 0.1)",
-                        borderColor: isDarkMode
-                          ? "rgba(79, 70, 229, 0.4)"
-                          : "rgba(255, 0, 153, 0.3)",
-                      },
-                    ]}
-                    onPress={() => setFilter("read")}
-                  >
-                    <Text
-                      style={[
-                        styles.filterButtonText,
-                        {
-                          color:
-                            filter === "read"
-                              ? getAccentColor()
-                              : isDarkMode
-                              ? COLORS.DARK_TEXT_SECONDARY
-                              : COLORS.LIGHT_TEXT_SECONDARY,
-                        },
-                      ]}
-                    >
-                      Read
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -756,14 +709,7 @@ const NotificationScreen: React.FC = () => {
                   >
                     <TouchableOpacity
                       style={styles.markAllButton}
-                      onPress={() => {
-                        setNotifications((prevNotifications) =>
-                          prevNotifications.map((notification) => ({
-                            ...notification,
-                            isRead: true,
-                          }))
-                        );
-                      }}
+                      onPress={markAllAsRead}
                     >
                       <LinearGradient
                         colors={
@@ -844,28 +790,6 @@ const NotificationScreen: React.FC = () => {
           </Animated.View>
         </View>
       </ScrollView>
-
-      {/* Decorative elements */}
-      <View
-        style={[
-          styles.decorativeCircle1,
-          {
-            backgroundColor: isDarkMode
-              ? "rgba(79, 70, 229, 0.1)"
-              : "rgba(255, 0, 153, 0.08)",
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.decorativeCircle2,
-          {
-            backgroundColor: isDarkMode
-              ? "rgba(124, 58, 237, 0.08)"
-              : "rgba(255, 255, 255, 0.06)",
-          },
-        ]}
-      />
     </SafeAreaView>
   );
 };
@@ -940,6 +864,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: SPACING.M,
+    zIndex: 9999,
+    position: "relative",
   },
   filterButton: {
     flex: 1,

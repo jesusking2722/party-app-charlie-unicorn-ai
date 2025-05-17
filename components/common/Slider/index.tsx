@@ -12,20 +12,27 @@ import {
   View,
 } from "react-native";
 
-const { width, height } = Dimensions.get("window");
+const { height } = Dimensions.get("window");
 // Slider height is now set to fill the 35% container from HomeScreen
 const SLIDER_HEIGHT = height * 0.35;
-const ITEM_WIDTH = width;
 
 // Custom light theme accent color
 const LIGHT_THEME_ACCENT = "#FF0099";
 
-const Slider = () => {
+// Define props interface
+interface SliderProps {
+  images?: string[]; // Array of image URLs
+}
+
+const Slider: React.FC<SliderProps> = ({ images }) => {
   const { isDarkMode } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [imageLoadErrors, setImageLoadErrors] = useState<{
+    [key: number]: boolean;
+  }>({});
 
-  // Slides data
-  const slides = [
+  // Default slides data
+  const defaultSlides = [
     {
       image: require("@/assets/images/slides/model1.png"),
       title: "Find Exclusive Parties",
@@ -43,24 +50,68 @@ const Slider = () => {
     },
   ];
 
+  // For debugging image URLs
+  useEffect(() => {
+    if (images && images.length > 0) {
+      console.log("Images passed to Slider:", images);
+    }
+  }, [images]);
+
+  // Calculate the slides length based on which set we're using
+  const slidesLength =
+    images && images.length > 0 ? images.length : defaultSlides.length;
+
   // Animated values for each slide to create parallax and fade effects
   const slideAnimation = useRef(
-    slides.map((_, i) => ({
-      opacity: new Animated.Value(i === 0 ? 1 : 0),
-      translateY: new Animated.Value(i === 0 ? 0 : 20),
-      scale: new Animated.Value(i === 0 ? 1 : 0.95),
-    }))
-  ).current;
+    Array(slidesLength)
+      .fill(0)
+      .map((_, i) => ({
+        opacity: new Animated.Value(i === 0 ? 1 : 0),
+        translateY: new Animated.Value(i === 0 ? 0 : 20),
+        scale: new Animated.Value(i === 0 ? 1 : 0.95),
+      }))
+  ).current as any;
+
+  // Reset animations when the images prop changes
+  useEffect(() => {
+    // Reset animations for new slides
+    const newSlidesLength =
+      images && images.length > 0 ? images.length : defaultSlides.length;
+
+    // Create new animations if needed
+    if (slideAnimation.length !== newSlidesLength) {
+      slideAnimation.current = Array(newSlidesLength)
+        .fill(0)
+        .map((_, i) => ({
+          opacity: new Animated.Value(i === 0 ? 1 : 0),
+          translateY: new Animated.Value(i === 0 ? 0 : 20),
+          scale: new Animated.Value(i === 0 ? 1 : 0.95),
+        }));
+    } else {
+      // Otherwise just reset existing animations
+      slideAnimation.forEach((anim: any, i: number) => {
+        anim.opacity.setValue(i === 0 ? 1 : 0);
+        anim.translateY.setValue(i === 0 ? 0 : 20);
+        anim.scale.setValue(i === 0 ? 1 : 0.95);
+      });
+    }
+
+    // Reset state
+    setActiveIndex(0);
+    setImageLoadErrors({});
+  }, [images]);
 
   // Auto-scrolling effect
   useEffect(() => {
     const timer = setInterval(() => {
-      const nextIndex = (activeIndex + 1) % slides.length;
-      animateToSlide(nextIndex);
+      if (slidesLength > 1) {
+        const nextIndex = (activeIndex + 1) % slidesLength;
+        animateToSlide(nextIndex);
+      }
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [activeIndex]);
+  }, [activeIndex, slidesLength]);
 
   // Handle animation to a specific slide
   const animateToSlide = (index: number) => {
@@ -111,6 +162,12 @@ const Slider = () => {
   const getAccentColor = () =>
     isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
+  // Handle image load error
+  const handleImageError = (index: number, error: any) => {
+    console.error(`Error loading image at index ${index}:`, error.nativeEvent);
+    setImageLoadErrors((prev) => ({ ...prev, [index]: true }));
+  };
+
   return (
     <View style={styles.container}>
       {/* Background Gradient */}
@@ -123,64 +180,103 @@ const Slider = () => {
 
       {/* Slides Container */}
       <View style={styles.slidesContainer}>
-        {slides.map((slide, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              styles.slide,
-              {
-                opacity: slideAnimation[index].opacity,
-                transform: [
-                  { translateY: slideAnimation[index].translateY },
-                  { scale: slideAnimation[index].scale },
-                ],
-                zIndex: activeIndex === index ? 1 : 0,
-              },
-            ]}
-          >
-            <Image
-              source={slide.image}
-              style={styles.image}
-              resizeMode="cover"
-            />
+        {images && images.length > 0
+          ? images.map((image, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.slide,
+                  {
+                    opacity: slideAnimation[index].opacity,
+                    transform: [
+                      { translateY: slideAnimation[index].translateY },
+                      { scale: slideAnimation[index].scale },
+                    ],
+                    zIndex: activeIndex === index ? 1 : 0,
+                  },
+                ]}
+              >
+                <Image
+                  source={{
+                    uri: image,
+                  }}
+                  style={styles.image}
+                  resizeMode="cover"
+                  onError={(e) => handleImageError(index, e)}
+                  defaultSource={require("@/assets/images/slides/model1.png")}
+                />
 
-            {/* Image Overlay Gradient */}
-            <LinearGradient
-              colors={["transparent", "rgba(0, 0, 0, 0.8)"]}
-              style={styles.imageOverlay}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-            />
+                {/* Image Overlay Gradient */}
+                <LinearGradient
+                  colors={["transparent", "rgba(0, 0, 0, 0.8)"]}
+                  style={styles.imageOverlay}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                />
+              </Animated.View>
+            ))
+          : defaultSlides.map((slide, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.slide,
+                  {
+                    opacity: slideAnimation[index].opacity,
+                    transform: [
+                      { translateY: slideAnimation[index].translateY },
+                      { scale: slideAnimation[index].scale },
+                    ],
+                    zIndex: activeIndex === index ? 1 : 0,
+                  },
+                ]}
+              >
+                <Image
+                  source={slide.image}
+                  style={styles.image}
+                  resizeMode="cover"
+                />
 
-            {/* Content Container */}
-            <View style={styles.contentContainer}>
-              <Text style={styles.title}>{slide.title}</Text>
-              <Text style={styles.description}>{slide.description}</Text>
-            </View>
-          </Animated.View>
-        ))}
+                {/* Image Overlay Gradient */}
+                <LinearGradient
+                  colors={["transparent", "rgba(0, 0, 0, 0.8)"]}
+                  style={styles.imageOverlay}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                />
+
+                {/* Content Container - Only show for default slides */}
+                {slide.title && slide.description && (
+                  <View style={styles.contentContainer}>
+                    <Text style={styles.title}>{slide.title}</Text>
+                    <Text style={styles.description}>{slide.description}</Text>
+                  </View>
+                )}
+              </Animated.View>
+            ))}
       </View>
 
       {/* Pagination Dots */}
       <View style={styles.pagination}>
-        {slides.map((_, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.paginationDotContainer}
-            onPress={() => animateToSlide(index)}
-            activeOpacity={0.7}
-          >
-            <Animated.View
-              style={[
-                styles.paginationDot,
-                index === activeIndex && styles.paginationDotActive,
-                index === activeIndex && {
-                  backgroundColor: getAccentColor(),
-                },
-              ]}
-            />
-          </TouchableOpacity>
-        ))}
+        {(images && images.length > 0 ? images : defaultSlides).map(
+          (_, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.paginationDotContainer}
+              onPress={() => animateToSlide(index)}
+              activeOpacity={0.7}
+            >
+              <Animated.View
+                style={[
+                  styles.paginationDot,
+                  index === activeIndex && styles.paginationDotActive,
+                  index === activeIndex && {
+                    backgroundColor: getAccentColor(),
+                  },
+                ]}
+              />
+            </TouchableOpacity>
+          )
+        )}
       </View>
 
       {/* Bottom Fade Gradient - helps with transition to card */}
