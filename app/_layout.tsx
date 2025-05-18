@@ -15,7 +15,6 @@ import { Provider } from "react-redux";
 
 import "@walletconnect/react-native-compat";
 
-import { applyBackHandlerPolyfill } from "@/utils/backHandlerPolyfill";
 import {
   AppKit,
   createAppKit,
@@ -61,8 +60,6 @@ const NAVIGATION_HIDDEN_ROUTES = [
   "/signup",
   "/reset-password",
 ];
-
-applyBackHandlerPolyfill();
 
 export default function RootLayout() {
   const [publishableKey, setPublishableKey] = useState<string>("");
@@ -187,7 +184,7 @@ export default function RootLayout() {
                   <Stack.Screen name="auth" />
                   <Stack.Screen name="onboarding" />
                   <Stack.Screen name="home/index" />
-                  <Stack.Screen name="events" />
+                  <Stack.Screen name="parites" />
                   <Stack.Screen name="subscription/index" />
                   <Stack.Screen name="tickets/index" />
                 </Stack>

@@ -32,6 +32,7 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   small?: boolean;
+  width?: "full";
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
@@ -45,6 +46,7 @@ const Button: React.FC<ButtonProps> = ({
   disabled = false,
   loading = false,
   small = false,
+  width,
   style = {},
   textStyle = {},
 }) => {
@@ -142,7 +144,7 @@ const Button: React.FC<ButtonProps> = ({
     }
 
     return (
-      <View style={styles.buttonContent}>
+      <View style={[styles.buttonContent, width && { width: "100%" }]}>
         {icon && iconPosition === "left" && (
           <View style={styles.iconLeftContainer}>{icon}</View>
         )}

@@ -1,7 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -26,11 +25,12 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
+import { NotificationAlert } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
 import { updateAuthUser } from "@/lib/scripts/auth.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
-import { Notification, User } from "@/types/data";
+import { User } from "@/types/data";
 import { useSelector } from "react-redux";
 
 const NotificationBannerImage = require("@/assets/images/notification-banner.png");
@@ -382,14 +382,6 @@ const NotificationScreen: React.FC = () => {
     }
   };
 
-  // Handle notification press
-  const handleNotificationPress = (notification: Notification): void => {
-    markAsRead(notification._id ?? "");
-    if (notification.link) {
-      router.push(notification.link as any);
-    }
-  };
-
   // Get accent color based on theme
   const getAccentColor = (): string =>
     isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
@@ -510,14 +502,24 @@ const NotificationScreen: React.FC = () => {
           {notification.content}
         </Text>
 
-        {/* {notification. && (
+        {notification.title.includes("Support Team") && (
           <NotificationAlert
-            type={notification.type}
-            message={`This is a ${notification.type} notification.`}
-            path={notification.path ? "View details" : null}
-            onNavigate={() => handleNotificationPress(notification)}
+            type="error"
+            message={"Notification from support team"}
+            path={notification.link ? "View details" : null}
+            onNavigate={() => {}}
           />
-        )} */}
+        )}
+        {(notification.title.includes("finish to collect") ||
+          notification.title.includes("accepted your applicant")) && (
+          <NotificationAlert
+            type="success"
+            message="You need to buy a sticker and send it to the owner to join
+                      this event."
+            path="/tickets"
+            onNavigate={() => {}}
+          />
+        )}
       </Animated.View>
     );
   };

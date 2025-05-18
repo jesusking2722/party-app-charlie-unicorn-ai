@@ -1,13 +1,12 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
   Image,
   Platform,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -25,14 +24,26 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Slider, StatusBadge, Tabs, Textarea } from "@/components/common";
-import { useTheme } from "@/contexts/ThemeContext";
-
-import { CountdownProgress, Rating } from "@/components/common";
-import { EventStepper, ProfileBadge } from "@/components/molecules";
+import {
+  Button,
+  CountdownProgress,
+  Rating,
+  Slider,
+  Tabs,
+  Textarea,
+} from "@/components/common";
+import {
+  ApplicantGroup,
+  EventStepper,
+  ProfileBadge,
+} from "@/components/molecules";
 import { BACKEND_BASE_URL } from "@/constant";
-import { RootState } from "@/redux/store";
-import { Party, PartyType } from "@/types/data";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
+import socket from "@/lib/socketInstance";
+import { addNewApplicantToSelectedPartyAsync } from "@/redux/actions/party.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { Applicant, Party, PartyType } from "@/types/data";
 import { useLocalSearchParams } from "expo-router";
 import CountryFlag from "react-native-country-flag";
 import { useSelector } from "react-redux";
@@ -49,16 +60,6 @@ const formatDaysLeft = (date: Date | string) => {
   return diffDays;
 };
 
-const formatDaysAgo = (date: Date | string) => {
-  const now = new Date();
-  const diffTime = Math.abs(new Date(date).getTime() - now.getTime());
-  if (diffTime <= 0) {
-    return 0;
-  }
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
-};
-
 // Main component
 const EventDetailScreen = () => {
   const { isDarkMode } = useTheme();
@@ -69,11 +70,27 @@ const EventDetailScreen = () => {
   const translateY = useRef(new Animated.Value(30)).current;
   const cardScale = useRef(new Animated.Value(0.97)).current;
   const buttonScale = useRef(new Animated.Value(0)).current;
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(-20)).current;
 
+  // Parallax effect for the slider
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const sliderParallax = scrollY.interpolate({
+    inputRange: [-100, 0, 100],
+    outputRange: [50, 0, -30],
+    extrapolate: "clamp",
+  });
+
+  // Main states
   const [activeTab, setActiveTab] = useState(0);
   const [applicationText, setApplicationText] = useState("");
   const [event, setEvent] = useState<Party | null>(null);
   const [daysLeft, setDaysLeft] = useState<number>(0);
+  const [alreadyApplied, setAlreadyApplied] = useState<boolean>(false);
+  const [isCreator, setIsCreator] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Event progress states
   const [eventSteps, setEventSteps] = useState<any[]>([
     {
       icon: "calendar-check",
@@ -97,73 +114,82 @@ const EventDetailScreen = () => {
     },
   ]);
   const [activeStep, setActiveStep] = useState<number>(1);
-  const [alreadyApplied, setAlreadyApplied] = useState<boolean>(false);
 
+  // Applicant states
+  const [pendingApplicants, setPendingApplicants] = useState<Applicant[]>([]);
+  const [acceptedApplicants, setAcceptedApplicants] = useState<Applicant[]>([]);
+  const [declinedApplicants, setDeclinedApplicants] = useState<Applicant[]>([]);
+
+  // Refs
   const scrollViewRef = useRef<any>(null);
+  const applyButtonRef = useRef<any>(null);
 
+  // Redux data
   const { id: eventId } = useLocalSearchParams();
-
   const { user } = useSelector((state: RootState) => state.auth);
   const { parties } = useSelector((state: RootState) => state.party);
+  const dispatch = useAppDispatch();
 
+  const { showToast } = useToast();
+
+  // Load event data
   useEffect(() => {
     if (eventId && typeof eventId === "string" && user) {
       const found = parties.find((event) => event._id === eventId);
       if (found) {
         setEvent(found);
 
+        // Check if current user is the creator
+        setIsCreator(found.creator?._id === user._id);
+
+        // Check if user already applied
         setAlreadyApplied(
           found.applicants.some((app) => app.applier._id === user._id)
         );
 
+        // Calculate days left
         const dl = formatDaysLeft(found.openingAt);
         setDaysLeft(dl);
 
-        let steps = eventSteps;
+        // Update event steps based on status
+        let steps = [...eventSteps];
+        let currentStep = 1;
 
-        if (found.status === "playing") {
+        if (found.status === "finished") {
+          steps = steps.map((step) => ({ ...step, completed: true }));
+          currentStep = 4;
+        } else if (found.status === "playing") {
           steps = steps.map((step, index) =>
             index < 3 ? { ...step, completed: true } : step
           );
-          setActiveStep(3);
-          return;
-        }
-
-        if (
-          found.applicants.some(
-            (app) => app.applier._id === user._id && app.status === "accepted"
-          )
-        ) {
+          currentStep = 3;
+        } else if (found.status === "accepted") {
           steps = steps.map((step, index) =>
             index < 2 ? { ...step, completed: true } : step
           );
-          setActiveStep(2);
+          currentStep = 2;
         }
+
+        setEventSteps(steps);
+        setActiveStep(currentStep);
+
+        // Filter applicants by status
+        const pending = found.applicants.filter(
+          (app) => app.status === "pending"
+        );
+        const accepted = found.applicants.filter(
+          (app) => app.status === "accepted"
+        );
+        const declined = found.applicants.filter(
+          (app) => app.status === "declined"
+        );
+
+        setPendingApplicants(pending);
+        setAcceptedApplicants(accepted);
+        setDeclinedApplicants(declined);
       }
     }
-  }, [eventId]);
-
-  // Handle apply button press
-  const handleApplyPress = () => {
-    scrollViewRef.current?.scrollTo({
-      y: height * 0.8,
-      animated: true,
-    });
-  };
-
-  // Format days left
-  const daysPercentage = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
-
-  // Animation for particle effects
-  const particles = Array(6)
-    .fill(0)
-    .map(() => ({
-      x: useRef(new Animated.Value(Math.random() * width)).current,
-      y: useRef(new Animated.Value(Math.random() * height * 0.35)).current,
-      scale: useRef(new Animated.Value(Math.random() * 0.4 + 0.3)).current,
-      opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
-      speed: Math.random() * 3000 + 2000,
-    }));
+  }, [eventId, parties]);
 
   // Run animations when component mounts
   useEffect(() => {
@@ -192,6 +218,19 @@ const EventDetailScreen = () => {
           friction: 6,
           useNativeDriver: true,
         }),
+        // Header fade in
+        Animated.timing(headerOpacity, {
+          toValue: 1,
+          duration: ANIMATIONS.MEDIUM,
+          useNativeDriver: true,
+        }),
+        // Header slide down
+        Animated.spring(headerTranslateY, {
+          toValue: 0,
+          tension: 60,
+          friction: 8,
+          useNativeDriver: true,
+        }),
         // Button animation
         Animated.sequence([
           Animated.delay(animationDelay),
@@ -208,6 +247,17 @@ const EventDetailScreen = () => {
       animateParticles();
     }, 100);
   }, []);
+
+  // Animation for particle effects
+  const particles = Array(8)
+    .fill(0)
+    .map(() => ({
+      x: useRef(new Animated.Value(Math.random() * width)).current,
+      y: useRef(new Animated.Value(Math.random() * height * 0.35)).current,
+      scale: useRef(new Animated.Value(Math.random() * 0.4 + 0.3)).current,
+      opacity: useRef(new Animated.Value(Math.random() * 0.4 + 0.2)).current,
+      speed: Math.random() * 3000 + 2000,
+    }));
 
   // Continuous animation for floating particles
   const animateParticles = () => {
@@ -264,6 +314,132 @@ const EventDetailScreen = () => {
     });
   };
 
+  // Handle apply button press
+  const handleApplyPress = () => {
+    // if (applyButtonRef.current) {
+    //   scrollViewRef.current?.scrollToPosition(0, height * 0.85, true);
+    // }
+  };
+
+  const submitNewApplicant = (
+    applicant: Applicant,
+    event: Party
+  ): Promise<Applicant> => {
+    return new Promise((resolve) => {
+      socket.once("party:created", (newApplicant: Applicant) => {
+        resolve(newApplicant);
+      });
+
+      socket.emit(
+        "creating:applicant",
+        applicant,
+        event._id,
+        event.creator?._id
+      );
+    });
+  };
+
+  // Handle submit application
+  const handleSubmitApplication = async () => {
+    if (!applicationText.trim() || !user || !event?._id) {
+      return;
+    }
+
+    const hasAlreadyApplied = event?.applicants.some(
+      (applicant) => applicant.applier._id === user._id
+    );
+
+    if (hasAlreadyApplied) {
+      showToast("You have already applied to this event", "error");
+      return;
+    }
+
+    setIsSubmitting(true);
+    // Add to pending applicants
+    const newApplicant: Applicant = {
+      applier: user,
+      applicant: applicationText,
+      appliedAt: new Date(),
+      status: "pending",
+      stickers: [],
+    };
+
+    const sentApplicant = await submitNewApplicant(newApplicant, event);
+
+    await dispatch(
+      addNewApplicantToSelectedPartyAsync({
+        partyId: event._id,
+        newApplicant: sentApplicant,
+      })
+    ).unwrap();
+
+    setPendingApplicants([...pendingApplicants, sentApplicant]);
+
+    showToast("Applied successfully", "success");
+  };
+
+  // New handlers for ApplicantGroup actions
+  const handleAcceptApplicant = (applicantId: string) => {
+    // Find the applicant
+    const applicant = pendingApplicants.find((app) => app._id === applicantId);
+    if (!applicant) return;
+
+    // Update state immediately for better UX
+    setPendingApplicants(
+      pendingApplicants.filter((app) => app._id !== applicantId)
+    );
+    setAcceptedApplicants([
+      ...acceptedApplicants,
+      { ...applicant, status: "accepted" },
+    ]);
+
+    // Dispatch action to update on server
+    // dispatch(acceptApplicant(eventId, applicantId));
+
+    // Show success toast
+  };
+
+  const handleDeclineApplicant = (applicantId: string) => {
+    // Find the applicant
+    const applicant = pendingApplicants.find((app) => app._id === applicantId);
+    if (!applicant) return;
+
+    // Update state immediately for better UX
+    setPendingApplicants(
+      pendingApplicants.filter((app) => app._id !== applicantId)
+    );
+    setDeclinedApplicants([
+      ...declinedApplicants,
+      { ...applicant, status: "declined" },
+    ]);
+
+    // Dispatch action to update on server
+    // dispatch(declineApplicant(eventId, applicantId));
+
+    // Show success toast
+  };
+
+  const handleChatWithApplicant = (userId: string) => {
+    // Navigate to chat screen
+    // router.push({
+    //   pathname: "/chat",
+    //   params: { userId },
+    // });
+  };
+
+  const handleTicketExchange = (
+    applicantId: string,
+    ticketId: string,
+    method: "crypto" | "card"
+  ) => {
+    // Handle ticket exchange logic
+    // dispatch(exchangeTicket(eventId, applicantId, ticketId, method));
+    // Show success toast and update UI
+  };
+
+  // Format days left percentage
+  const daysPercentage = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
+
   // Render floating particles
   const renderParticles = () => {
     return particles.map((particle, index) => (
@@ -294,6 +470,47 @@ const EventDetailScreen = () => {
   // Helper function to get accent color
   const getAccentColor = () => (isDarkMode ? COLORS.SECONDARY : "#FF0099");
 
+  // Render the appropriate applicant group based on active tab
+  const renderActiveApplicantGroup = useCallback(() => {
+    switch (activeTab) {
+      case 0:
+        return (
+          <ApplicantGroup
+            applicants={pendingApplicants}
+            onAccept={handleAcceptApplicant}
+            onDecline={handleDeclineApplicant}
+            onChat={handleChatWithApplicant}
+            // onTicketExchange={handleTicketExchange}
+            type="pending"
+          />
+        );
+      case 1:
+        return (
+          <ApplicantGroup
+            applicants={acceptedApplicants}
+            onAccept={handleAcceptApplicant}
+            onDecline={handleDeclineApplicant}
+            onChat={handleChatWithApplicant}
+            // onTicketExchange={handleTicketExchange}
+            type="accepted"
+          />
+        );
+      case 2:
+        return (
+          <ApplicantGroup
+            applicants={declinedApplicants}
+            onAccept={handleAcceptApplicant}
+            onDecline={handleDeclineApplicant}
+            onChat={handleChatWithApplicant}
+            // onTicketExchange={handleTicketExchange}
+            type="declined"
+          />
+        );
+      default:
+        return null;
+    }
+  }, [activeTab, pendingApplicants, acceptedApplicants, declinedApplicants]);
+
   return (
     <SafeAreaView
       style={[
@@ -301,19 +518,70 @@ const EventDetailScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
-      <ScrollView
+      <Animated.ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
-        bounces={false}
+        bounces={true}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
-        {/* Slider Section (Top 40%) */}
-        <View style={styles.sliderContainer}>
+        {/* Parallax Slider Section */}
+        <Animated.View
+          style={[
+            styles.sliderContainer,
+            {
+              transform: [{ translateY: sliderParallax }],
+            },
+          ]}
+        >
           <Slider images={event?.medias} />
+
+          {/* Event Type Badge */}
+          {event?.type && (
+            <View style={styles.eventTypeBadgeContainer}>
+              <LinearGradient
+                colors={
+                  isDarkMode
+                    ? ["rgba(31, 41, 55, 0.85)", "rgba(31, 41, 55, 0.85)"]
+                    : ["rgba(255, 255, 255, 0.85)", "rgba(255, 255, 255, 0.85)"]
+                }
+                style={styles.eventTypeBadge}
+              >
+                <FontAwesome5
+                  name={getEventTypeIcon(event.type)}
+                  size={14}
+                  color={getAccentColor()}
+                  style={styles.eventTypeIcon}
+                />
+                <Text
+                  style={[
+                    styles.eventTypeText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  {capitalizeFirstLetter(event.type)}
+                </Text>
+              </LinearGradient>
+            </View>
+          )}
 
           {/* Add floating particles for effect */}
           {renderParticles()}
-        </View>
+
+          {/* Slider Overlay Gradient */}
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.3)", "rgba(0,0,0,0.6)"]}
+            style={styles.sliderOverlay}
+          />
+        </Animated.View>
 
         {/* Bottom Content Section */}
         <View style={styles.bottomHalf}>
@@ -346,6 +614,7 @@ const EventDetailScreen = () => {
             <View style={styles.cardContent}>
               {/* Event Header with Title and Action Buttons */}
               <View style={styles.eventHeader}>
+                {/* Title and badge row */}
                 <View style={styles.titleContainer}>
                   <Text
                     style={[
@@ -360,32 +629,66 @@ const EventDetailScreen = () => {
                     {event?.title}
                   </Text>
 
-                  {!alreadyApplied && event?.creator?._id !== user?._id && (
-                    <View style={styles.actionButtons}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={handleApplyPress}
+                  {event?.paidOption && (
+                    <View style={styles.paidBadge}>
+                      <LinearGradient
+                        colors={
+                          event.paidOption === "paid"
+                            ? isDarkMode
+                              ? ["#d97706", "#b45309"]
+                              : ["#f59e0b", "#d97706"]
+                            : isDarkMode
+                            ? ["#059669", "#047857"]
+                            : ["#10b981", "#059669"]
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.paidBadgeGradient}
                       >
-                        <LinearGradient
-                          colors={
-                            isDarkMode
-                              ? (EVENT_PREVIEW[theme].APPLY_BUTTON_BG as any)
-                              : EVENT_PREVIEW[theme].APPLY_BUTTON_BG
+                        <FontAwesome5
+                          name={
+                            event.paidOption === "paid"
+                              ? "dollar-sign"
+                              : "ticket-alt"
                           }
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.actionButtonGradient}
-                        >
-                          <FontAwesome5
-                            name="check-circle"
-                            size={14}
-                            color="#FFFFFF"
-                          />
-                        </LinearGradient>
-                      </TouchableOpacity>
+                          size={10}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.paidBadgeText}>
+                          {event.paidOption === "paid" ? "Paid" : "Free"}
+                        </Text>
+                      </LinearGradient>
                     </View>
                   )}
                 </View>
+
+                {/* Quick action buttons */}
+                {!alreadyApplied && !isCreator && (
+                  <View style={styles.quickActionButtons}>
+                    <TouchableOpacity
+                      style={styles.actionButton}
+                      onPress={handleApplyPress}
+                    >
+                      <LinearGradient
+                        colors={
+                          isDarkMode
+                            ? (EVENT_PREVIEW[theme].APPLY_BUTTON_BG as any)
+                            : EVENT_PREVIEW[theme].APPLY_BUTTON_BG
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.actionButtonGradient}
+                      >
+                        <FontAwesome5
+                          name="check-circle"
+                          size={14}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.actionButtonText}>Apply Now</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                )}
 
                 {/* Compact Creator Profile */}
                 <TouchableOpacity style={styles.creatorCompact}>
@@ -406,24 +709,9 @@ const EventDetailScreen = () => {
                         }
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
-                        style={[
-                          styles.creatorAvatar,
-                          {
-                            width: 50,
-                            height: 50,
-                            borderRadius: BORDER_RADIUS.CIRCLE,
-                            justifyContent: "center",
-                            alignItems: "center",
-                          },
-                        ]}
+                        style={styles.creatorAvatarGradient}
                       >
-                        <Text
-                          style={{
-                            color: COLORS.WHITE,
-                            fontFamily: FONTS.SEMIBOLD,
-                            fontSize: FONT_SIZES.M,
-                          }}
-                        >
+                        <Text style={styles.creatorAvatarText}>
                           {event?.creator?.name
                             ? event.creator.name.slice(0, 2).toUpperCase()
                             : ""}
@@ -459,14 +747,7 @@ const EventDetailScreen = () => {
                         />
                       )}
                     </View>
-                    <View
-                      style={{
-                        display: "flex",
-                        flexDirection: "row",
-                        gap: 2,
-                        alignItems: "center",
-                      }}
-                    >
+                    <View style={styles.creatorLocationRow}>
                       <CountryFlag
                         isoCode={event?.creator?.country?.toLowerCase() ?? "us"}
                         size={10}
@@ -498,8 +779,97 @@ const EventDetailScreen = () => {
                 </TouchableOpacity>
               </View>
 
+              {/* Event Information Section */}
+              <View
+                style={[
+                  styles.infoSection,
+                  {
+                    backgroundColor: isDarkMode
+                      ? "rgba(31, 41, 55, 0.5)"
+                      : "rgba(243, 244, 246, 0.5)",
+                  },
+                ]}
+              >
+                ,
+                <View style={styles.infoItem}>
+                  <FontAwesome5
+                    name="map-marker-alt"
+                    size={16}
+                    color={getAccentColor()}
+                    style={styles.infoIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_SECONDARY
+                          : COLORS.LIGHT_TEXT_SECONDARY,
+                      },
+                    ]}
+                  >
+                    {event?.address}, {event?.region}, {event?.country}
+                  </Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <FontAwesome5
+                    name="calendar-alt"
+                    size={16}
+                    color={getAccentColor()}
+                    style={styles.infoIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_SECONDARY
+                          : COLORS.LIGHT_TEXT_SECONDARY,
+                      },
+                    ]}
+                  >
+                    {event?.openingAt
+                      ? formatDate(event.openingAt)
+                      : "Date not set"}
+                  </Text>
+                </View>
+                <View style={styles.infoItem}>
+                  <FontAwesome5
+                    name="users"
+                    size={16}
+                    color={getAccentColor()}
+                    style={styles.infoIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.infoText,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_SECONDARY
+                          : COLORS.LIGHT_TEXT_SECONDARY,
+                      },
+                    ]}
+                  >
+                    {acceptedApplicants.length} participants,{" "}
+                    {pendingApplicants.length} pending
+                  </Text>
+                </View>
+              </View>
+
               {/* Event Description */}
               <View style={styles.descriptionContainer}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  About This Event
+                </Text>
                 <Text
                   style={[
                     styles.description,
@@ -512,22 +882,6 @@ const EventDetailScreen = () => {
                 >
                   {event?.description}
                 </Text>
-              </View>
-
-              {/* Badge Row */}
-              <View style={styles.badgeRow}>
-                <StatusBadge type="payment" payment={event?.paidOption} />
-                <StatusBadge
-                  type="eventType"
-                  eventType={event?.type as PartyType}
-                  label={event?.type.toUpperCase()}
-                />
-                <StatusBadge
-                  type="date"
-                  label={`${formatDaysAgo(
-                    event?.createdAt ?? new Date()
-                  )}d ago`}
-                />
               </View>
 
               {/* Countdown Progress Bar (only if days left > 0) */}
@@ -642,7 +996,7 @@ const EventDetailScreen = () => {
                         source={{
                           uri: BACKEND_BASE_URL + event?.creator?.avatar,
                         }}
-                        style={styles.creatorAvatar}
+                        style={styles.creatorProfileAvatar}
                       />
                     ) : (
                       <View>
@@ -654,24 +1008,9 @@ const EventDetailScreen = () => {
                           }
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
-                          style={[
-                            styles.creatorAvatar,
-                            {
-                              width: 50,
-                              height: 50,
-                              borderRadius: BORDER_RADIUS.CIRCLE,
-                              justifyContent: "center",
-                              alignItems: "center",
-                            },
-                          ]}
+                          style={styles.creatorProfileAvatarGradient}
                         >
-                          <Text
-                            style={{
-                              color: COLORS.WHITE,
-                              fontFamily: FONTS.SEMIBOLD,
-                              fontSize: FONT_SIZES.M,
-                            }}
-                          >
+                          <Text style={styles.creatorProfileAvatarText}>
                             {event?.creator?.name
                               ? event.creator.name.slice(0, 2).toUpperCase()
                               : ""}
@@ -744,17 +1083,12 @@ const EventDetailScreen = () => {
                           }
                           style={styles.locationIcon}
                         />
-                        <View
-                          style={{
-                            display: "flex",
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 4,
-                          }}
-                        >
+                        <View style={styles.creatorProfileLocationWrapper}>
                           <CountryFlag
-                            isoCode={event?.creator?.country ?? "us"}
-                            size={10}
+                            isoCode={
+                              event?.creator?.country?.toLowerCase() ?? "us"
+                            }
+                            size={12}
                           />
                           <Text
                             style={[
@@ -772,12 +1106,36 @@ const EventDetailScreen = () => {
                       </View>
                     </View>
                   </View>
+
+                  {/* Chat with creator button */}
+                  {!isCreator && event?.creator?._id && (
+                    <View style={styles.chatWithCreatorContainer}>
+                      <Button
+                        title="Chat with Creator"
+                        variant={isDarkMode ? "secondary" : "primary"}
+                        icon={
+                          <FontAwesome5
+                            name="comment"
+                            size={14}
+                            color="#FFFFFF"
+                          />
+                        }
+                        iconPosition="left"
+                        small={true}
+                        onPress={() => {
+                          if (event.creator?._id) {
+                            handleChatWithApplicant(event.creator._id);
+                          }
+                        }}
+                      />
+                    </View>
+                  )}
                 </View>
               </View>
 
               {/* Apply Section */}
-              {!alreadyApplied && event?.creator?._id !== user?._id && (
-                <View style={styles.applyContainer} id="apply-section">
+              {!alreadyApplied && !isCreator && (
+                <View style={styles.applyContainer} ref={applyButtonRef}>
                   <Text
                     style={[
                       styles.sectionTitle,
@@ -807,79 +1165,58 @@ const EventDetailScreen = () => {
                       { transform: [{ scale: buttonScale }] },
                     ]}
                   >
-                    <TouchableOpacity style={styles.applyButton}>
-                      <LinearGradient
-                        colors={
-                          isDarkMode
-                            ? (EVENT_PREVIEW.DARK.APPLY_BUTTON_BG as any)
-                            : EVENT_PREVIEW.LIGHT.APPLY_BUTTON_BG
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.applyButtonGradient}
-                      >
-                        <Text style={styles.applyButtonText}>
-                          Submit Application
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
+                    <Button
+                      title="Submit Application"
+                      variant={isDarkMode ? "primary" : "secondary"}
+                      loading={isSubmitting}
+                      disabled={isSubmitting || !applicationText.trim()}
+                      onPress={handleSubmitApplication}
+                    />
                   </Animated.View>
                 </View>
               )}
 
               {/* Applications Section with Tabs */}
-
-              <View style={styles.applicationsContainer}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    {
-                      color: isDarkMode
-                        ? COLORS.DARK_TEXT_PRIMARY
-                        : COLORS.LIGHT_TEXT_PRIMARY,
-                    },
-                  ]}
-                >
-                  Applications
-                </Text>
-
-                {/* Use the Tabs component */}
-                <Tabs
-                  tabs={["Pending", "Accepted", "Declined"]}
-                  activeIndex={activeTab}
-                  onTabPress={setActiveTab}
-                  badgeCounts={[5, 3, 2]} // Example badge counts
-                />
-
-                {/* This is just a placeholder. You'll implement application groups later */}
-                <View
-                  style={[
-                    styles.applicationsPlaceholder,
-                    {
-                      backgroundColor: isDarkMode
-                        ? "rgba(31, 41, 55, 0.3)"
-                        : "rgba(229, 231, 235, 0.3)",
-                    },
-                  ]}
-                >
+              {(isCreator ||
+                user?.membership === "premium" ||
+                event?.status === "playing" ||
+                event?.status === "finished") && (
+                <View style={styles.applicationsContainer}>
                   <Text
                     style={[
-                      styles.placeholderText,
+                      styles.sectionTitle,
                       {
                         color: isDarkMode
-                          ? COLORS.DARK_TEXT_SECONDARY
-                          : COLORS.LIGHT_TEXT_SECONDARY,
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
                       },
                     ]}
                   >
-                    Application list will be implemented later
+                    Applications
                   </Text>
+
+                  {/* Use the Tabs component */}
+                  <Tabs
+                    tabs={["Pending", "Accepted", "Declined"]}
+                    activeIndex={activeTab}
+                    onTabPress={setActiveTab}
+                    badgeCounts={[
+                      pendingApplicants.length,
+                      acceptedApplicants.length,
+                      declinedApplicants.length,
+                    ]}
+                  />
+
+                  {/* Render the appropriate ApplicantGroup based on the active tab */}
+                  <View style={styles.applicantGroupContainer}>
+                    {renderActiveApplicantGroup()}
+                  </View>
                 </View>
-              </View>
+              )}
             </View>
           </Animated.View>
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Decorative elements */}
       <View
@@ -906,57 +1243,83 @@ const EventDetailScreen = () => {
   );
 };
 
+// Helper functions
+const formatDate = (date: Date | string) => {
+  const options: Intl.DateTimeFormatOptions = {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+  return new Date(date).toLocaleDateString(undefined, options);
+};
+
+const getEventTypeIcon = (type: PartyType): string => {
+  switch (type) {
+    case "birthday":
+      return "birthday-cake";
+    case "wedding":
+      return "ring";
+    case "corporate":
+      return "briefcase";
+    case "movie":
+      return "film";
+    case "sport":
+      return "running";
+    default:
+      return "calendar-day";
+  }
+};
+
+const capitalizeFirstLetter = (string: string): string => {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+};
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
+    paddingBottom: SPACING.XXL,
   },
-  // Header/Slider Section
+
   sliderContainer: {
-    height: height * 0.4,
+    height: height * 0.35,
     width: "100%",
     overflow: "hidden",
     position: "relative",
   },
-  videoIndicator: {
+  sliderOverlay: {
     position: "absolute",
-    top: SPACING.M,
-    right: SPACING.M,
-    borderRadius: BORDER_RADIUS.L,
-    overflow: "hidden",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 150,
+    zIndex: 2,
+  },
+  eventTypeBadgeContainer: {
+    position: "absolute",
+    top: SPACING.L,
+    left: SPACING.M,
     zIndex: 10,
   },
-  videoIndicatorGradient: {
+  eventTypeBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: SPACING.M,
+    paddingHorizontal: SPACING.S,
     paddingVertical: SPACING.XS,
+    borderRadius: BORDER_RADIUS.L,
+    ...SHADOWS.SMALL,
   },
-  videoIndicatorText: {
-    color: "#FFFFFF",
+  eventTypeIcon: {
+    marginRight: SPACING.XS,
+  },
+  eventTypeText: {
     fontFamily: FONTS.MEDIUM,
     fontSize: FONT_SIZES.XS,
-    marginLeft: SPACING.XS,
-  },
-  paginationContainer: {
-    position: "absolute",
-    bottom: SPACING.M,
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 10,
-  },
-  paginationDot: {
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  headerGradient: {
-    width: "100%",
-    height: "100%",
   },
   particle: {
     position: "absolute",
@@ -967,10 +1330,8 @@ const styles = StyleSheet.create({
   },
   // Bottom half section
   bottomHalf: {
-    minHeight: height * 0.75,
     width: "100%",
     position: "relative",
-    paddingBottom: SPACING.XL,
   },
   bottomGradient: {
     position: "absolute",
@@ -981,19 +1342,12 @@ const styles = StyleSheet.create({
   },
   // Main Card
   cardContainer: {
-    position: "relative",
-    top: -height * 0.1,
     marginHorizontal: width * 0.05,
     width: width * 0.9,
     zIndex: 10,
     borderRadius: BORDER_RADIUS.XXL,
     overflow: "hidden",
     ...SHADOWS.MEDIUM,
-  },
-  cardGradient: {
-    width: "100%",
-    borderRadius: BORDER_RADIUS.XXL,
-    overflow: "hidden",
   },
   cardAccentBar: {
     height: 6,
@@ -1009,7 +1363,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: SPACING.S,
   },
   eventTitle: {
@@ -1018,22 +1372,44 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: SPACING.S,
   },
-  actionButtons: {
+  paidBadge: {
+    borderRadius: BORDER_RADIUS.M,
+    overflow: "hidden",
+  },
+  paidBadgeGradient: {
     flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SPACING.S,
+    paddingVertical: SPACING.XS,
+  },
+  paidBadgeText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
+    marginLeft: 4,
+  },
+  quickActionButtons: {
+    marginBottom: SPACING.S,
   },
   actionButton: {
-    width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.M,
     overflow: "hidden",
-    marginLeft: SPACING.XS,
     ...SHADOWS.SMALL,
   },
   actionButtonGradient: {
     width: "100%",
     height: "100%",
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: SPACING.M,
+  },
+  actionButtonText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.S,
+    marginLeft: SPACING.XS,
   },
   creatorCompact: {
     flexDirection: "row",
@@ -1042,9 +1418,21 @@ const styles = StyleSheet.create({
     marginTop: SPACING.XS,
   },
   creatorAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  creatorAvatarGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  creatorAvatarText: {
+    color: COLORS.WHITE,
+    fontFamily: FONTS.SEMIBOLD,
+    fontSize: FONT_SIZES.S,
   },
   creatorInfo: {
     flex: 1,
@@ -1058,28 +1446,53 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.SEMIBOLD,
     fontSize: FONT_SIZES.S,
   },
+  creatorLocationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 2,
+  },
   verifiedIcon: {
     marginLeft: SPACING.XS,
   },
   creatorLocation: {
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.XS,
-    marginTop: 2,
+    marginLeft: 4,
+  },
+  // Event Information Section
+  infoSection: {
+    borderRadius: BORDER_RADIUS.L,
+    padding: SPACING.M,
+    marginBottom: SPACING.M,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: SPACING.S,
+  },
+  infoIcon: {
+    width: 24,
+    alignItems: "center",
+  },
+  infoText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.S,
+    flex: 1,
+    marginLeft: SPACING.S,
   },
   // Description
   descriptionContainer: {
     marginBottom: SPACING.M,
   },
+  sectionTitle: {
+    fontFamily: FONTS.SEMIBOLD,
+    fontSize: FONT_SIZES.M,
+    marginBottom: SPACING.S,
+  },
   description: {
     fontFamily: FONTS.REGULAR,
     fontSize: FONT_SIZES.S,
     lineHeight: 22,
-  },
-  // Badge Row
-  badgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginBottom: SPACING.M,
   },
   // Countdown
   countdownContainer: {
@@ -1103,67 +1516,6 @@ const styles = StyleSheet.create({
   statusContainer: {
     marginBottom: SPACING.L,
   },
-  sectionTitle: {
-    fontFamily: FONTS.SEMIBOLD,
-    fontSize: FONT_SIZES.M,
-    marginBottom: SPACING.S,
-  },
-  // Video Gallery
-  videoGalleryContainer: {
-    marginBottom: SPACING.L,
-  },
-  sectionTitleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: SPACING.S,
-  },
-  viewAllButton: {
-    paddingVertical: SPACING.XS,
-    paddingHorizontal: SPACING.S,
-  },
-  viewAllText: {
-    fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.XS,
-  },
-  videoScrollContent: {
-    paddingRight: SPACING.M,
-  },
-  videoThumbnailContainer: {
-    width: width * 0.4,
-    height: width * 0.25,
-    borderRadius: BORDER_RADIUS.M,
-    overflow: "hidden",
-    marginRight: SPACING.S,
-    position: "relative",
-  },
-  videoThumbnail: {
-    width: "100%",
-    height: "100%",
-  },
-  videoThumbnailOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  videoDuration: {
-    position: "absolute",
-    bottom: SPACING.XS,
-    right: SPACING.XS,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    paddingHorizontal: SPACING.XS,
-    paddingVertical: 2,
-    borderRadius: BORDER_RADIUS.S,
-  },
-  videoDurationText: {
-    color: "#FFFFFF",
-    fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.XS,
-  },
   // Creator Profile (Expanded)
   creatorProfileContainer: {
     marginBottom: SPACING.L,
@@ -1180,6 +1532,18 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
+  },
+  creatorProfileAvatarGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  creatorProfileAvatarText: {
+    color: COLORS.WHITE,
+    fontFamily: FONTS.BOLD,
+    fontSize: FONT_SIZES.M,
   },
   creatorProfileInfo: {
     flex: 1,
@@ -1202,10 +1566,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: SPACING.S,
   },
-  creatorLocationRow: {
+  creatorProfileLocationWrapper: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: SPACING.XS,
+    gap: 4,
   },
   creatorProfileLocation: {
     fontFamily: FONTS.REGULAR,
@@ -1219,6 +1583,9 @@ const styles = StyleSheet.create({
     fontSize: FONT_SIZES.XS,
     marginLeft: SPACING.XS,
   },
+  chatWithCreatorContainer: {
+    marginTop: SPACING.M,
+  },
   // Apply Section
   applyContainer: {
     marginBottom: SPACING.L,
@@ -1227,37 +1594,12 @@ const styles = StyleSheet.create({
     width: "100%",
     marginTop: SPACING.S,
   },
-  applyButton: {
-    width: "100%",
-    height: 50,
-    borderRadius: BORDER_RADIUS.M,
-    overflow: "hidden",
-    ...SHADOWS.SMALL,
-  },
-  applyButtonGradient: {
-    width: "100%",
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  applyButtonText: {
-    color: "#FFFFFF",
-    fontFamily: FONTS.SEMIBOLD,
-    fontSize: FONT_SIZES.M,
-  },
   // Applications Section
   applicationsContainer: {
     marginBottom: SPACING.L,
   },
-  applicationsPlaceholder: {
-    height: 100,
-    borderRadius: BORDER_RADIUS.M,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholderText: {
-    fontFamily: FONTS.MEDIUM,
-    fontSize: FONT_SIZES.S,
+  applicantGroupContainer: {
+    marginTop: SPACING.S,
   },
   // Decorative elements
   decorativeCircle1: {

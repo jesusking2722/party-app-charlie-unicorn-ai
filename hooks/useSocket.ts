@@ -1,6 +1,9 @@
 import { useToast } from "@/contexts/ToastContext";
-import { addNewNotificationAsync } from "@/redux/actions/auth.actions";
-import { Notification } from "@/types/data";
+import {
+  addNewNotificationAsync,
+  setAuthUserAsync,
+} from "@/redux/actions/auth.actions";
+import { Notification, User } from "@/types/data";
 import { useEffect } from "react";
 import { useSelector } from "react-redux";
 import { getSocket } from "../lib/socketInstance";
@@ -86,9 +89,9 @@ const useSocket = () => {
     //   );
     // };
 
-    // const handleUpdateMeViaSocket = (user: User) => {
-    //   dispatch(setAuthUser({ user }));
-    // };
+    const handleUpdateMeViaSocket = async (user: User) => {
+      await dispatch(setAuthUserAsync(user)).unwrap();
+    };
 
     // const handleNewMessage = (
     //   newMessage: Message,
@@ -150,8 +153,8 @@ const useSocket = () => {
     // notification
     socket.on("notification", handleNewNotification);
 
-    // // direct
-    // socket.on("update-me", handleUpdateMeViaSocket);
+    // direct
+    socket.on("update-me", handleUpdateMeViaSocket);
 
     // // message
     // socket.on("message-received:text", handleNewMessage);
@@ -183,15 +186,15 @@ const useSocket = () => {
       //     handleUpdatePartyFinishApproved
       //   );
       //   // applicant
-      //   socket.off("applicant:created", handleNewApplied);
+      // socket.off("applicant:created", handleNewApplied);
       //   socket.off("accepted:applicant", handleAcceptedApplicant);
       //   socket.off("declined:applicant", handleDeclinedApplicant);
 
       // notification
       socket.off("notification", handleNewNotification);
 
-      //   // user
-      //   socket.off("update-me", handleUpdateMeViaSocket);
+      // user
+      socket.off("update-me", handleUpdateMeViaSocket);
       //   // message
       //   socket.off("message-received:text", handleNewMessage);
       //   socket.off("message-received:files", handleNewFilesMessages);

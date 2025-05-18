@@ -413,7 +413,7 @@ const EventListScreen = () => {
     >
       <Link
         href={{
-          pathname: "/events/details/[id]",
+          pathname: "/parites/[id]",
           params: { id: item._id as string },
         }}
         style={styles.eventCard}
@@ -1086,7 +1086,7 @@ const EventListScreen = () => {
                   >
                     <TouchableOpacity
                       style={styles.addEventButton}
-                      onPress={() => router.push("/events/create")}
+                      onPress={() => router.push("/parites/create")}
                     >
                       <LinearGradient
                         colors={

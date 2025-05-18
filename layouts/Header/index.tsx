@@ -27,7 +27,7 @@ import { ProfileDrawer } from "@/components/molecules";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { RootState } from "@/redux/store";
-import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { FontAwesome5 } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 
 // Logo asset path
@@ -201,8 +201,8 @@ const Header: React.FC<HeaderProps> = ({
                 },
               ]}
             >
-              <Ionicons
-                name="chatbox"
+              <FontAwesome5
+                name="comment"
                 size={16}
                 color={isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.WHITE}
               />

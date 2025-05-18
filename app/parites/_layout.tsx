@@ -5,7 +5,7 @@ export default function EventsLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="create" />
-      <Stack.Screen name="details/[id]" />
+      <Stack.Screen name="[id]" />
     </Stack>
   );
 }
