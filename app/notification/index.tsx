@@ -1,4 +1,4 @@
-import { FontAwesome5 } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
@@ -32,6 +32,7 @@ import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
 import { User } from "@/types/data";
 import { useSelector } from "react-redux";
+import { router } from "expo-router";
 
 const NotificationBannerImage = require("@/assets/images/notification-banner.png");
 
@@ -187,7 +188,11 @@ const NotificationScreen: React.FC = () => {
 
   useEffect(() => {
     if (user?.notifications) {
-      const props: any[] = user.notifications.map((n) =>
+      const sorted = [...user.notifications].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      const props: any[] = sorted.map((n) =>
         n.title.includes("opened new party")
           ? { ...n, type: "success" }
           : { ...n, type: "info" }
@@ -465,6 +470,30 @@ const NotificationScreen: React.FC = () => {
               }
             />
           </TouchableOpacity>
+
+          {notification.link && (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: isDarkMode
+                    ? "rgba(55, 65, 81, 0.7)"
+                    : "rgba(0, 0, 0, 0.05)",
+                },
+              ]}
+              onPress={() => router.push(notification.link as any)}
+            >
+              <FontAwesome
+                name="link"
+                size={12}
+                color={
+                  isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY
+                }
+              />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={[

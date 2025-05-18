@@ -25,6 +25,7 @@ import {
   SPACING,
 } from "@/app/theme";
 import {
+  Alert,
   Button,
   CountdownProgress,
   Rating,
@@ -119,6 +120,8 @@ const EventDetailScreen = () => {
   const [pendingApplicants, setPendingApplicants] = useState<Applicant[]>([]);
   const [acceptedApplicants, setAcceptedApplicants] = useState<Applicant[]>([]);
   const [declinedApplicants, setDeclinedApplicants] = useState<Applicant[]>([]);
+
+  const [myApplicant, setMyApplicant] = useState<Applicant | null>(null);
 
   // Refs
   const scrollViewRef = useRef<any>(null);
@@ -247,6 +250,15 @@ const EventDetailScreen = () => {
       animateParticles();
     }, 100);
   }, []);
+
+  useEffect(() => {
+    if (user && event) {
+      const found = event.applicants.find(
+        (app) => app.applier._id === user._id
+      );
+      setMyApplicant(found ?? null);
+    }
+  }, [user, event]);
 
   // Animation for particle effects
   const particles = Array(8)
@@ -440,33 +452,6 @@ const EventDetailScreen = () => {
   // Format days left percentage
   const daysPercentage = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
 
-  // Render floating particles
-  const renderParticles = () => {
-    return particles.map((particle, index) => (
-      <Animated.View
-        key={`particle-${index}`}
-        style={[
-          styles.particle,
-          {
-            transform: [
-              { translateX: particle.x },
-              { translateY: particle.y },
-              { scale: particle.scale },
-            ],
-            opacity: particle.opacity,
-            backgroundColor: isDarkMode
-              ? `rgba(${127 + Math.floor(Math.random() * 128)}, ${Math.floor(
-                  Math.random() * 100
-                )}, ${Math.floor(Math.random() * 255)}, 0.7)`
-              : `rgba(${Math.floor(Math.random() * 255)}, ${Math.floor(
-                  Math.random() * 255
-                )}, ${Math.floor(Math.random() * 255)}, 0.5)`,
-          },
-        ]}
-      />
-    ));
-  };
-
   // Helper function to get accent color
   const getAccentColor = () => (isDarkMode ? COLORS.SECONDARY : "#FF0099");
 
@@ -572,9 +557,6 @@ const EventDetailScreen = () => {
               </LinearGradient>
             </View>
           )}
-
-          {/* Add floating particles for effect */}
-          {renderParticles()}
 
           {/* Slider Overlay Gradient */}
           <LinearGradient
@@ -762,7 +744,7 @@ const EventDetailScreen = () => {
                           },
                         ]}
                       >
-                        {event?.creator?.region}, {event?.creator?.country}{" "}
+                        {event?.creator?.region}, {event?.creator?.country}
                       </Text>
                     </View>
                   </View>
@@ -1108,28 +1090,30 @@ const EventDetailScreen = () => {
                   </View>
 
                   {/* Chat with creator button */}
-                  {!isCreator && event?.creator?._id && (
-                    <View style={styles.chatWithCreatorContainer}>
-                      <Button
-                        title="Chat with Creator"
-                        variant={isDarkMode ? "secondary" : "primary"}
-                        icon={
-                          <FontAwesome5
-                            name="comment"
-                            size={14}
-                            color="#FFFFFF"
-                          />
-                        }
-                        iconPosition="left"
-                        small={true}
-                        onPress={() => {
-                          if (event.creator?._id) {
-                            handleChatWithApplicant(event.creator._id);
+                  {!isCreator &&
+                    event?.creator?._id &&
+                    user?.membership === "premium" && (
+                      <View style={styles.chatWithCreatorContainer}>
+                        <Button
+                          title="Chat with Creator"
+                          variant={isDarkMode ? "secondary" : "primary"}
+                          icon={
+                            <FontAwesome5
+                              name="comment"
+                              size={14}
+                              color="#FFFFFF"
+                            />
                           }
-                        }}
-                      />
-                    </View>
-                  )}
+                          iconPosition="left"
+                          small={true}
+                          onPress={() => {
+                            if (event.creator?._id) {
+                              handleChatWithApplicant(event.creator._id);
+                            }
+                          }}
+                        />
+                      </View>
+                    )}
                 </View>
               </View>
 
@@ -1176,6 +1160,18 @@ const EventDetailScreen = () => {
                 </View>
               )}
 
+              {/* Alert Section */}
+              {alreadyApplied && myApplicant?.stickers.length === 0 && (
+                <>
+                  <Alert
+                    type="info"
+                    title="Tip"
+                    message="Event owner is waiting for your ticket"
+                  />
+                  <View style={{ height: 20 }}></View>
+                </>
+              )}
+
               {/* Applications Section with Tabs */}
               {(isCreator ||
                 user?.membership === "premium" ||
@@ -1217,28 +1213,6 @@ const EventDetailScreen = () => {
           </Animated.View>
         </View>
       </Animated.ScrollView>
-
-      {/* Decorative elements */}
-      <View
-        style={[
-          styles.decorativeCircle1,
-          {
-            backgroundColor: isDarkMode
-              ? "rgba(79, 70, 229, 0.1)"
-              : "rgba(255, 0, 153, 0.08)",
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.decorativeCircle2,
-          {
-            backgroundColor: isDarkMode
-              ? "rgba(124, 58, 237, 0.08)"
-              : "rgba(255, 255, 255, 0.06)",
-          },
-        ]}
-      />
     </SafeAreaView>
   );
 };

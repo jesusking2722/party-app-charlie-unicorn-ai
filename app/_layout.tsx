@@ -5,7 +5,6 @@ import { Stack, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useCallback, useEffect, useState } from "react";
 import { BackHandler, Linking, StyleSheet, View } from "react-native";
-import "./global.css";
 
 import { ToastProvider } from "@/contexts/ToastContext";
 import { Header, Navbar } from "@/layouts";
@@ -184,7 +183,7 @@ export default function RootLayout() {
                   <Stack.Screen name="auth" />
                   <Stack.Screen name="onboarding" />
                   <Stack.Screen name="home/index" />
-                  <Stack.Screen name="parites" />
+                  <Stack.Screen name="parties" />
                   <Stack.Screen name="subscription/index" />
                   <Stack.Screen name="tickets/index" />
                 </Stack>

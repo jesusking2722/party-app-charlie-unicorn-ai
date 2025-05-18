@@ -1,4 +1,4 @@
-import { MediaItem } from "@/app/parites/create";
+import { MediaItem } from "@/app/parties/create";
 import { IMGBB_API_KEY } from "@/constant";
 import * as FileSystem from "expo-file-system";
 
