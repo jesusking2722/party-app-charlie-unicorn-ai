@@ -22,6 +22,8 @@ import {
 import { Button } from "@/components/common";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
 const { width } = Dimensions.get("window");
 
@@ -31,6 +33,7 @@ interface TicketProps {
   name: string;
   image: string;
   price: number;
+  isOwned?: boolean;
   currency: "usd" | "eur" | "pln";
   onPurchase: (id: string) => void;
 }
@@ -47,10 +50,13 @@ const Ticket: React.FC<TicketProps> = ({
   name,
   image,
   price,
+  isOwned,
   currency,
   onPurchase,
 }) => {
   const { isDarkMode } = useTheme();
+
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // STRICTLY Native driver animations (opacity, transform)
   const shimmerPosition = useRef(new Animated.Value(-width * 2)).current;
@@ -478,10 +484,11 @@ const Ticket: React.FC<TicketProps> = ({
               >
                 <View pointerEvents="none">
                   <Button
-                    title="Purchase"
+                    title={isOwned ? "Owned" : "Purchase"}
                     variant={isDarkMode ? "primary" : "secondary"}
+                    disabled={isOwned}
                     small={true}
-                    onPress={() => {}} // Empty function since we handle click above
+                    onPress={() => onPurchase(_id)}
                   />
                 </View>
               </TouchableOpacity>

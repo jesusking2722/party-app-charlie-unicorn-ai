@@ -1,9 +1,10 @@
 import { Party } from "@/types/data";
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import {
   addNewApplicantToSelectedPartyAsync,
   addNewPartyAsync,
   setPartySliceAsync,
+  updateSelectedPartyAsnyc,
 } from "../actions/party.actions";
 
 interface PartySliceState {
@@ -17,7 +18,28 @@ const initialPartySliceState: PartySliceState = {
 const partySlice = createSlice({
   name: "party",
   initialState: initialPartySliceState,
-  reducers: {},
+  reducers: {
+    updateApplicantStatusInSelectedParty(
+      state: PartySliceState,
+      action: PayloadAction<{
+        partyId: string;
+        applicantId: string;
+        status: "pending" | "accepted" | "declined";
+      }>
+    ) {
+      const { partyId, applicantId, status } = action.payload;
+      state.parties.forEach((party) => {
+        if (party._id === partyId) {
+          let selectedApplicant = party.applicants.find(
+            (applicant) => applicant._id === applicantId
+          );
+          if (selectedApplicant) {
+            selectedApplicant.status = status;
+          }
+        }
+      });
+    },
+  },
   extraReducers(builder) {
     builder.addCase(setPartySliceAsync.fulfilled, (state, action) => {
       state.parties = action.payload;
@@ -35,7 +57,16 @@ const partySlice = createSlice({
         }
       }
     );
+    builder.addCase(updateSelectedPartyAsnyc.fulfilled, (state, action) => {
+      const selectedParty = action.payload;
+      state.parties.forEach((party) => {
+        if (party._id === selectedParty._id) {
+          party = selectedParty;
+        }
+      });
+    });
   },
 });
 
+export const { updateApplicantStatusInSelectedParty } = partySlice.actions;
 export default partySlice.reducer;

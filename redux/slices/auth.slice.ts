@@ -1,5 +1,5 @@
 import { User } from "@/types/data";
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import {
   addNewNotificationAsync,
   clearAuthAsync,
@@ -22,7 +22,11 @@ const initialAuthSliceState: AuthSliceState = {
 const authSlice = createSlice({
   name: "auth",
   initialState: initialAuthSliceState,
-  reducers: {},
+  reducers: {
+    setAuthUser: (state: AuthSliceState, action: PayloadAction<User>) => {
+      state.user = action.payload;
+    },
+  },
   extraReducers: (builder) => {
     // Handle setAuthAsync
     builder.addCase(setAuthAsync.fulfilled, (state, action) => {
@@ -50,4 +54,5 @@ const authSlice = createSlice({
   },
 });
 
+export const { setAuthUser } = authSlice.actions;
 export default authSlice.reducer;

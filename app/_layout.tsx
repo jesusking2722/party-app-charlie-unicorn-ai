@@ -11,14 +11,18 @@ import { Header, Navbar } from "@/layouts";
 import { fetchStripePublishableKey } from "@/lib/scripts/stripe.scripts";
 import { store } from "@/redux/store";
 import { Provider } from "react-redux";
+import socket from "@/lib/socketInstance";
 
 import "@walletconnect/react-native-compat";
-
 import {
   AppKit,
   createAppKit,
   defaultConfig,
 } from "@reown/appkit-ethers-react-native";
+import { jwtDecode } from "jwt-decode";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import useSocket from "@/hooks/useSocket";
+import AppStateListener from "./AppStateListener";
 
 const projectId = "985f93ef94b75e99a064d6d6ff61071c";
 
@@ -108,6 +112,18 @@ export default function RootLayout() {
     subscription.remove();
   }, []);
 
+  const handleRealtimeSocket = useCallback(async () => {
+    const token = await AsyncStorage.getItem("Authorization");
+    if (token) {
+      const decoded = jwtDecode(token) as any;
+      socket.emit("login", decoded.id);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    handleRealtimeSocket();
+  }, [handleRealtimeSocket]);
+
   // Stripe initialize
   const stripe = useStripe();
 
@@ -117,8 +133,6 @@ export default function RootLayout() {
     if (stripe) {
       const stripeHandled = await stripe.handleURLCallback(url);
       if (stripeHandled) {
-        // This was a Stripe URL - you've handled it
-        console.log("Handled Stripe URL:", url);
       }
     }
   }, []);
@@ -160,12 +174,14 @@ export default function RootLayout() {
     <Provider store={store}>
       <StripeProvider
         publishableKey={publishableKey}
-        // You can add these if needed
-        // merchantIdentifier="merchant.com.yourapp" // Only needed for Apple Pay
-        // urlScheme="your-app-scheme" // Required for 3D Secure
+        merchantIdentifier="merchant.com.yourapp"
+        urlScheme="your-url-scheme"
+        threeDSecureParams={{ backgroundColor: "#FFF" }}
       >
         <ThemeProvider>
           <ToastProvider>
+            <AppStateListener />
+
             <View style={styles.container} onLayout={onLayoutRootView}>
               {/* Header component */}
               {showNavigation && <Header />}
@@ -186,6 +202,7 @@ export default function RootLayout() {
                   <Stack.Screen name="parties" />
                   <Stack.Screen name="subscription/index" />
                   <Stack.Screen name="tickets/index" />
+                  <Stack.Screen name="review/index" />
                 </Stack>
               </View>
 

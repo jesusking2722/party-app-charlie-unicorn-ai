@@ -42,10 +42,13 @@ import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import socket from "@/lib/socketInstance";
-import { addNewApplicantToSelectedPartyAsync } from "@/redux/actions/party.actions";
+import {
+  addNewApplicantToSelectedPartyAsync,
+  updateSelectedPartyAsnyc,
+} from "@/redux/actions/party.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
-import { Applicant, Party, PartyType } from "@/types/data";
-import { useLocalSearchParams } from "expo-router";
+import { Applicant, Party, PartyType, Ticket } from "@/types/data";
+import { router, useLocalSearchParams } from "expo-router";
 import CountryFlag from "react-native-country-flag";
 import { useSelector } from "react-redux";
 
@@ -90,6 +93,7 @@ const EventDetailScreen = () => {
   const [alreadyApplied, setAlreadyApplied] = useState<boolean>(false);
   const [isCreator, setIsCreator] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
   // Event progress states
   const [eventSteps, setEventSteps] = useState<any[]>([
@@ -256,7 +260,16 @@ const EventDetailScreen = () => {
       const found = event.applicants.find(
         (app) => app.applier._id === user._id
       );
-      setMyApplicant(found ?? null);
+      if (found) {
+        setMyApplicant(found);
+        if (found.status === "pending") {
+          setActiveTab(0);
+        } else if (found.status === "accepted") {
+          setActiveTab(1);
+        } else if (found.status === "declined") {
+          setActiveTab(2);
+        }
+      }
     }
   }, [user, event]);
 
@@ -338,7 +351,7 @@ const EventDetailScreen = () => {
     event: Party
   ): Promise<Applicant> => {
     return new Promise((resolve) => {
-      socket.once("party:created", (newApplicant: Applicant) => {
+      socket.once("applicant:created", (newApplicant: Applicant) => {
         resolve(newApplicant);
       });
 
@@ -449,6 +462,141 @@ const EventDetailScreen = () => {
     // Show success toast and update UI
   };
 
+  const sendTicket = async (
+    eventData: Party,
+    applicantId: string,
+    ticket: Ticket,
+    userId: string
+  ): Promise<Party> => {
+    return new Promise((resolve) => {
+      socket.once("send-to-owner:sticker", (updatedEvent: Party) => {
+        resolve(updatedEvent);
+      });
+      socket.emit(
+        "sticker:send-to-owner",
+        eventData._id,
+        applicantId,
+        eventData.creator?._id,
+        ticket,
+        userId
+      );
+    });
+  };
+
+  const handleSendTicket = async (
+    applicant: Applicant,
+    ticket: Ticket | null
+  ) => {
+    if (!event?._id || !user?._id || !applicant._id || !ticket) return;
+
+    setLoading(true);
+
+    const updatedEvent = await sendTicket(
+      event,
+      applicant._id,
+      ticket,
+      user._id
+    );
+
+    if (updatedEvent) {
+      setEvent(updatedEvent);
+
+      await dispatch(updateSelectedPartyAsnyc(updatedEvent)).unwrap();
+
+      const found = updatedEvent.applicants.find(
+        (app) => app.applier._id === user._id
+      );
+      setMyApplicant(found ?? null);
+
+      // Change state
+      const pending = updatedEvent.applicants.filter(
+        (app) => app.status === "pending"
+      );
+      const accepted = updatedEvent.applicants.filter(
+        (app) => app.status === "accepted"
+      );
+      const declined = updatedEvent.applicants.filter(
+        (app) => app.status === "declined"
+      );
+
+      setPendingApplicants(pending);
+      setAcceptedApplicants(accepted);
+      setDeclinedApplicants(declined);
+
+      showToast("Ticket sent successfully", "success");
+      setLoading(false);
+    }
+  };
+
+  const releaseTicket = async (
+    applicantId: string,
+    eventId: string,
+    applierName: string
+  ): Promise<Party> => {
+    return new Promise((resolve) => {
+      socket.once("approved-from-applier:sticker", (updatedEvent: Party) => {
+        resolve(updatedEvent);
+      });
+      socket.emit(
+        "sticker:approved-to-owner",
+        applicantId,
+        eventId,
+        applierName
+      );
+    });
+  };
+
+  const handleReleaseTicket = async (applicant: Applicant) => {
+    if (!event?._id || !user?.name || !applicant._id) return;
+
+    setLoading(true);
+
+    const updatedEvent = await releaseTicket(
+      applicant._id,
+      event._id,
+      user.name
+    );
+
+    if (updatedEvent) {
+      console.log("Updated Event", updatedEvent);
+      setEvent(updatedEvent);
+
+      await dispatch(updateSelectedPartyAsnyc(updatedEvent)).unwrap();
+
+      const found = updatedEvent.applicants.find(
+        (app) => app.applier._id === user._id
+      );
+      setMyApplicant(found ?? null);
+
+      // Change state
+      const pending = updatedEvent.applicants.filter(
+        (app) => app.status === "pending"
+      );
+      const accepted = updatedEvent.applicants.filter(
+        (app) => app.status === "accepted"
+      );
+      const declined = updatedEvent.applicants.filter(
+        (app) => app.status === "declined"
+      );
+
+      setPendingApplicants(pending);
+      setAcceptedApplicants(accepted);
+      setDeclinedApplicants(declined);
+
+      showToast("Ticket is released successfully", "success");
+      setLoading(false);
+    }
+  };
+
+  const handleApprovalFinishingEvent = (applicantId: string) => {
+    if (!event?._id || !applicantId) return;
+
+    router.push({
+      pathname: "/review" as any,
+      params: { eventId: event._id, applicantId, reviewType: "applier" },
+    });
+  };
+
   // Format days left percentage
   const daysPercentage = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
 
@@ -461,21 +609,30 @@ const EventDetailScreen = () => {
       case 0:
         return (
           <ApplicantGroup
+            event={event}
             applicants={pendingApplicants}
             onAccept={handleAcceptApplicant}
             onDecline={handleDeclineApplicant}
             onChat={handleChatWithApplicant}
-            // onTicketExchange={handleTicketExchange}
+            loading={loading}
+            onSendTicket={handleSendTicket}
+            onReleaseTicket={handleReleaseTicket}
+            onApproveFinishingEvent={handleApprovalFinishingEvent}
             type="pending"
           />
         );
       case 1:
         return (
           <ApplicantGroup
+            event={event}
             applicants={acceptedApplicants}
             onAccept={handleAcceptApplicant}
             onDecline={handleDeclineApplicant}
             onChat={handleChatWithApplicant}
+            loading={loading}
+            onSendTicket={handleSendTicket}
+            onReleaseTicket={handleReleaseTicket}
+            onApproveFinishingEvent={handleApprovalFinishingEvent}
             // onTicketExchange={handleTicketExchange}
             type="accepted"
           />
@@ -483,10 +640,15 @@ const EventDetailScreen = () => {
       case 2:
         return (
           <ApplicantGroup
+            event={event}
             applicants={declinedApplicants}
             onAccept={handleAcceptApplicant}
             onDecline={handleDeclineApplicant}
             onChat={handleChatWithApplicant}
+            loading={loading}
+            onSendTicket={handleSendTicket}
+            onReleaseTicket={handleReleaseTicket}
+            onApproveFinishingEvent={handleApprovalFinishingEvent}
             // onTicketExchange={handleTicketExchange}
             type="declined"
           />
@@ -628,16 +790,16 @@ const EventDetailScreen = () => {
                         style={styles.paidBadgeGradient}
                       >
                         <FontAwesome5
-                          name={
-                            event.paidOption === "paid"
-                              ? "dollar-sign"
-                              : "ticket-alt"
-                          }
+                          name={event.paidOption === "paid" ? "" : "ticket-alt"}
                           size={10}
                           color="#FFFFFF"
                         />
                         <Text style={styles.paidBadgeText}>
-                          {event.paidOption === "paid" ? "Paid" : "Free"}
+                          {event.paidOption === "paid"
+                            ? `${
+                                event.fee
+                              } ${event.currency.toUpperCase()} Paid`
+                            : "Free"}
                         </Text>
                       </LinearGradient>
                     </View>
@@ -762,17 +924,7 @@ const EventDetailScreen = () => {
               </View>
 
               {/* Event Information Section */}
-              <View
-                style={[
-                  styles.infoSection,
-                  {
-                    backgroundColor: isDarkMode
-                      ? "rgba(31, 41, 55, 0.5)"
-                      : "rgba(243, 244, 246, 0.5)",
-                  },
-                ]}
-              >
-                ,
+              <View style={styles.infoSection}>
                 <View style={styles.infoItem}>
                   <FontAwesome5
                     name="map-marker-alt"
@@ -1092,7 +1244,12 @@ const EventDetailScreen = () => {
                   {/* Chat with creator button */}
                   {!isCreator &&
                     event?.creator?._id &&
-                    user?.membership === "premium" && (
+                    user?.membership === "premium" &&
+                    event.applicants.some(
+                      (app) =>
+                        app.applier._id === user._id &&
+                        app.status === "accepted"
+                    ) && (
                       <View style={styles.chatWithCreatorContainer}>
                         <Button
                           title="Chat with Creator"
@@ -1161,16 +1318,48 @@ const EventDetailScreen = () => {
               )}
 
               {/* Alert Section */}
-              {alreadyApplied && myApplicant?.stickers.length === 0 && (
-                <>
-                  <Alert
-                    type="info"
-                    title="Tip"
-                    message="Event owner is waiting for your ticket"
-                  />
-                  <View style={{ height: 20 }}></View>
-                </>
-              )}
+              {alreadyApplied &&
+                myApplicant &&
+                myApplicant?.stickers.length === 0 && (
+                  <>
+                    <Alert
+                      type="info"
+                      title="Tip for joining paid event"
+                      message="Event owner is waiting for your ticket"
+                    />
+                    <View style={{ height: 20 }}></View>
+                  </>
+                )}
+
+              {alreadyApplied &&
+                myApplicant &&
+                myApplicant?.stickers.length > 0 &&
+                myApplicant.stickerLocked && (
+                  <>
+                    <Alert
+                      type="warning"
+                      title="Tip for approval"
+                      message="After confirming event, you can release your ticket to the owner"
+                    />
+                    <View style={{ height: 20 }}></View>
+                  </>
+                )}
+
+              {alreadyApplied &&
+                myApplicant &&
+                !myApplicant.stickerLocked &&
+                !event?.finishApproved.some(
+                  (f) => f._id === myApplicant._id
+                ) && (
+                  <>
+                    <Alert
+                      type="success"
+                      title="Tip for approval finishing event"
+                      message="After having event, you can approve finishing event to the owner"
+                    />
+                    <View style={{ height: 20 }}></View>
+                  </>
+                )}
 
               {/* Applications Section with Tabs */}
               {(isCreator ||

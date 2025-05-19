@@ -559,7 +559,7 @@ const CreatePartyScreen = () => {
 
       await dispatch(addNewPartyAsync(createdEvent)).unwrap();
 
-      router.replace("/events");
+      router.replace("/parties");
     } catch (error) {
       console.error("handle create event error: ", error);
     } finally {

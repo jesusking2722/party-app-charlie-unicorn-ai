@@ -213,10 +213,6 @@ const HomeScreen = () => {
       isValidGeoPosition(party.geo)
     );
 
-    console.log(
-      `Found ${validParties.length} valid parties out of ${parties.length}`
-    );
-
     setFilteredParties(validParties);
 
     const sorted = [...validParties].sort((a, b) => {
@@ -233,10 +229,8 @@ const HomeScreen = () => {
   // Update the user geo useEffect:
   useEffect(() => {
     if (user?.geo && isValidGeoPosition(user.geo)) {
-      console.log("Valid user location:", user.geo);
       setMapCenter(user.geo);
     } else {
-      console.log("Invalid user location:", user?.geo);
       // Only set a default center if needed
       if (!mapCenter) {
         setMapCenter({
@@ -665,7 +659,7 @@ const HomeScreen = () => {
                               : COLORS.LIGHT_BORDER,
                           },
                         ]}
-                        onPress={() => router.replace("/events")}
+                        onPress={() => router.replace("/parties")}
                       >
                         <Text
                           style={[
@@ -912,7 +906,7 @@ const HomeScreen = () => {
                           />
                         }
                         iconPosition="right"
-                        onPress={() => router.replace("/events")}
+                        onPress={() => router.replace("/parties")}
                         small={true}
                       />
                     </Animated.View>

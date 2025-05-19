@@ -26,15 +26,28 @@ import {
   CryptoPayment,
   PaymentMethodType,
   PaymentModal,
+  Spinner,
   Tabs,
 } from "@/components/common";
 import { Ticket } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
-import { RootState } from "@/redux/store";
-import type { CurrencyType, Ticket as TicketType } from "@/types/data";
+import { RootState, useAppDispatch } from "@/redux/store";
+import type {
+  CardTransaction,
+  CurrencyType,
+  Ticket as TicketType,
+  User,
+} from "@/types/data";
 import { formatPrice } from "@/utils/currency";
-import { router } from "expo-router";
 import { useSelector } from "react-redux";
+import { useLocalSearchParams, useSearchParams } from "expo-router/build/hooks";
+import { TicketModal } from "@/components/molecules";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { useToast } from "@/contexts/ToastContext";
+import { extractNumericPrice } from "@/utils/price";
+import { saveCardTransaction } from "@/lib/scripts/card.transaction.scripts";
+import { addNewCardTransactionSliceAsync } from "@/redux/actions/card.transaction.actions";
 
 const TicketBannerImage = require("@/assets/images/ticket-banner.png");
 
@@ -54,14 +67,21 @@ const currencySymbols: Record<CurrencyType, string> = {
 const TicketScreen: React.FC = () => {
   const { isDarkMode } = useTheme();
 
+  const { ticketCurrency, ticketPrice } = useLocalSearchParams();
+
   // State for currency selection
   const [activeCurrencyIndex, setActiveCurrencyIndex] = useState<number>(0);
   const currencies: CurrencyType[] = ["usd", "eur", "pln"];
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyType>("usd");
   const [formattedAmount, setFormattedAmount] = useState<string>("$5");
+  const [paramTicket, setParamTicket] = useState<TicketType | null>(null);
+  const [alreadyOwned, setAlreadyOwned] = useState<boolean>(false);
+  const [ticketModalVisible, setTicketModalVisible] = useState<boolean>(false);
+  const [ownedTickets, setOwnedTickets] = useState<TicketType[]>([]);
 
   // State for displayed tickets
   const [displayedTickets, setDisplayedTickets] = useState<TicketType[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
   // State for payment modal
   const [paymentModalVisible, setPaymentModalVisible] =
@@ -69,7 +89,11 @@ const TicketScreen: React.FC = () => {
   const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
   const [paymentFlow, setPaymentFlow] = useState<string | null>(null);
 
+  const { user } = useSelector((state: RootState) => state.auth);
   const { tickets } = useSelector((state: RootState) => state.ticket);
+  const dispatch = useAppDispatch();
+
+  const { showToast } = useToast();
 
   useEffect(() => {
     setDisplayedTickets(tickets);
@@ -79,6 +103,54 @@ const TicketScreen: React.FC = () => {
   useEffect(() => {
     setSelectedCurrency(currencies[activeCurrencyIndex]);
   }, [activeCurrencyIndex]);
+
+  useEffect(() => {
+    if (ticketCurrency && ticketPrice) {
+      if (user?.stickers) {
+        const ownedTicket = user.stickers.find(
+          (sticker) =>
+            sticker.currency === ticketCurrency.toString().toLowerCase() &&
+            sticker.price === Number(ticketPrice)
+        );
+        if (ownedTicket) {
+          setAlreadyOwned(true);
+          setTicketModalVisible(true);
+          return;
+        }
+      }
+      const ticket = tickets.find(
+        (t) =>
+          t.currency === ticketCurrency.toString().toLowerCase() &&
+          t.price === Number(ticketPrice)
+      );
+      if (ticket) {
+        setParamTicket(ticket);
+        setSelectedTicket(ticket);
+        setSelectedCurrency(ticketCurrency.toString() as any);
+        const formattedPrice = formatPrice(Number(ticketPrice), ticketCurrency);
+        setFormattedAmount(formattedPrice);
+        setActiveCurrencyIndex(
+          currencies.indexOf(ticketCurrency as CurrencyType)
+        );
+        setTicketModalVisible(true);
+      }
+    }
+  }, [ticketCurrency, ticketPrice]);
+
+  useEffect(() => {
+    if (user?.stickers && tickets.length > 0) {
+      tickets.forEach((ticket) => {
+        const isOwned = user.stickers?.some(
+          (sticker) => sticker._id === ticket._id
+        );
+        if (isOwned) {
+          setOwnedTickets((prev) => [...prev, ticket]);
+        }
+      });
+    } else {
+      setOwnedTickets([]);
+    }
+  }, [user, tickets]);
 
   // Handle ticket purchase
   const handlePurchase = (ticketId: string) => {
@@ -105,18 +177,54 @@ const TicketScreen: React.FC = () => {
   };
 
   // Handle payment completion
-  const handlePaymentComplete = (success: boolean) => {
-    if (success) {
-      // Reset payment flow
-      setPaymentFlow(null);
+  const handlePaymentComplete = async (success: boolean) => {
+    try {
+      setLoading(true);
+      if (success) {
+        setPaymentFlow(null);
+        setTicketModalVisible(false);
+        if (!user || !selectedTicket) return;
 
-      // Navigate to next screen
-      console.log("Payment successful, navigating to home screen");
-      router.push("/onboarding/congratulationsSetup");
-    } else {
-      // Handle payment failure
-      setPaymentFlow(null);
-      console.log("Payment failed");
+        const updatingUser: User = {
+          ...user,
+          stickers: [...(user.stickers || []), selectedTicket as any],
+        };
+
+        const response = await updateAuthUser(updatingUser);
+
+        if (response.ok) {
+          const { user: updatedUser } = response.data;
+          await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+
+          const transaction: CardTransaction = {
+            amount: extractNumericPrice(formattedAmount),
+            type: "buy",
+            user: updatedUser,
+            createdAt: new Date(),
+            currency: selectedTicket.currency,
+            status: "completed",
+          };
+
+          const txResponse = await saveCardTransaction(transaction);
+
+          if (txResponse.ok) {
+            const { transaction: newCardTransaction } = txResponse.data;
+            await dispatch(
+              addNewCardTransactionSliceAsync(newCardTransaction)
+            ).unwrap();
+          }
+
+          showToast("Ticket purchased successfully!", "success");
+        }
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+    } finally {
+      setAlreadyOwned(true);
+      setParamTicket(null);
+      setTicketModalVisible(false);
+      setSelectedTicket(null);
+      setLoading(false);
     }
   };
 
@@ -135,7 +243,11 @@ const TicketScreen: React.FC = () => {
         <CardPayment
           amount={selectedTicket?.price.toString() ?? ""}
           formattedAmount={formattedAmount}
-          currency={(selectedTicket?.currency.toUpperCase() as any) ?? "USD"}
+          currency={
+            selectedTicket
+              ? (selectedTicket?.currency.toUpperCase() as any)
+              : "USD"
+          }
           planTitle={selectedTicket?.name || ""}
           onPaymentComplete={handlePaymentComplete}
           onBack={handleBackFromPayment}
@@ -150,7 +262,11 @@ const TicketScreen: React.FC = () => {
         <CryptoPayment
           amount={selectedTicket?.price.toString() ?? ""}
           formattedAmount={formattedAmount}
-          currency={(selectedTicket?.currency.toUpperCase() as any) ?? "USD"}
+          currency={
+            selectedTicket
+              ? (selectedTicket?.currency.toUpperCase() as any)
+              : "USD"
+          }
           planTitle={selectedTicket?.name || ""}
           onPaymentComplete={handlePaymentComplete}
           onBack={handleBackFromPayment}
@@ -166,6 +282,7 @@ const TicketScreen: React.FC = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
+      <Spinner visible={loading} message="Processing..." />
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -270,6 +387,9 @@ const TicketScreen: React.FC = () => {
                         <Ticket
                           key={ticket._id}
                           _id={ticket._id}
+                          isOwned={ownedTickets.some(
+                            (ownedTicket) => ownedTicket._id === ticket._id
+                          )}
                           name={ticket.name}
                           price={ticket.price}
                           currency={ticket.currency}
@@ -312,7 +432,9 @@ const TicketScreen: React.FC = () => {
       {selectedTicket && (
         <PaymentModal
           visible={paymentModalVisible}
-          currency={selectedCurrency.toUpperCase() as any}
+          currency={
+            selectedCurrency ? (selectedCurrency.toUpperCase() as any) : "USD"
+          }
           onClose={() => setPaymentModalVisible(false)}
           onSelectPaymentMethod={handleSelectPaymentMethod}
           amount={`${selectedTicket.price} ${
@@ -321,6 +443,18 @@ const TicketScreen: React.FC = () => {
           planTitle={selectedTicket.name}
         />
       )}
+
+      <TicketModal
+        visible={ticketModalVisible}
+        onClose={() => {
+          setTicketModalVisible(false);
+          setParamTicket(null);
+          setAlreadyOwned(false);
+        }}
+        alreadyOwned={alreadyOwned}
+        selectedTicket={paramTicket}
+        onPurchase={handlePurchase}
+      />
     </SafeAreaView>
   );
 };

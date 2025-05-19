@@ -109,7 +109,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
     (async function () {
       setIsApplePayAvailable(await isPlatformPaySupported());
       setIsGooglePayAvailable(
-        !(await isPlatformPaySupported({ googlePay: { testEnv: true } }))
+        await isPlatformPaySupported({ googlePay: { testEnv: true } })
       );
     })();
   }, [isPlatformPaySupported]);
@@ -344,7 +344,6 @@ const CardPayment: React.FC<CardPaymentProps> = ({
         showToast(error.message, "error");
         onPaymentComplete(false);
       } else {
-        showToast("Subscription is successful", "success");
         onPaymentComplete(true);
       }
     } catch (error) {
@@ -700,15 +699,15 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          <PlatformPayButton
+                          {/* <PlatformPayButton
                             type={PlatformPay.ButtonType.Pay}
                             onPress={handleGooglePay}
                             style={{
                               width: "100%",
                               height: 50,
                             }}
-                          />
-                          {/* <Button
+                          /> */}
+                          <Button
                             title="Google pay"
                             variant={isDarkMode ? "secondary" : "primary"}
                             onPress={handleGooglePay}
@@ -721,7 +720,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                                 color="white"
                               />
                             }
-                          /> */}
+                          />
                         </View>
                       )}
 
@@ -741,7 +740,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          <PlatformPayButton
+                          {/* <PlatformPayButton
                             onPress={handleApplePay}
                             type={PlatformPay.ButtonType.Order}
                             appearance={PlatformPay.ButtonStyle.Black}
@@ -750,10 +749,10 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                               width: "100%",
                               height: 50,
                             }}
-                          />
-                          {/* <Button
+                          /> */}
+                          <Button
                             title="Apple pay"
-                            variant={isDarkMode ? "secondary" : "primary"}
+                            variant={isDarkMode ? "primary" : "secondary"}
                             onPress={handleApplePay}
                             disabled={cardLoading}
                             loading={applePayLoading}
@@ -764,7 +763,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                                 color="white"
                               />
                             }
-                          /> */}
+                          />
                         </View>
                       )}
 

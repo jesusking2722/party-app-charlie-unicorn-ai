@@ -35,7 +35,6 @@ import {
 } from "react-native";
 import { useSelector } from "react-redux";
 
-const DEFAULT_AVATAR = require("@/assets/images/bnb.png");
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Custom light theme accent color

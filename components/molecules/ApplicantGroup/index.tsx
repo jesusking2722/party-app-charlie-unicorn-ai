@@ -1,17 +1,18 @@
 import { LinearGradient } from "expo-linear-gradient";
-import React from "react";
+import React, { useEffect } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
-import { Rating } from "@/components/common";
+import { Button, Rating } from "@/components/common";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { RootState } from "@/redux/store";
-import { Applicant } from "@/types/data";
+import { Applicant, Party, Ticket } from "@/types/data";
 import { FontAwesome5 } from "@expo/vector-icons";
 import CountryFlag from "react-native-country-flag";
 import { useSelector } from "react-redux";
 import { ProfileBadge } from "..";
+import { router } from "expo-router";
 
 // Format time ago function (simplified)
 const formatTimeAgo = (date: Date | string) => {
@@ -29,11 +30,16 @@ const formatTimeAgo = (date: Date | string) => {
 };
 
 interface ApplicantGroupProps {
+  event: Party | null;
   applicants: Applicant[];
   onAccept: (id: string) => void;
   onDecline: (id: string) => void;
   onChat: (id: string) => void;
   onSeeTicket?: (applicant: Applicant) => void;
+  onSendTicket: (applicant: Applicant, ticket: Ticket | null) => void;
+  onReleaseTicket: (applicant: Applicant, ticket: Ticket | null) => void;
+  onApproveFinishingEvent: (applicantId: string) => void;
+  loading?: boolean;
   type: "pending" | "accepted" | "declined";
 }
 
@@ -76,16 +82,67 @@ const GradientButton: React.FC<GradientButtonProps> = ({
 );
 
 const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
+  event,
   applicants,
   onAccept,
   onDecline,
   onChat,
+  onSendTicket,
+  onReleaseTicket,
   onSeeTicket,
+  onApproveFinishingEvent,
+  loading,
   type,
 }) => {
   const { isDarkMode } = useTheme();
+  const [owned, setOwned] = React.useState(false);
+  const [ticket, setTicket] = React.useState<Ticket | null>(null);
+  const [approveAvailable, setApproveAvailable] = React.useState(false);
 
   const { user } = useSelector((state: RootState) => state.auth);
+
+  useEffect(() => {
+    if (
+      applicants.length > 0 &&
+      user?._id &&
+      user.stickers &&
+      user.stickers.length > 0 &&
+      event &&
+      event.paidOption === "paid"
+    ) {
+      const myApplicant = applicants.find(
+        (app) => app.applier._id === user._id
+      );
+      if (myApplicant && myApplicant.status === "accepted") {
+        const isOwned = user.stickers.some(
+          (sticker) =>
+            sticker.currency === event.currency && sticker.price === event.fee
+        );
+        setOwned(isOwned);
+        setApproveAvailable(
+          !event.finishApproved.some((f) => f._id === myApplicant._id)
+        );
+      }
+    }
+  }, [user, applicants, event]);
+
+  useEffect(() => {
+    if (owned && user?.stickers && event) {
+      const mySticker = user.stickers.find(
+        (st) => st.currency === event?.currency && st.price === event?.fee
+      );
+      if (mySticker) {
+        setTicket(mySticker);
+      }
+    }
+  }, [owned, user, event]);
+
+  const handleGetTicket = () => {
+    router.push({
+      pathname: "/tickets",
+      params: { ticketCurrency: event?.currency, ticketPrice: event?.fee },
+    });
+  };
 
   // Empty state
   if (applicants.length === 0) {
@@ -297,6 +354,80 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
               </View>
             </View>
           )}
+
+          {/* Applier Action Buttons */}
+          {user?._id === applicant.applier._id &&
+            event?.paidOption === "paid" &&
+            applicant.status === "accepted" && (
+              <View style={styles.buttonContainer}>
+                {applicant.stickers.length === 0 && !owned && (
+                  <Button
+                    title="Get Ticket"
+                    variant={isDarkMode ? "primary" : "secondary"}
+                    icon={
+                      <FontAwesome5
+                        name="ticket-alt"
+                        size={14}
+                        color="#FFFFFF"
+                      />
+                    }
+                    small={true}
+                    loading={loading}
+                    onPress={handleGetTicket}
+                  />
+                )}
+                {applicant.stickers.length === 0 && owned && (
+                  <Button
+                    title="Send Ticket"
+                    variant={isDarkMode ? "primary" : "secondary"}
+                    icon={
+                      <FontAwesome5
+                        name="ticket-alt"
+                        size={14}
+                        color="#FFFFFF"
+                      />
+                    }
+                    small={true}
+                    loading={loading}
+                    onPress={() => onSendTicket(applicant, ticket)}
+                  />
+                )}
+                {applicant.stickers.length > 0 && applicant.stickerLocked && (
+                  <Button
+                    title="Release Ticket"
+                    variant={isDarkMode ? "primary" : "secondary"}
+                    icon={
+                      <FontAwesome5
+                        name="ticket-alt"
+                        size={14}
+                        color="#FFFFFF"
+                      />
+                    }
+                    small={true}
+                    loading={loading}
+                    onPress={() => onReleaseTicket(applicant, ticket)}
+                  />
+                )}
+                {!applicant.stickerLocked && approveAvailable && (
+                  <Button
+                    title="Exchange Review"
+                    variant={isDarkMode ? "primary" : "secondary"}
+                    icon={
+                      <FontAwesome5
+                        name="ticket-alt"
+                        size={14}
+                        color="#FFFFFF"
+                      />
+                    }
+                    small={true}
+                    loading={loading}
+                    onPress={() =>
+                      onApproveFinishingEvent(applicant._id as string)
+                    }
+                  />
+                )}
+              </View>
+            )}
         </View>
       ))}
     </View>

@@ -391,6 +391,17 @@ const NotificationScreen: React.FC = () => {
   const getAccentColor = (): string =>
     isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
+  function extractPartyFee(title: string) {
+    const match = title.match(/Party Fee:\s*([\d.]+)\s*([A-Za-z]+)/i);
+    if (match) {
+      return {
+        price: parseFloat(match[1]),
+        currency: match[2].toUpperCase(),
+      };
+    }
+    return null;
+  }
+
   // Render notification item
   const renderNotificationItem = (
     notification: NotificationProps,
@@ -398,7 +409,7 @@ const NotificationScreen: React.FC = () => {
   ): React.ReactNode => {
     return (
       <Animated.View
-        key={notification._id}
+        key={index}
         style={[
           styles.notificationContainer,
           {
@@ -539,14 +550,21 @@ const NotificationScreen: React.FC = () => {
             onNavigate={() => {}}
           />
         )}
-        {(notification.title.includes("finish to collect") ||
-          notification.title.includes("accepted your applicant")) && (
+        {notification.title.includes("accepted your applicant") && (
           <NotificationAlert
             type="success"
             message="You need to buy a sticker and send it to the owner to join
-                      this event."
-            path="/tickets"
-            onNavigate={() => {}}
+                      this event"
+            path="Go to buy a ticket"
+            onNavigate={() =>
+              router.push({
+                pathname: "/tickets",
+                params: {
+                  ticketCurrency: extractPartyFee(notification.title)?.currency,
+                  ticketPrice: extractPartyFee(notification.title)?.price,
+                },
+              })
+            }
           />
         )}
       </Animated.View>

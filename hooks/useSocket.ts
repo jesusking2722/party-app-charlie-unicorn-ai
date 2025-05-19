@@ -3,14 +3,17 @@ import {
   addNewNotificationAsync,
   setAuthUserAsync,
 } from "@/redux/actions/auth.actions";
-import { Notification, User } from "@/types/data";
+import { Notification, Party, User } from "@/types/data";
 import { useEffect } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { getSocket } from "../lib/socketInstance";
 import { RootState, useAppDispatch } from "../redux/store";
+import { updateApplicantStatusInSelectedParty } from "@/redux/slices/party.slice";
+import { updateSelectedPartyAsnyc } from "@/redux/actions/party.actions";
 
 const useSocket = () => {
   const dispatch = useAppDispatch();
+  const normalDispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
 
   const socket = getSocket();
@@ -19,7 +22,8 @@ const useSocket = () => {
 
   // disconnect socket
   const socketDisconnect = () => {
-    if (!socket) return;
+    if (!socket || !user?._id) return;
+    socket.emit("manual-disconnect", user._id);
     socket.disconnect();
   };
 
@@ -41,18 +45,20 @@ const useSocket = () => {
     //   dispatch(removePartyById({ partyId }));
     // };
 
-    // const handleUpdatePartyFinishApproved = (selectedParty: Party) => {
-    //   if (
-    //     selectedParty.applicants.filter(
-    //       (applicant) => applicant.status === "accepted"
-    //     ).length === selectedParty.finishApproved.length
-    //   ) {
-    //     toast.success(
-    //       `Congratulations !!! you can finish your ${selectedParty.title} party now`
-    //     );
-    //   }
-    //   dispatch(updateSelectedParty({ selectedParty }));
-    // };
+    const handleUpdatePartyFinishApproved = async (selectedParty: Party) => {
+      if (
+        selectedParty.applicants.filter(
+          (applicant) => applicant.status === "accepted"
+        ).length === selectedParty.finishApproved.length &&
+        selectedParty.creator?._id === user._id
+      ) {
+        showToast(
+          `Congratulations !!! you can finish your ${selectedParty.title} party now`,
+          "success"
+        );
+      }
+      await dispatch(updateSelectedPartyAsnyc(selectedParty)).unwrap();
+    };
 
     const handleNewNotification = async (newNotification: Notification) => {
       await dispatch(addNewNotificationAsync(newNotification)).unwrap();
@@ -69,15 +75,15 @@ const useSocket = () => {
     //   dispatch(addNewApplicant({ newApplicant }));
     // };
 
-    // const handleAcceptedApplicant = (partyId: string, applicantId: string) => {
-    //   dispatch(
-    //     updateApplicantStatusInSelectedParty({
-    //       partyId,
-    //       applicantId,
-    //       status: "accepted",
-    //     })
-    //   );
-    // };
+    const handleAcceptedApplicant = (partyId: string, applicantId: string) => {
+      normalDispatch(
+        updateApplicantStatusInSelectedParty({
+          partyId,
+          applicantId,
+          status: "accepted",
+        })
+      );
+    };
 
     // const handleDeclinedApplicant = (partyId: string, applicantId: string) => {
     //   dispatch(
@@ -125,9 +131,9 @@ const useSocket = () => {
     //   dispatch(setTypingUser({ typingUser }));
     // };
 
-    // const handlePartyUpdate = (party: Party) => {
-    //   dispatch(updateSelectedParty({ selectedParty: party }));
-    // };
+    const handlePartyUpdate = async (party: Party) => {
+      await dispatch(updateSelectedPartyAsnyc(party)).unwrap();
+    };
 
     // const handleError = () => {
     //   toast.error("Permant error, please retry a few minutes later");
@@ -140,14 +146,14 @@ const useSocket = () => {
     // socket.on("removed:party", handleRemoveParty);
     // socket.on("playing:party", handleUpdatePartyStatus);
     // socket.on("finished:party", handleUpdatePartyStatus);
-    // socket.on(
-    //   "responsed:party-finish-approved",
-    //   handleUpdatePartyFinishApproved
-    // );
+    socket.on(
+      "responsed:party-finish-approved",
+      handleUpdatePartyFinishApproved
+    );
 
     // // applicant
     // socket.on("applicant:created", handleNewApplied);
-    // socket.on("accepted:applicant", handleAcceptedApplicant);
+    socket.on("accepted:applicant", handleAcceptedApplicant);
     // socket.on("declined:applicant", handleDeclinedApplicant);
 
     // notification
@@ -167,8 +173,8 @@ const useSocket = () => {
     // socket.on("message:user-typing", handleTypingUser);
 
     // // sticker transaction
-    // socket.on("send-to-owner:sticker", handlePartyUpdate);
-    // socket.on("approved-from-applier:sticker", handlePartyUpdate);
+    socket.on("send-to-owner:sticker", handlePartyUpdate);
+    socket.on("approved-from-applier:sticker", handlePartyUpdate);
 
     // // error
     // socket.on("error", handleError);
@@ -181,13 +187,13 @@ const useSocket = () => {
       //   socket.off("cancelled:party", handleUpdatePartyStatus);
       //   socket.off("removed:party", handleRemoveParty);
       //   socket.off("finished:party", handleUpdatePartyStatus);
-      //   socket.off(
-      //     "responsed:party-finish-approved",
-      //     handleUpdatePartyFinishApproved
-      //   );
+      socket.off(
+        "responsed:party-finish-approved",
+        handleUpdatePartyFinishApproved
+      );
       //   // applicant
       // socket.off("applicant:created", handleNewApplied);
-      //   socket.off("accepted:applicant", handleAcceptedApplicant);
+      socket.off("accepted:applicant", handleAcceptedApplicant);
       //   socket.off("declined:applicant", handleDeclinedApplicant);
 
       // notification
@@ -205,11 +211,13 @@ const useSocket = () => {
       //   );
       //   socket.off("message:user-typing", handleTypingUser);
       //   // sticker transaction
-      //   socket.off("send-to-owner:sticker", handlePartyUpdate);
+      socket.off("send-to-owner:sticker", handlePartyUpdate);
+      socket.off("approved-from-applier:sticker", handlePartyUpdate);
+
       //   // error
       //   socket.off("error", handleError);
     };
-  }, [dispatch, user]);
+  }, [dispatch, user, normalDispatch, socket]);
 
   return { socketDisconnect };
 };

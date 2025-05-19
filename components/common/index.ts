@@ -16,7 +16,7 @@ export { default as LocationPicker } from "./LocationPicker";
 export { default as Map } from "./Map";
 export { default as MembershipRadioGroup } from "./MembershipRadioGroup";
 export type { Currency, SubscriptionPlan } from "./MembershipRadioGroup";
-export { PaymentMethodType, PaymentModal } from "./Modal";
+export { PaymentMethodType, PaymentModal, Modal } from "./Modal";
 export { default as Rating } from "./Rating";
 export { default as RegionPicker } from "./RegionPicker";
 export { default as Slider } from "./Slider";

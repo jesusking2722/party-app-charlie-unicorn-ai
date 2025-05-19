@@ -21,3 +21,6 @@ export const FETCH_ALL_PARTIES = "/party/all";
 
 // Ticket apis
 export const FETCH_ALL_TICKETS = "/sticker/all";
+
+// Card Transaction apis
+export const SAVE_CARD_TRASACTION = "/card-transaction/save";
