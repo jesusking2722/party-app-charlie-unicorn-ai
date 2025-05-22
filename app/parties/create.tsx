@@ -39,6 +39,7 @@ import {
   LocationPicker,
   RegionPicker,
   Textarea,
+  Translate,
 } from "@/components/common";
 import {
   CURRENCY_OPTIONS,
@@ -626,7 +627,7 @@ const CreatePartyScreen = () => {
                   },
                 ]}
               >
-                Processing images...
+                <Translate>Processing images...</Translate>
               </Text>
             </LinearGradient>
           </View>
@@ -656,7 +657,9 @@ const CreatePartyScreen = () => {
               <View style={styles.mediaButtonIconContainer}>
                 <FontAwesome5 name="images" size={24} color="#FFFFFF" />
               </View>
-              <Text style={styles.mediaButtonText}>Upload Photos</Text>
+              <Text style={styles.mediaButtonText}>
+                <Translate>Upload Photos</Translate>
+              </Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -681,7 +684,9 @@ const CreatePartyScreen = () => {
               <View style={styles.mediaButtonIconContainer}>
                 <FontAwesome5 name="camera" size={24} color="#FFFFFF" />
               </View>
-              <Text style={styles.mediaButtonText}>Take Photo</Text>
+              <Text style={styles.mediaButtonText}>
+                <Translate>Take Photo</Translate>
+              </Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
@@ -847,7 +852,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Party Details
+                          <Translate>Party Details</Translate>
                         </Text>
                         <Text
                           style={[
@@ -859,7 +864,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Tell us about your event
+                          <Translate>Tell us about your event</Translate>
                         </Text>
 
                         <Input
@@ -929,7 +934,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              Party Setup
+                              <Translate>Party Setup</Translate>
                             </Text>
                             <Text
                               style={[
@@ -939,7 +944,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              {getStepText()}
+                              <Translate>{getStepText()}</Translate>
                             </Text>
                           </View>
 
@@ -1014,7 +1019,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Location & Payment
+                          <Translate>Location & Payment</Translate>
                         </Text>
                         <Text
                           style={[
@@ -1026,7 +1031,9 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Where will your party take place?
+                          <Translate>
+                            Where will your party take place?
+                          </Translate>
                         </Text>
 
                         <CountryPicker
@@ -1121,7 +1128,9 @@ const CreatePartyScreen = () => {
                                     ? USD_FEE_OPTIONS
                                     : currency.value === "eur"
                                     ? EUR_FEE_OPTIONS
-                                    : PLN_FEE_OPTIONS
+                                    : currency.value === "pln"
+                                    ? PLN_FEE_OPTIONS
+                                    : []
                                 }
                                 value={fee}
                                 onSelect={(value) => {
@@ -1148,7 +1157,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              Party Setup
+                              <Translate>Party Setup</Translate>
                             </Text>
                             <Text
                               style={[
@@ -1158,7 +1167,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              {getStepText()}
+                              <Translate>{getStepText()}</Translate>
                             </Text>
                           </View>
 
@@ -1257,7 +1266,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Add Photos
+                          <Translate>Add Photos</Translate>
                         </Text>
                         <Text
                           style={[
@@ -1269,7 +1278,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Upload photos of your event
+                          <Translate>Upload photos of your event</Translate>
                         </Text>
 
                         {/* Media grid */}
@@ -1291,9 +1300,21 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          You can upload multiple photos. Tap an item to remove
-                          it.
+                          <Translate>
+                            You can upload multiple photos. Tap an item to
+                            remove it.
+                          </Translate>
                         </Text>
+
+                        <View style={{ width: "100%", marginTop: 10 }}>
+                          <DatePicker
+                            label="Opening date"
+                            value={openingDate}
+                            error={errors.openingDate}
+                            onSelect={setOpeningDate}
+                            minDate={new Date()}
+                          />
+                        </View>
 
                         {/* Progress Indicator */}
                         <View style={styles.progressContainer}>
@@ -1308,7 +1329,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              Party Setup
+                              <Translate>Party Setup</Translate>
                             </Text>
                             <Text
                               style={[
@@ -1318,18 +1339,8 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              {getStepText()}
+                              <Translate>{getStepText()}</Translate>
                             </Text>
-                          </View>
-
-                          <View style={{ width: "100%" }}>
-                            <DatePicker
-                              label="Opening date"
-                              value={openingDate}
-                              error={errors.openingDate}
-                              onSelect={setOpeningDate}
-                              minDate={new Date()}
-                            />
                           </View>
 
                           <View
@@ -1464,7 +1475,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Congratulations!
+                          <Translate>Congratulations!</Translate>
                         </Text>
 
                         <Text
@@ -1477,7 +1488,9 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          Your party has been successfully created
+                          <Translate>
+                            Your party has been successfully created
+                          </Translate>
                         </Text>
 
                         <Text
@@ -1490,9 +1503,11 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          {partyTitle || "Your event"} is now live! People can
-                          discover and join your event. You can manage all
-                          details from your dashboard.
+                          <Translate>
+                            {`${
+                              partyTitle || "Your event"
+                            } is now live! People can discover and join your event. You can manage all details from your dashboard.`}
+                          </Translate>
                         </Text>
 
                         {/* Progress Indicator */}
@@ -1508,7 +1523,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              Party Setup Complete
+                              <Translate>Party Setup Complete</Translate>
                             </Text>
                             <Text
                               style={[
@@ -1518,7 +1533,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              {getStepText()}
+                              <Translate>{getStepText()}</Translate>
                             </Text>
                           </View>
 

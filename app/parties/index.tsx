@@ -33,6 +33,7 @@ import {
   RegionPicker,
   Slider,
   StatusBadge,
+  Translate,
 } from "@/components/common";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -59,10 +60,10 @@ const eventTypeOptions = [
   { label: "Sports", value: "sport" },
 ];
 
-// Filter options
 const myEventOptions = [
   { label: "All Events", value: "all" },
   { label: "My Events", value: "my" },
+  { label: "My Applied Events", value: "applied" },
 ];
 
 // Payment options
@@ -289,12 +290,19 @@ const EventListScreen = () => {
   }, [country, region, eventType, myEvents, paymentType]);
 
   useEffect(() => {
-    const sorted = [...parties].sort(
+    // First, filter out cancelled events from initial list
+    const nonCancelledEvents = [...parties].filter(
+      (event) => event.status !== "cancelled"
+    );
+
+    // Then sort by creation date (newest first)
+    const sorted = nonCancelledEvents.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+
     setTotalEvents(sorted);
-    const newCardAnims = parties.map(() => ({
+    const newCardAnims = sorted.map(() => ({
       scale: new Animated.Value(0.95),
       translateY: new Animated.Value(20),
       opacity: new Animated.Value(0),
@@ -325,15 +333,23 @@ const EventListScreen = () => {
       filtered = filtered.filter((event) => event.region === region.name);
     }
 
-    // Apply filters
+    // Apply event type filter
     if (eventType?.value !== "all") {
       filtered = filtered.filter((event) => event.type === eventType.value);
     }
 
-    if (myEvents?.value !== "all") {
+    // Apply user-related filters
+    if (myEvents?.value === "my") {
+      // Show only events created by the current user
       filtered = filtered.filter((event) => event.creator?._id === user?._id);
+    } else if (myEvents?.value === "applied") {
+      // Show only events where the current user has applied
+      filtered = filtered.filter((event) =>
+        event.applicants.some((app) => app.applier._id === user?._id)
+      );
     }
 
+    // Apply payment type filter
     if (paymentType?.value !== "all") {
       filtered = filtered.filter(
         (event) => event.paidOption === paymentType.value
@@ -451,7 +467,7 @@ const EventListScreen = () => {
                 numberOfLines={1}
                 ellipsizeMode="tail"
               >
-                {item.title}
+                <Translate>{item.title}</Translate>
               </Text>
 
               <View style={styles.badgeRow}>
@@ -477,7 +493,7 @@ const EventListScreen = () => {
             numberOfLines={2}
             ellipsizeMode="tail"
           >
-            {item.description}
+            <Translate>{item.description}</Translate>
           </Text>
 
           {/* Event footer */}
@@ -495,7 +511,7 @@ const EventListScreen = () => {
               <View style={styles.avatarGroup}>
                 {item.applicants.slice(0, 3).map((applicant, i) => (
                   <View
-                    key={`avatar-${applicant.applier._id || i}`}
+                    key={`avatar-${i}`}
                     style={[
                       styles.avatarCircle,
                       {
@@ -536,7 +552,7 @@ const EventListScreen = () => {
                   },
                 ]}
               >
-                {item.applicants.length} attendees
+                {item.applicants.length} <Translate>attendees</Translate>
               </Text>
             </View>
           </View>
@@ -797,7 +813,7 @@ const EventListScreen = () => {
           },
         ]}
       >
-        No Events Found
+        <Translate>No Events Found</Translate>
       </Text>
       <Text
         style={[
@@ -809,7 +825,7 @@ const EventListScreen = () => {
           },
         ]}
       >
-        Try adjusting your filters or create a new event
+        <Translate>Try adjusting your filters or create a new event</Translate>
       </Text>
     </Animated.View>
   );
@@ -924,7 +940,11 @@ const EventListScreen = () => {
                         },
                       ]}
                     >
-                      {isFilterExpanded ? "Hide Filters" : "Show Filters"}
+                      {isFilterExpanded ? (
+                        <Translate>Hide Filters</Translate>
+                      ) : (
+                        <Translate>Show Filters</Translate>
+                      )}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1031,7 +1051,7 @@ const EventListScreen = () => {
                           },
                         ]}
                       >
-                        Reset
+                        <Translate>Reset</Translate>
                       </Text>
                     </TouchableOpacity>
                     <Button
@@ -1045,7 +1065,7 @@ const EventListScreen = () => {
                         flex: 1,
                         marginLeft: 12,
                       }}
-                      small
+                      width="full"
                     />
                   </View>
                 </Animated.View>
@@ -1072,7 +1092,12 @@ const EventListScreen = () => {
                         ]}
                       >
                         {filteredEvents.length}{" "}
-                        {filteredEvents.length === 1 ? "event" : "events"} found
+                        {filteredEvents.length === 1 ? (
+                          <Translate>event</Translate>
+                        ) : (
+                          <Translate>events</Translate>
+                        )}{" "}
+                        <Translate>found</Translate>
                       </Text>
                     </LinearGradient>
                   </View>
@@ -1099,7 +1124,9 @@ const EventListScreen = () => {
                         style={styles.addEventGradient}
                       >
                         <FontAwesome5 name="plus" size={14} color="#FFFFFF" />
-                        <Text style={styles.addEventText}>Create Event</Text>
+                        <Text style={styles.addEventText}>
+                          <Translate>Create Event</Translate>
+                        </Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   </Animated.View>
@@ -1109,7 +1136,7 @@ const EventListScreen = () => {
                 {paginatedEvents.length > 0 ? (
                   <View style={styles.eventsListContainer}>
                     {paginatedEvents.map((item, index) => (
-                      <View key={`event-${item._id}`}>
+                      <View key={`event-${index}`}>
                         {renderEventItem({ item, index })}
                       </View>
                     ))}

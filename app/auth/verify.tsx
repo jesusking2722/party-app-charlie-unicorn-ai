@@ -28,7 +28,12 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, ThemeToggle } from "@/components/common";
+import {
+  Button,
+  LanguageToggleGroup,
+  ThemeToggle,
+  Translate,
+} from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import useInit from "@/hooks/useInit";
@@ -326,7 +331,6 @@ const EmailVerificationScreen = () => {
       showToast("Please enter the complete verification code", "warning");
       return;
     }
-    console.log(user);
     if (!user?.email) return;
     try {
       setIsLoading(true);
@@ -428,6 +432,7 @@ const EmailVerificationScreen = () => {
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />
+        <LanguageToggleGroup containerStyle={{ marginRight: SPACING.M }} />
       </View>
 
       <ScrollView
@@ -501,7 +506,7 @@ const EmailVerificationScreen = () => {
                       },
                     ]}
                   >
-                    Email Verification
+                    <Translate>Email Verification</Translate>
                   </Text>
                   <Text
                     style={[
@@ -513,7 +518,7 @@ const EmailVerificationScreen = () => {
                       },
                     ]}
                   >
-                    We sent a verification code to{" "}
+                    <Translate>We sent a verification code to</Translate>{" "}
                     <Text style={{ fontFamily: FONTS.SEMIBOLD }}>
                       {user?.email}
                     </Text>
@@ -532,7 +537,7 @@ const EmailVerificationScreen = () => {
                         },
                       ]}
                     >
-                      Enter Verification Code
+                      <Translate>Enter Verification Code</Translate>
                     </Text>
 
                     <View style={styles.codeInputContainer}>
@@ -592,14 +597,14 @@ const EmailVerificationScreen = () => {
                           },
                         ]}
                       >
-                        Code expires in{" "}
+                        <Translate>Code expires in</Translate>{" "}
                         <Text
                           style={{
                             color: getAccentColor(),
                             fontFamily: FONTS.SEMIBOLD,
                           }}
                         >
-                          {formatTime(timeLeft)}
+                          <Translate>{formatTime(timeLeft)}</Translate>
                         </Text>
                       </Text>
                     </View>
@@ -632,9 +637,10 @@ const EmailVerificationScreen = () => {
                           },
                         ]}
                       >
-                        Didn't receive the code?{" "}
+                        <Translate>Didn't receive the code?</Translate>
                       </Text>
                       <TouchableOpacity
+                        style={{ marginLeft: 5 }}
                         onPress={handleResendCode}
                         disabled={timerActive && timeLeft > 0}
                       >
@@ -651,7 +657,7 @@ const EmailVerificationScreen = () => {
                             },
                           ]}
                         >
-                          Resend Code
+                          <Translate>Resend Code</Translate>
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -680,7 +686,7 @@ const EmailVerificationScreen = () => {
                           },
                         ]}
                       >
-                        Back to Login
+                        <Translate>Back to Login</Translate>
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -840,8 +846,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: Platform.OS === "ios" ? 50 : 40,
     right: 20,
-    width: 36,
-    height: 36,
+    display: "flex",
+    flexDirection: "row",
+    gap: 4,
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",

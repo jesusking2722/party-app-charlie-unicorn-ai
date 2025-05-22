@@ -15,12 +15,6 @@ export const uploadMultipleToImgBB = async (
 
   const uploadPromises = mediaItems.map(async (mediaItem, index) => {
     try {
-      console.log(
-        `Processing image ${index + 1}/${
-          mediaItems.length
-        }: ${mediaItem.uri.substring(0, 30)}...`
-      );
-
       // Read the file as base64
       const base64Data = await FileSystem.readAsStringAsync(mediaItem.uri, {
         encoding: FileSystem.EncodingType.Base64,

@@ -1,4 +1,5 @@
 import { FONTS, THEME } from "@/app/theme";
+import { Translate } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { RootState } from "@/redux/store";
 import { Feather } from "@expo/vector-icons";
@@ -151,7 +152,7 @@ const Navbar: React.FC<NavbarProps> = ({ unreadChats = 0, onCreatePress }) => {
       >
         {NAV_ITEMS.map((item, index) => (
           <TouchableOpacity
-            key={item.name}
+            key={index}
             style={[
               styles.navItem,
               item.name === "Create" && styles.createButton,
@@ -197,7 +198,7 @@ const Navbar: React.FC<NavbarProps> = ({ unreadChats = 0, onCreatePress }) => {
                     },
                   ]}
                 >
-                  {item.name}
+                  <Translate>{item.name}</Translate>
                 </Text>
               </>
             )}

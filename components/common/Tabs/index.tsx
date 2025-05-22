@@ -11,6 +11,7 @@ import {
   SPACING,
 } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import Translate from "../Translate";
 
 interface TabsProps {
   tabs: string[];
@@ -63,7 +64,7 @@ const Tabs: React.FC<TabsProps> = ({
                 },
               ]}
             >
-              {tab}
+              <Translate>{tab}</Translate>
             </Text>
 
             {/* Display badge count if provided */}

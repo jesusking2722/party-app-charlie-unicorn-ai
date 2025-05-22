@@ -131,7 +131,8 @@ export interface Kyc {
     | "Approved"
     | "Declined"
     | "Expired"
-    | "Abandoned";
+    | "Abandoned"
+    | "In Review";
   url: string;
 }
 

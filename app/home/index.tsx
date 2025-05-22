@@ -33,6 +33,7 @@ import {
   Map,
   RegionPicker,
   Slider,
+  Translate,
 } from "@/components/common";
 import { EVENT_TYPES } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -308,7 +309,6 @@ const HomeScreen = () => {
 
   // Handle party marker click
   const handlePartyClick = (party: Party) => {
-    console.log("Party clicked:", party);
     // Center the map on the clicked party
     setMapCenter(party.geo);
     setZoom(14); // Zoom in closer
@@ -453,7 +453,7 @@ const HomeScreen = () => {
                       },
                     ]}
                   >
-                    Discover Events
+                    <Translate>Discover Events</Translate>
                   </Text>
                   <Text
                     style={[
@@ -465,7 +465,9 @@ const HomeScreen = () => {
                       },
                     ]}
                   >
-                    Find and join amazing events around you
+                    <Translate>
+                      Find and join amazing events around you
+                    </Translate>
                   </Text>
 
                   {/* Filter Toggle Button */}
@@ -504,7 +506,11 @@ const HomeScreen = () => {
                           },
                         ]}
                       >
-                        {isFilterVisible ? "Hide Filters" : "Show Filters"}
+                        {isFilterVisible ? (
+                          <Translate>Hide Filters</Translate>
+                        ) : (
+                          <Translate>Show Filters</Translate>
+                        )}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -535,7 +541,7 @@ const HomeScreen = () => {
                             },
                           ]}
                         >
-                          Filter Events
+                          <Translate>Filter Events</Translate>
                         </Text>
                         <TouchableOpacity
                           style={[
@@ -564,7 +570,7 @@ const HomeScreen = () => {
                               { color: getAccentColor() },
                             ]}
                           >
-                            Reset All
+                            <Translate>Reset All</Translate>
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -621,7 +627,7 @@ const HomeScreen = () => {
                             },
                           ]}
                         >
-                          Global Events
+                          <Translate>Global Events</Translate>
                         </Text>
                         <View
                           style={[
@@ -671,7 +677,7 @@ const HomeScreen = () => {
                             },
                           ]}
                         >
-                          View All
+                          <Translate>View All</Translate>
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -705,7 +711,7 @@ const HomeScreen = () => {
                           },
                         ]}
                       >
-                        Upcoming Events
+                        <Translate>Upcoming Events</Translate>
                       </Text>
                       <TouchableOpacity
                         style={[
@@ -730,15 +736,15 @@ const HomeScreen = () => {
                             },
                           ]}
                         >
-                          View All
+                          <Translate>View All</Translate>
                         </Text>
                       </TouchableOpacity>
                     </View>
 
                     {/* Redesigned Event Cards (preview) */}
-                    {upcomingEvents.slice(0, 3).map((party) => (
+                    {upcomingEvents.slice(0, 3).map((party, index) => (
                       <TouchableOpacity
-                        key={party._id}
+                        key={index}
                         style={[
                           styles.eventCard,
                           {
@@ -775,8 +781,10 @@ const HomeScreen = () => {
                               style={styles.eventTypeBadge}
                             >
                               <Text style={styles.eventTypeText}>
-                                {party.type.charAt(0).toUpperCase() +
-                                  party.type.slice(1)}
+                                <Translate>
+                                  {party.type.charAt(0).toUpperCase() +
+                                    party.type.slice(1)}
+                                </Translate>
                               </Text>
                             </LinearGradient>
                           </View>
@@ -844,7 +852,8 @@ const HomeScreen = () => {
                                   },
                                 ]}
                               >
-                                {party.applicants.length} attendees
+                                {party.applicants.length}{" "}
+                                <Translate>attendees</Translate>
                               </Text>
                             </View>
 
@@ -873,12 +882,14 @@ const HomeScreen = () => {
                                   },
                                 ]}
                               >
-                                {party.paidOption === "free"
-                                  ? "Free Event"
-                                  : formatPrice(
-                                      party.fee ?? 0,
-                                      party.currency.toUpperCase() ?? "USD"
-                                    )}
+                                {party.paidOption === "free" ? (
+                                  <Translate>Free Event</Translate>
+                                ) : (
+                                  <Translate>
+                                    formatPrice( party.fee ?? 0,
+                                    party.currency.toUpperCase() ?? "USD" )
+                                  </Translate>
+                                )}
                               </Text>
                             </View>
                           </View>

@@ -3,7 +3,7 @@ import React, { useEffect } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
-import { Button, Rating } from "@/components/common";
+import { Alert, Button, Rating, Translate } from "@/components/common";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { RootState } from "@/redux/store";
@@ -32,14 +32,16 @@ const formatTimeAgo = (date: Date | string) => {
 interface ApplicantGroupProps {
   event: Party | null;
   applicants: Applicant[];
-  onAccept: (id: string) => void;
+  onAccept: (applicant: string) => void;
   onDecline: (id: string) => void;
   onChat: (id: string) => void;
   onSeeTicket?: (applicant: Applicant) => void;
   onSendTicket: (applicant: Applicant, ticket: Ticket | null) => void;
   onReleaseTicket: (applicant: Applicant, ticket: Ticket | null) => void;
   onApproveFinishingEvent: (applicantId: string) => void;
+  onExchangeTicket: (applicant: Applicant) => void;
   loading?: boolean;
+  chatLoading?: boolean;
   type: "pending" | "accepted" | "declined";
 }
 
@@ -76,7 +78,9 @@ const GradientButton: React.FC<GradientButtonProps> = ({
       style={[styles.gradientContainer, disabled && styles.disabledButton]}
     >
       {icon}
-      <Text style={[styles.buttonText, { color: textColor }]}>{title}</Text>
+      <Text style={[styles.buttonText, { color: textColor }]}>
+        <Translate>{title}</Translate>
+      </Text>
     </LinearGradient>
   </TouchableOpacity>
 );
@@ -91,6 +95,8 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
   onReleaseTicket,
   onSeeTicket,
   onApproveFinishingEvent,
+  onExchangeTicket,
+  chatLoading,
   loading,
   type,
 }) => {
@@ -158,7 +164,8 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
             },
           ]}
         >
-          No {type} applications
+          <Translate>No</Translate> <Translate>{type}</Translate>{" "}
+          <Translate>applications</Translate>
         </Text>
       </View>
     );
@@ -174,7 +181,7 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
     <View style={styles.container}>
       {applicants.map((applicant, index) => (
         <View
-          key={applicant._id || index}
+          key={index}
           style={[
             styles.applicantCard,
             {
@@ -205,23 +212,40 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
             {/* User Info */}
             <View style={styles.userInfo}>
               <View style={styles.nameRow}>
-                <Text
-                  style={[
-                    styles.userName,
-                    {
-                      color: isDarkMode
-                        ? COLORS.DARK_TEXT_PRIMARY
-                        : COLORS.LIGHT_TEXT_PRIMARY,
-                    },
-                  ]}
-                  numberOfLines={1}
+                <TouchableOpacity
+                  onPress={() => {
+                    if (event?.creator?._id === user?._id) {
+                      router.push({
+                        pathname: "/profile",
+                        params: { userId: applicant.applier._id },
+                      });
+                    }
+                  }}
                 >
-                  {applicant.applier.name}
-                </Text>
+                  <Text
+                    style={[
+                      styles.userName,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
+                        textDecorationLine:
+                          event?.creator?._id === user?._id
+                            ? "underline"
+                            : "none",
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {applicant.applier.name}
+                  </Text>
+                </TouchableOpacity>
 
                 {/* Premium Badge */}
                 {applicant.applier.membership === "premium" && (
-                  <ProfileBadge type="premium" />
+                  <View style={{ width: "50%", marginBottom: 5 }}>
+                    <ProfileBadge type="premium" />
+                  </View>
                 )}
               </View>
 
@@ -256,7 +280,9 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
                 { color: isDarkMode ? COLORS.DARK_TEXT_SECONDARY : "#6B7280" },
               ]}
             >
-              {formatTimeAgo(applicant.appliedAt || new Date())}
+              <Translate>
+                {formatTimeAgo(applicant.appliedAt || new Date())}
+              </Translate>
             </Text>
           </View>
 
@@ -271,12 +297,14 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
               ]}
               numberOfLines={3}
             >
-              {applicant.applicant || "No message provided."}
+              <Translate>
+                {applicant.applicant || "No message provided."}
+              </Translate>
             </Text>
           </View>
 
           {/* Action Buttons */}
-          {user?._id !== applicant.applier._id && (
+          {user?._id === event?.creator?._id && (
             <View style={styles.buttonContainer}>
               {type === "pending" && (
                 <View style={styles.mainButtonRow}>
@@ -292,26 +320,21 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
                     }
                     gradientColors={acceptGradient}
                     textColor="#FFFFFF"
-                    onPress={() => onAccept(applicant._id || "")}
-                    style={styles.halfButton}
-                  />
-
-                  <GradientButton
-                    title="Decline"
-                    icon={
-                      <FontAwesome5
-                        name="times"
-                        size={14}
-                        color="#334155"
-                        style={styles.buttonIcon}
-                      />
-                    }
-                    gradientColors={declineGradient}
-                    textColor="#334155"
-                    onPress={() => onDecline(applicant._id || "")}
+                    onPress={() => onAccept(applicant._id as string)}
                     style={styles.halfButton}
                   />
                 </View>
+              )}
+
+              {applicant.stickers.length > 0 && applicant.stickerLocked && (
+                <>
+                  <Alert
+                    type="warning"
+                    title="Ticket Locked"
+                    message="This ticket is locked. You need to wait for the applier's approval to release it"
+                  />
+                  <View style={{ height: 10 }}></View>
+                </>
               )}
 
               <View style={styles.secondaryButtonRow}>
@@ -352,6 +375,168 @@ const ApplicantGroup: React.FC<ApplicantGroupProps> = ({
                     />
                   )}
               </View>
+
+              {applicant.stickers.length > 0 &&
+                !applicant.stickerLocked &&
+                !applicant.stickerSold && (
+                  <View style={{ width: "100%", marginTop: 5 }}>
+                    <Button
+                      title="Exchange Ticket"
+                      variant={isDarkMode ? "primary" : "secondary"}
+                      icon={
+                        <FontAwesome5
+                          name="ticket-alt"
+                          size={14}
+                          color="#FFFFFF"
+                        />
+                      }
+                      small={true}
+                      loading={loading}
+                      width="full"
+                      onPress={() => onExchangeTicket(applicant)}
+                    />
+                  </View>
+                )}
+
+              {applicant.stickers.length > 0 &&
+                !applicant.stickerLocked &&
+                applicant.stickerSold && (
+                  <View
+                    style={{
+                      width: "100%",
+                      marginTop: 5,
+                      borderRadius: BORDER_RADIUS.M,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <LinearGradient
+                      colors={
+                        isDarkMode
+                          ? ["#0D8C7E", "#27AD69"]
+                          : ["#11998e", "#38ef7d"]
+                      }
+                      style={{
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: BORDER_RADIUS.M,
+                        gap: 8,
+                      }}
+                    >
+                      <FontAwesome5
+                        name="check-circle"
+                        size={16}
+                        color="white"
+                        solid
+                      />
+                      <Text
+                        style={{
+                          color: "white",
+                          fontFamily: FONTS.MEDIUM,
+                          fontSize: FONT_SIZES.S,
+                        }}
+                      >
+                        <Translate>Ticket Exchanged</Translate>
+                      </Text>
+                    </LinearGradient>
+                  </View>
+                )}
+
+              {applicant.stickers.length > 0 &&
+                !applicant.stickerLocked &&
+                applicant.stickerSold &&
+                !event?.finishApproved.some(
+                  (app) => app._id === applicant._id
+                ) && (
+                  <View
+                    style={{
+                      width: "100%",
+                      marginTop: 5,
+                      borderRadius: BORDER_RADIUS.M,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <LinearGradient
+                      colors={["#FF416C", "#FF4B2B"]}
+                      style={{
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: BORDER_RADIUS.M,
+                        gap: 8,
+                      }}
+                    >
+                      <FontAwesome5
+                        name="check-circle"
+                        size={16}
+                        color="white"
+                        solid
+                      />
+                      <Text
+                        style={{
+                          color: "white",
+                          fontFamily: FONTS.MEDIUM,
+                          fontSize: FONT_SIZES.S,
+                        }}
+                      >
+                        <Translate>Finishing Not Yet Approved</Translate>
+                      </Text>
+                    </LinearGradient>
+                  </View>
+                )}
+
+              {applicant.stickers.length > 0 &&
+                !applicant.stickerLocked &&
+                applicant.stickerSold &&
+                event?.finishApproved.some(
+                  (app) => app._id === applicant._id
+                ) && (
+                  <View
+                    style={{
+                      width: "100%",
+                      marginTop: 5,
+                      borderRadius: BORDER_RADIUS.M,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <LinearGradient
+                      colors={
+                        isDarkMode
+                          ? ["#0D8C7E", "#27AD69"]
+                          : ["#11998e", "#38ef7d"]
+                      }
+                      style={{
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderRadius: BORDER_RADIUS.M,
+                        gap: 8,
+                      }}
+                    >
+                      <FontAwesome5
+                        name="check-circle"
+                        size={16}
+                        color="white"
+                        solid
+                      />
+                      <Text
+                        style={{
+                          color: "white",
+                          fontFamily: FONTS.MEDIUM,
+                          fontSize: FONT_SIZES.S,
+                        }}
+                      >
+                        <Translate>Finishing Approved</Translate>
+                      </Text>
+                    </LinearGradient>
+                  </View>
+                )}
             </View>
           )}
 
@@ -491,8 +676,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    gap: 5,
   },
   userName: {
     fontFamily: FONTS.SEMIBOLD,
@@ -501,7 +685,7 @@ const styles = StyleSheet.create({
   },
   locationRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginTop: 2,
   },
   locationText: {

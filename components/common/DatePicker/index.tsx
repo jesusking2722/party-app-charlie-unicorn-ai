@@ -13,6 +13,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import Translate from "../Translate";
 
 interface DatePickerProps {
   label?: string;
@@ -126,14 +127,14 @@ const DatePicker: React.FC<DatePickerProps> = ({
                     { color: getAccentColor() },
                   ]}
                 >
-                  Cancel
+                  <Translate>Cancel</Translate>
                 </Text>
               </TouchableOpacity>
 
               <Text
                 style={[styles.pickerHeaderTitle, { color: getTextColor() }]}
               >
-                Select Date
+                <Translate>Select Date</Translate>
               </Text>
 
               <TouchableOpacity
@@ -146,7 +147,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
                     { color: getAccentColor() },
                   ]}
                 >
-                  Done
+                  <Translate>Done</Translate>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -171,7 +172,7 @@ const DatePicker: React.FC<DatePickerProps> = ({
     <View style={[styles.inputContainer, containerStyle]}>
       {label && (
         <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
-          {label}
+          <Translate>{label}</Translate>
         </Text>
       )}
 
@@ -210,7 +211,11 @@ const DatePicker: React.FC<DatePickerProps> = ({
           numberOfLines={1}
           ellipsizeMode="tail"
         >
-          {value ? formatDate(value) : placeholder}
+          {value ? (
+            <Translate>{formatDate(value)}</Translate>
+          ) : (
+            <Translate>{placeholder}</Translate>
+          )}
         </Text>
 
         <View style={styles.chevronContainer}>

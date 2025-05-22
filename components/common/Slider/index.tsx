@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Translate from "../Translate";
 
 const { height } = Dimensions.get("window");
 // Slider height is now set to fill the 35% container from HomeScreen
@@ -247,8 +248,12 @@ const Slider: React.FC<SliderProps> = ({ images }) => {
                 {/* Content Container - Only show for default slides */}
                 {slide.title && slide.description && (
                   <View style={styles.contentContainer}>
-                    <Text style={styles.title}>{slide.title}</Text>
-                    <Text style={styles.description}>{slide.description}</Text>
+                    <Text style={styles.title}>
+                      <Translate>{slide.title}</Translate>
+                    </Text>
+                    <Text style={styles.description}>
+                      <Translate>{slide.description}</Translate>
+                    </Text>
                   </View>
                 )}
               </Animated.View>

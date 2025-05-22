@@ -28,6 +28,7 @@ import {
   PaymentModal,
   Spinner,
   Tabs,
+  Translate,
 } from "@/components/common";
 import { Ticket } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -191,29 +192,9 @@ const TicketScreen: React.FC = () => {
         };
 
         const response = await updateAuthUser(updatingUser);
-
         if (response.ok) {
           const { user: updatedUser } = response.data;
           await dispatch(setAuthUserAsync(updatedUser)).unwrap();
-
-          const transaction: CardTransaction = {
-            amount: extractNumericPrice(formattedAmount),
-            type: "buy",
-            user: updatedUser,
-            createdAt: new Date(),
-            currency: selectedTicket.currency,
-            status: "completed",
-          };
-
-          const txResponse = await saveCardTransaction(transaction);
-
-          if (txResponse.ok) {
-            const { transaction: newCardTransaction } = txResponse.data;
-            await dispatch(
-              addNewCardTransactionSliceAsync(newCardTransaction)
-            ).unwrap();
-          }
-
           showToast("Ticket purchased successfully!", "success");
         }
       }
@@ -241,6 +222,7 @@ const TicketScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <CardPayment
+          type="ticket"
           amount={selectedTicket?.price.toString() ?? ""}
           formattedAmount={formattedAmount}
           currency={
@@ -260,6 +242,7 @@ const TicketScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <CryptoPayment
+          type="ticket"
           amount={selectedTicket?.price.toString() ?? ""}
           formattedAmount={formattedAmount}
           currency={
@@ -303,9 +286,11 @@ const TicketScreen: React.FC = () => {
 
           {/* Header Content */}
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Event Tickets</Text>
+            <Text style={styles.headerTitle}>
+              <Translate>Event Tickets</Translate>
+            </Text>
             <Text style={styles.headerSubtitle}>
-              Secure your spot at the hottest events
+              <Translate>Secure your spot at the hottest events</Translate>
             </Text>
           </View>
         </View>
@@ -352,7 +337,7 @@ const TicketScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  Available Tickets
+                  <Translate>Available Tickets</Translate>
                 </Text>
                 <Text
                   style={[
@@ -364,7 +349,9 @@ const TicketScreen: React.FC = () => {
                     },
                   ]}
                 >
-                  Choose your ticket type and secure your entry
+                  <Translate>
+                    Choose your ticket type and secure your entry
+                  </Translate>
                 </Text>
 
                 {/* Currency Tabs */}
@@ -383,9 +370,9 @@ const TicketScreen: React.FC = () => {
                       .filter(
                         (dt) => dt.currency === currencies[activeCurrencyIndex]
                       )
-                      .map((ticket) => (
+                      .map((ticket, index) => (
                         <Ticket
-                          key={ticket._id}
+                          key={index}
                           _id={ticket._id}
                           isOwned={ownedTickets.some(
                             (ownedTicket) => ownedTicket._id === ticket._id
@@ -417,9 +404,11 @@ const TicketScreen: React.FC = () => {
                       },
                     ]}
                   >
-                    Tickets are non-refundable and will be available in your
-                    ticket wallet after purchase. Please make sure to read our
-                    terms and conditions before buying.
+                    <Translate>
+                      Tickets are non-refundable and will be available in your
+                      ticket wallet after purchase. Please make sure to read our
+                      terms and conditions before buying.
+                    </Translate>
                   </Text>
                 </View>
               </View>

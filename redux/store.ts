@@ -4,12 +4,14 @@ import { promiseTrackingMiddleware } from "./middlewares/promise.tracking.middle
 import authReducer from "./slices/auth.slice";
 import partyReducer from "./slices/party.slice";
 import ticketReducer from "./slices/ticket.slice";
+import messageReducer from "./slices/message.slice";
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     party: partyReducer,
     ticket: ticketReducer,
+    message: messageReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

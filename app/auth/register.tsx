@@ -27,7 +27,13 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, Input, ThemeToggle } from "@/components/common";
+import {
+  Button,
+  Input,
+  LanguageToggleGroup,
+  ThemeToggle,
+  Translate,
+} from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { setAuthToken } from "@/lib/axiosInstance";
@@ -284,21 +290,15 @@ const RegisterScreen = () => {
     }
   };
 
-  const handleGoogleRegister = (): void => {
-    
-  };
+  const handleGoogleRegister = (): void => {};
 
   const handleSignIn = (): void => {
     router.push("/auth/login");
   };
 
-  const handlePrivacyPolicy = (): void => {
-    console.log("Navigate to privacy policy");
-  };
+  const handlePrivacyPolicy = (): void => {};
 
-  const handleTermsOfService = (): void => {
-    console.log("Navigate to terms of service");
-  };
+  const handleTermsOfService = (): void => {};
 
   const renderParticles = () => {
     return particles.map((particle, index) => (
@@ -342,6 +342,7 @@ const RegisterScreen = () => {
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />
+        <LanguageToggleGroup containerStyle={{ marginRight: SPACING.M }} />
       </View>
 
       <ScrollView
@@ -414,7 +415,7 @@ const RegisterScreen = () => {
                       },
                     ]}
                   >
-                    Join the Party!
+                    <Translate>Join the Perfect Event/Party!</Translate>
                   </Text>
                   <Text
                     style={[
@@ -426,7 +427,7 @@ const RegisterScreen = () => {
                       },
                     ]}
                   >
-                    Create your account to get started
+                    <Translate>Create your account to get started</Translate>
                   </Text>
 
                   {/* Form Inputs */}
@@ -503,7 +504,7 @@ const RegisterScreen = () => {
                           },
                         ]}
                       >
-                        By signing up, you agree to our{" "}
+                        <Translate>By signing up, you agree to our</Translate>{" "}
                         <Text
                           style={[
                             styles.termsLink,
@@ -511,9 +512,9 @@ const RegisterScreen = () => {
                           ]}
                           onPress={handleTermsOfService}
                         >
-                          Terms of Service
+                          <Translate>Terms of Service</Translate>
                         </Text>{" "}
-                        and{" "}
+                        <Translate>and</Translate>{" "}
                         <Text
                           style={[
                             styles.termsLink,
@@ -521,7 +522,7 @@ const RegisterScreen = () => {
                           ]}
                           onPress={handlePrivacyPolicy}
                         >
-                          Privacy Policy
+                          <Translate>Privacy Policy</Translate>
                         </Text>
                       </Text>
                     </View>
@@ -539,7 +540,6 @@ const RegisterScreen = () => {
                         onPress={handleRegister}
                         loading={loading}
                         variant={isDarkMode ? "primary" : "secondary"}
-                        small={true}
                       />
                     </Animated.View>
 
@@ -554,13 +554,13 @@ const RegisterScreen = () => {
                         },
                       ]}
                     >
-                      Or sign up with
+                      <Translate>Or sign up with</Translate>
                     </Text>
 
                     <View style={styles.socialButtonsContainer}>
                       <Button
                         title="Sign up with Google"
-                        variant={isDarkMode ? "secondary" : "primary"}
+                        variant="outline"
                         icon={
                           <FontAwesome name="google" size={18} color="white" />
                         }
@@ -580,7 +580,7 @@ const RegisterScreen = () => {
                           },
                         ]}
                       >
-                        Already have an account?
+                        <Translate>Already have an account?</Translate>
                       </Text>
                       <TouchableOpacity onPress={handleSignIn}>
                         <Text
@@ -591,7 +591,7 @@ const RegisterScreen = () => {
                             },
                           ]}
                         >
-                          Sign In
+                          <Translate>Sign In</Translate>
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -774,8 +774,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: Platform.OS === "ios" ? 50 : 40,
     right: 20,
-    width: 36,
-    height: 36,
+    display: "flex",
+    flexDirection: "row",
+    gap: 4,
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",

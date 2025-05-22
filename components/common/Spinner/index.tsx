@@ -12,6 +12,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import Translate from "../Translate";
 
 const { height } = Dimensions.get("window");
 
@@ -586,7 +587,7 @@ const Spinner: React.FC<SpinnerProps> = ({
                 },
               ]}
             >
-              {message || "Getting the party started..."}
+              <Translate>{message || "Getting the party started..."}</Translate>
             </Animated.Text>
           </Animated.View>
 

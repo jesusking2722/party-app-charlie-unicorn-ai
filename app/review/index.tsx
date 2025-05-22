@@ -131,12 +131,14 @@ const ReviewExchangeScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (eventId && paramReviewType && applicantId) {
+    if (eventId && paramReviewType) {
       const foundEvent = parties.find((party) => party._id === eventId);
       if (foundEvent) {
         setEvent(foundEvent);
         setReviewType(paramReviewType === "applier" ? "applier" : "owner");
-        setMyApplicantId(applicantId as string);
+        if (applicantId) {
+          setMyApplicantId(applicantId as string);
+        }
       }
     }
   }, [eventId, applicantId, paramReviewType]);
@@ -251,23 +253,6 @@ const ReviewExchangeScreen = () => {
 
   // Handle submit review
   const handleSubmitReview = async () => {
-    if (reviewText.trim().length === 0) {
-      showToast("Please write a review before submitting", "error");
-      return;
-    }
-
-    if (!event || !user?._id || !myApplicantId) return;
-
-    const finishApproved = event.finishApproved.some(
-      (approved) => approved._id === myApplicantId
-    );
-    if (finishApproved) {
-      showToast("You have already approved", "error");
-      return;
-    }
-
-    setLoading(true);
-
     // Button press animation
     Animated.sequence([
       Animated.timing(buttonScale, {
@@ -283,18 +268,62 @@ const ReviewExchangeScreen = () => {
       }),
     ]).start();
 
-    const updatedEvent = await submitReview(
-      user._id,
-      event,
-      reviewText,
-      rating,
-      myApplicantId
-    );
+    if (reviewText.trim().length === 0) {
+      showToast("Please write a review before submitting", "error");
+      return;
+    }
 
-    if (updatedEvent) {
-      setEvent(updatedEvent);
-      await dispatch(updateSelectedPartyAsnyc(updatedEvent)).unwrap();
-      showToast("Review submitted successfully", "success");
+    if (reviewType === "applier") {
+      if (!event || !user?._id || !myApplicantId) return;
+
+      const finishApproved = event.finishApproved.some(
+        (approved) => approved._id === myApplicantId
+      );
+      if (finishApproved) {
+        showToast("You have already approved", "error");
+        return;
+      }
+
+      setLoading(true);
+
+      const updatedEvent = await submitReview(
+        user._id,
+        event,
+        reviewText,
+        rating,
+        myApplicantId
+      );
+
+      if (updatedEvent) {
+        setEvent(updatedEvent);
+        await dispatch(updateSelectedPartyAsnyc(updatedEvent)).unwrap();
+        showToast("Review submitted successfully", "success");
+        setReviewText("");
+        setRating(4.5);
+        setLoading(false);
+        router.back();
+      }
+    } else {
+      if (!event || !user) return;
+
+      setLoading(true);
+      const approverIds = event.finishApproved.map(
+        (approve) => approve.applier._id
+      );
+
+      showToast("Sending your review...", "info");
+      socket.emit(
+        "party:finished",
+        approverIds,
+        event,
+        user?._id,
+        reviewText,
+        rating
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      showToast("Sent your review successfully", "success");
+      setLoading(false);
       setReviewText("");
       setRating(4.5);
       setLoading(false);
@@ -450,12 +479,6 @@ const ReviewExchangeScreen = () => {
                               </LinearGradient>
                             </View>
                           )}
-
-                          <Image
-                            // source={}
-                            style={styles.profileImageSmall}
-                            resizeMode="cover"
-                          />
                         </View>
 
                         <View style={styles.profileDetails}>

@@ -53,7 +53,7 @@ export const formatTimeAgo = (date: Date): string => {
  * Formats a date to a user-friendly string format
  * Example: "May 15, 2025"
  */
-export const formatDate = (date: Date): string => {
+export const formatDate = (date: Date | string): string => {
   if (!date) return "";
   const options: Intl.DateTimeFormatOptions = {
     month: "short",
@@ -61,14 +61,14 @@ export const formatDate = (date: Date): string => {
     year: "numeric",
   };
 
-  return date.toLocaleDateString("en-US", options);
+  return new Date(date).toLocaleDateString("en-US", options);
 };
 
 /**
  * Formats a date to a time string
  * Example: "3:30 PM"
  */
-export const formatTime = (date: Date): string => {
+export const formatTime = (date: Date | string): string => {
   if (!date) return "";
   const options: Intl.DateTimeFormatOptions = {
     hour: "numeric",
@@ -76,7 +76,7 @@ export const formatTime = (date: Date): string => {
     hour12: true,
   };
 
-  return date.toLocaleTimeString("en-US", options);
+  return new Date(date).toLocaleTimeString("en-US", options);
 };
 
 /**

@@ -28,7 +28,13 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, Input, ThemeToggle } from "@/components/common";
+import {
+  Button,
+  Input,
+  LanguageToggleGroup,
+  ThemeToggle,
+  Translate,
+} from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import useInit from "@/hooks/useInit";
@@ -288,7 +294,6 @@ const LoginScreen = () => {
 
       // api request/response
       const response = await loginByEmail(email, password);
-      console.log(response.data);
       if (response.ok) {
         const { user, token } = response.data;
         setAuthToken(token);
@@ -403,8 +408,6 @@ const LoginScreen = () => {
   };
 
   const handleForgotPassword = (): void => {
-    console.log("Navigate to forgot password");
-
     // Animation for press effect
     Animated.sequence([
       Animated.timing(fadeAnim, {
@@ -418,6 +421,8 @@ const LoginScreen = () => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    router.push("/auth/resetPassword");
   };
 
   const handleSignUp = (): void => {
@@ -476,6 +481,7 @@ const LoginScreen = () => {
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />
+        <LanguageToggleGroup containerStyle={{ marginRight: SPACING.M }} />
       </View>
 
       <ScrollView
@@ -548,7 +554,7 @@ const LoginScreen = () => {
                       },
                     ]}
                   >
-                    Welcome Back!
+                    <Translate>Welcome Back!</Translate>
                   </Text>
                   <Text
                     style={[
@@ -560,7 +566,7 @@ const LoginScreen = () => {
                       },
                     ]}
                   >
-                    Sign in to join the party
+                    <Translate>Sign in to join the party</Translate>
                   </Text>
 
                   {/* Form Inputs */}
@@ -649,7 +655,7 @@ const LoginScreen = () => {
                             },
                           ]}
                         >
-                          Remember me
+                          <Translate>Remember me</Translate>
                         </Text>
                       </Pressable>
 
@@ -662,7 +668,7 @@ const LoginScreen = () => {
                             },
                           ]}
                         >
-                          Forgot Password?
+                          <Translate>Forgot Password?</Translate>
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -694,13 +700,13 @@ const LoginScreen = () => {
                         },
                       ]}
                     >
-                      Or continue with
+                      <Translate>Or continue with</Translate>
                     </Text>
 
                     <View style={styles.socialButtonsContainer}>
                       <Button
                         title="Sign in with Google"
-                        variant={isDarkMode ? "secondary" : "primary"}
+                        variant="outline"
                         icon={
                           <FontAwesome name="google" size={18} color="white" />
                         }
@@ -721,7 +727,7 @@ const LoginScreen = () => {
                           },
                         ]}
                       >
-                        Don't have an account?
+                        <Translate>Don't have an account?</Translate>
                       </Text>
                       <TouchableOpacity onPress={handleSignUp}>
                         <Text
@@ -732,7 +738,7 @@ const LoginScreen = () => {
                             },
                           ]}
                         >
-                          Sign Up
+                          <Translate>Sign Up</Translate>
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -930,9 +936,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: Platform.OS === "ios" ? 50 : 40,
     right: 20,
-    width: 36,
-    height: 36,
     borderRadius: 18,
+    display: "flex",
+    flexDirection: "row",
+    gap: 4,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 100,

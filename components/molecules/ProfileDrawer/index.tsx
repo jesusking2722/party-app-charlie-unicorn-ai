@@ -7,10 +7,18 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, Drawer, Input, LanguageSelector } from "@/components/common";
+import {
+  Button,
+  Drawer,
+  Input,
+  LanguageSelector,
+  Textarea,
+  Translate,
+} from "@/components/common";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
+import { setAuthToken } from "@/lib/axiosInstance";
 import { updateAuthUser } from "@/lib/scripts/auth.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
@@ -18,6 +26,7 @@ import { User } from "@/types/data";
 import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -32,8 +41,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { useSelector } from "react-redux";
+import { ReviewScreen } from "@/components/molecules";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -68,7 +80,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
   // State for different editing sections
   const [activeSection, setActiveSection] = useState<
-    "profile" | "account" | null
+    "profile" | "account" | "reviews" | null
   >(null);
 
   // State for form fields
@@ -83,6 +95,10 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
   // Loading state for save operation
   const [isSaving, setIsSaving] = useState(false);
+
+  // Avatar upload states
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   const { user } = useSelector((state: RootState) => state.auth);
   const dispatch = useAppDispatch();
@@ -109,8 +125,25 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   useEffect(() => {
     if (!visible) {
       setActiveSection(null);
+      setSelectedImage(null);
     }
   }, [visible]);
+
+  // Request permissions when component mounts
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS !== "web") {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          showToast(
+            "Sorry, we need camera roll permissions to change your avatar!",
+            "error"
+          );
+        }
+      }
+    })();
+  }, []);
 
   // Form validation errors
   const [errors, setErrors] = useState({
@@ -122,6 +155,155 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
     newPassword: "",
     confirmPassword: "",
   });
+
+  // Function to pick image from gallery
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: false,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const asset = result.assets[0];
+
+        // Check file size (5MB limit)
+        if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
+          showToast("Please select an image smaller than 5MB", "error");
+          return;
+        }
+
+        setSelectedImage(asset.uri);
+
+        // Automatically upload the image
+        await uploadAvatar(asset.uri);
+      }
+    } catch (error) {
+      console.error("Error picking image:", error);
+      showToast("Failed to pick image", "error");
+    }
+  };
+
+  // Function to upload avatar to backend
+  const uploadAvatar = async (imageUri: string) => {
+    if (!user) return;
+
+    const token = await AsyncStorage.getItem("Authorization");
+
+    if (!token) return;
+
+    setIsUploadingAvatar(true);
+
+    try {
+      // Create FormData for file upload
+      const formData = new FormData();
+
+      // Get file extension from URI
+      const uriParts = imageUri.split(".");
+      const fileType = uriParts[uriParts.length - 1];
+
+      // For React Native, we need to format the file object correctly
+      const imageFile = {
+        uri: imageUri,
+        type: `image/${fileType}`,
+        name: `avatar.${fileType}`,
+      } as any; // Type assertion for React Native FormData compatibility
+
+      formData.append("avatar", imageFile);
+
+      // Make API call to upload avatar
+      const response = await fetch(
+        `${BACKEND_BASE_URL}/api/auth/me/avatar/${user._id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: token,
+          },
+          body: formData,
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        await dispatch(setAuthUserAsync(data.user));
+
+        showToast("Avatar updated successfully!", "success");
+        setSelectedImage(null);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to upload avatar");
+      }
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      showToast(error.message || "Failed to upload avatar", "error");
+      setSelectedImage(null); // Clear selected image on error
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  // Alternative upload function using axios (if you prefer to use your existing API setup)
+  const uploadAvatarWithAxios = async (imageUri: string) => {
+    if (!user) return;
+
+    setIsUploadingAvatar(true);
+
+    try {
+      const formData = new FormData();
+
+      const uriParts = imageUri.split(".");
+      const fileType = uriParts[uriParts.length - 1];
+
+      const imageFile = {
+        uri: imageUri,
+        type: `image/${fileType}`,
+        name: `avatar.${fileType}`,
+      } as any;
+
+      formData.append("avatar", imageFile);
+
+      // If you have an uploadUserAvatar function in your auth.scripts
+      // const response = await uploadUserAvatar(user._id, formData);
+
+      // For now, using fetch - you can replace this with your axios instance
+      const response = await fetch(
+        `${BACKEND_BASE_URL}/api/users/${user._id}/avatar`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          body: formData,
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        const updatedUser: User = {
+          ...user,
+          avatar: data.user.avatar,
+        };
+
+        await dispatch(setAuthUserAsync(updatedUser));
+        showToast("Avatar updated successfully!", "success");
+        setSelectedImage(null);
+      } else {
+        throw new Error("Failed to upload avatar");
+      }
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      showToast("Failed to upload avatar", "error");
+      setSelectedImage(null);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   // Toggle profile edit mode
   const handleEditProfile = () => {
@@ -141,6 +323,11 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
     setConfirmPassword("");
   };
 
+  // Toggle reviews mode
+  const handleViewReviews = () => {
+    setActiveSection("reviews");
+  };
+
   // Cancel edit mode
   const handleCancelEdit = () => {
     setActiveSection(null);
@@ -152,6 +339,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
     setCurrentPassword("");
     setNewPassword("");
     setConfirmPassword("");
+    setSelectedImage(null);
 
     // Clear errors
     setErrors({
@@ -279,41 +467,91 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
     }
   };
 
-  // Save account changes
-  const handleSaveAccount = async () => {
-    if (!validateAccountForm()) {
-      return;
-    }
-
-    setIsSaving(true);
-
-    try {
-      // Simulate API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Exit edit mode
-      setActiveSection(null);
-      setIsSaving(false);
-
-      // Show success message
-      Alert.alert(
-        "Success",
-        "Your account information has been updated successfully."
-      );
-    } catch (error) {
-      setIsSaving(false);
-      Alert.alert(
-        "Error",
-        "Failed to update account information. Please try again."
-      );
-    }
-  };
-
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await setAuthToken(null);
     onClose();
-    // Add your logout logic here
     router.replace("/auth/login");
   };
+
+  // Function to get the current avatar source
+  const getAvatarSource = () => {
+    if (selectedImage) {
+      return { uri: selectedImage };
+    }
+    if (user?.avatar) {
+      return { uri: BACKEND_BASE_URL + user.avatar };
+    }
+    return null;
+  };
+
+  // Function to render avatar content
+  const renderAvatarContent = () => {
+    const avatarSource = getAvatarSource();
+
+    if (isUploadingAvatar) {
+      return (
+        <View style={[styles.avatarLarge, styles.avatarLoadingContainer]}>
+          <ActivityIndicator size="large" color={getAccentColor()} />
+        </View>
+      );
+    }
+
+    if (avatarSource) {
+      return (
+        <Image
+          source={avatarSource}
+          style={styles.avatarLarge}
+          resizeMode="cover"
+        />
+      );
+    }
+
+    return (
+      <LinearGradient
+        colors={isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[
+          styles.avatarLarge,
+          {
+            width: "100%",
+            height: "100%",
+            borderRadius: BORDER_RADIUS.CIRCLE,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <Text
+          style={{
+            color: COLORS.WHITE,
+            fontFamily: FONTS.SEMIBOLD,
+            fontSize: FONT_SIZES.M,
+          }}
+        >
+          {user?.name ? user.name.slice(0, 2).toUpperCase() : ""}
+        </Text>
+      </LinearGradient>
+    );
+  };
+
+  // If reviews section is active, show the reviews screen
+  if (activeSection === "reviews") {
+    return (
+      <Drawer
+        visible={visible}
+        onClose={handleCancelEdit}
+        position="right"
+        width={Platform.OS === "ios" ? "85%" : "90%"}
+      >
+        <ReviewScreen
+          visible={true}
+          onClose={handleCancelEdit}
+          reviews={user?.reviews || []}
+        />
+      </Drawer>
+    );
+  }
 
   return (
     <Drawer
@@ -337,7 +575,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
               ]}
               onPress={handleCancelEdit}
               activeOpacity={0.7}
-              disabled={isSaving}
+              disabled={isSaving || isUploadingAvatar}
             >
               <Feather name="x" size={22} color={getIconColor()} />
             </TouchableOpacity>
@@ -377,50 +615,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
               // View mode with large avatar
               <View style={styles.profileHeaderLarge}>
                 <View style={styles.avatarContainerLarge}>
-                  {user?.avatar ? (
-                    <Image
-                      source={{
-                        uri: BACKEND_BASE_URL + user?.avatar,
-                      }}
-                      style={styles.avatarLarge}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View>
-                      <LinearGradient
-                        colors={
-                          isDarkMode
-                            ? GRADIENTS.PRIMARY
-                            : ["#FF0099", "#FF6D00"]
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[
-                          styles.avatarLarge,
-                          {
-                            width: "60%",
-                            height: "100%",
-                            borderRadius: "50%",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            margin: "auto",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={{
-                            color: COLORS.WHITE,
-                            fontFamily: FONTS.SEMIBOLD,
-                            fontSize: FONT_SIZES.M,
-                          }}
-                        >
-                          {user?.name
-                            ? user.name.slice(0, 2).toUpperCase()
-                            : ""}
-                        </Text>
-                      </LinearGradient>
-                    </View>
-                  )}
+                  {renderAvatarContent()}
                   <LinearGradient
                     colors={["transparent", "rgba(0, 0, 0, 0.7)"]}
                     style={styles.avatarGradient}
@@ -468,50 +663,8 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                     },
                   ]}
                 >
-                  {user?.avatar ? (
-                    <Image
-                      source={{
-                        uri: BACKEND_BASE_URL + user?.avatar,
-                      }}
-                      style={styles.avatarLarge}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View>
-                      <LinearGradient
-                        colors={
-                          isDarkMode
-                            ? GRADIENTS.PRIMARY
-                            : ["#FF0099", "#FF6D00"]
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[
-                          styles.avatarLarge,
-                          {
-                            width: "100%",
-                            height: "100%",
-                            borderRadius: BORDER_RADIUS.CIRCLE,
-                            justifyContent: "center",
-                            alignItems: "center",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={{
-                            color: COLORS.WHITE,
-                            fontFamily: FONTS.SEMIBOLD,
-                            fontSize: FONT_SIZES.M,
-                          }}
-                        >
-                          {user?.name
-                            ? user.name.slice(0, 2).toUpperCase()
-                            : ""}
-                        </Text>
-                      </LinearGradient>
-                    </View>
-                  )}
-                  {activeSection === "profile" && (
+                  {renderAvatarContent()}
+                  {activeSection === "profile" && !isUploadingAvatar && (
                     <TouchableOpacity
                       style={[
                         styles.changeAvatarButton,
@@ -520,6 +673,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                         },
                       ]}
                       activeOpacity={0.8}
+                      onPress={pickImage}
                     >
                       <View
                         style={[
@@ -583,7 +737,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                             { color: getAccentColor() },
                           ]}
                         >
-                          About You
+                          <Translate>About You</Translate>
                         </Text>
                         <View
                           style={[
@@ -604,103 +758,15 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                             },
                           ]}
                         >
-                          <Input
+                          <Textarea
                             value={editedDescription}
                             onChangeText={setEditedDescription}
                             placeholder="Describe yourself"
-                            multiline
-                            numberOfLines={4}
                             error={errors.description}
-                            icon={
-                              <FontAwesome
-                                name="info-circle"
-                                size={16}
-                                color={getIconColor()}
-                              />
-                            }
                             containerStyle={styles.textareaContainerStyle}
+                            numberOfLines={7}
                           />
                         </View>
-                      </View>
-                    </>
-                  ) : activeSection === "account" ? (
-                    // Account Edit Form
-                    <>
-                      <Input
-                        label="Email"
-                        value={editedEmail}
-                        onChangeText={setEditedEmail}
-                        placeholder="Your email"
-                        error={errors.email}
-                        readonly={true}
-                        icon={
-                          <FontAwesome
-                            name="envelope"
-                            size={16}
-                            color={getIconColor()}
-                          />
-                        }
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                      />
-
-                      <View style={styles.passwordSection}>
-                        <Text
-                          style={[
-                            styles.sectionTitle,
-                            { color: getTextColor() },
-                          ]}
-                        >
-                          Change Password
-                        </Text>
-
-                        <Input
-                          label="Current Password"
-                          value={currentPassword}
-                          onChangeText={setCurrentPassword}
-                          placeholder="Enter current password"
-                          error={errors.currentPassword}
-                          icon={
-                            <FontAwesome
-                              name="lock"
-                              size={16}
-                              color={getIconColor()}
-                            />
-                          }
-                          isPassword
-                        />
-
-                        <Input
-                          label="New Password"
-                          value={newPassword}
-                          onChangeText={setNewPassword}
-                          placeholder="Enter new password"
-                          error={errors.newPassword}
-                          icon={
-                            <FontAwesome
-                              name="key"
-                              size={16}
-                              color={getIconColor()}
-                            />
-                          }
-                          isPassword
-                        />
-
-                        <Input
-                          label="Confirm New Password"
-                          value={confirmPassword}
-                          onChangeText={setConfirmPassword}
-                          placeholder="Confirm new password"
-                          error={errors.confirmPassword}
-                          icon={
-                            <FontAwesome
-                              name="check"
-                              size={16}
-                              color={getIconColor()}
-                            />
-                          }
-                          isPassword
-                        />
                       </View>
                     </>
                   ) : null}
@@ -722,12 +788,9 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       style={{ marginRight: SPACING.S }}
                     />
                   }
-                  onPress={
-                    activeSection === "profile"
-                      ? handleSaveProfile
-                      : handleSaveAccount
-                  }
+                  onPress={handleSaveProfile}
                   loading={isSaving}
+                  disabled={isUploadingAvatar}
                   small={true}
                 />
               </View>
@@ -737,7 +800,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
             {!activeSection && (
               <View style={styles.settingsContainer}>
                 <Text style={[styles.settingsTitle, { color: getTextColor() }]}>
-                  Settings
+                  <Translate>Settings</Translate>
                 </Text>
 
                 <TouchableOpacity
@@ -770,7 +833,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       { color: getTextColor() },
                     ]}
                   >
-                    Edit Profile
+                    <Translate>Edit Profile</Translate>
                   </Text>
                   <Feather
                     name="chevron-right"
@@ -779,6 +842,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                   />
                 </TouchableOpacity>
 
+                {/* New Reviews Button */}
                 <TouchableOpacity
                   style={[
                     styles.settingButton,
@@ -788,7 +852,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                         : "rgba(230, 234, 240, 0.8)",
                     },
                   ]}
-                  onPress={handleEditAccount}
+                  onPress={handleViewReviews}
                   activeOpacity={0.7}
                 >
                   <View
@@ -801,7 +865,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       },
                     ]}
                   >
-                    <Feather name="lock" size={18} color={getIconColor()} />
+                    <Feather name="star" size={18} color={getIconColor()} />
                   </View>
                   <Text
                     style={[
@@ -809,8 +873,13 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       { color: getTextColor() },
                     ]}
                   >
-                    Account Settings
+                    <Translate>My Reviews</Translate>
                   </Text>
+                  <View style={styles.reviewBadge}>
+                    <Text style={styles.reviewBadgeText}>
+                      {user?.reviews?.length || 0}
+                    </Text>
+                  </View>
                   <Feather
                     name="chevron-right"
                     size={18}
@@ -848,7 +917,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       { color: getTextColor() },
                     ]}
                   >
-                    Language
+                    <Translate>Language</Translate>
                   </Text>
                 </View>
 
@@ -891,7 +960,11 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       { color: getTextColor() },
                     ]}
                   >
-                    Dark Mode
+                    {isDarkMode ? (
+                      <Translate>Light Mode</Translate>
+                    ) : (
+                      <Translate>Dark Mode</Translate>
+                    )}
                   </Text>
                   <Switch
                     value={isDarkMode}
@@ -931,7 +1004,9 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                   >
                     <Feather name="log-out" size={18} color="#FF4D4D" />
                   </View>
-                  <Text style={styles.logoutText}>Logout</Text>
+                  <Text style={styles.logoutText}>
+                    <Translate>Logout</Translate>
+                  </Text>
                 </TouchableOpacity>
 
                 {/* Version info */}
@@ -942,7 +1017,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       { color: getSecondaryTextColor() },
                     ]}
                   >
-                    App Version 1.0.0
+                    <Translate>App Version 1.0.0</Translate>
                   </Text>
                 </View>
               </View>
@@ -990,6 +1065,11 @@ const styles = StyleSheet.create({
   avatarLarge: {
     width: "100%",
     height: "100%",
+  },
+  avatarLoadingContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
   },
   avatarGradient: {
     position: "absolute",
@@ -1155,7 +1235,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   textareaWrapper: {
-    height: 120,
+    height: 122,
     alignItems: "flex-start",
   },
   textareaContainerStyle: {
@@ -1190,6 +1270,21 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.M,
     marginTop: SPACING.S,
     marginBottom: SPACING.M,
+  },
+  // Review Badge styles
+  reviewBadge: {
+    backgroundColor: "#FF0099",
+    borderRadius: BORDER_RADIUS.CIRCLE,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.S,
+  },
+  reviewBadgeText: {
+    color: COLORS.WHITE,
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.BOLD,
   },
 });
 

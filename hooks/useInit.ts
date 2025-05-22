@@ -1,7 +1,9 @@
 import { fetchAuthUserById } from "@/lib/scripts/auth.scripts";
+import { fetchAllMessages } from "@/lib/scripts/message.scripts";
 import { fetchAllParties } from "@/lib/scripts/party.scripts";
 import { fetchAllTickets } from "@/lib/scripts/ticket.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { setMessageSliceAsync } from "@/redux/actions/message.actions";
 import { setPartySliceAsync } from "@/redux/actions/party.actions";
 import { setTicketSliceAsync } from "@/redux/actions/ticket.actions";
 import { useAppDispatch } from "@/redux/store";
@@ -33,8 +35,9 @@ const useInit = () => {
       router.replace("/onboarding/profileSetup");
     } else if (!user.title) {
       router.replace("/onboarding/professionSetup");
+    } else {
+      router.replace("/home");
     }
-    router.replace("/home");
   };
 
   const fetchAuthUser = async () => {
@@ -55,12 +58,11 @@ const useInit = () => {
 
       if (response.ok) {
         const { user } = response.data;
-        checkRedirectPath(user);
         // Use the async thunk directly and wait for it to complete
         await dispatch(setAuthUserAsync(user)).unwrap();
 
         setInitLoading(false);
-        return true;
+        return user;
       } else {
         setInitError(response.message || "Failed to fetch user data");
         console.error("API Error:", response.message);
@@ -110,12 +112,37 @@ const useInit = () => {
     }
   };
 
+  const fetchAllMessagesInfo = async () => {
+    try {
+      setInitLoading(true);
+
+      const token = await AsyncStorage.getItem("Authorization");
+
+      if (!token) {
+        setInitLoading(false);
+        return false;
+      }
+
+      const decoded = jwtDecode<TokenPayload>(token);
+
+      const response = await fetchAllMessages(decoded.id);
+      if (response.ok) {
+        const { messages } = response.data;
+        await dispatch(setMessageSliceAsync(messages)).unwrap();
+      }
+    } catch (error) {
+      console.error("fetch all messages info error: ", error);
+      setInitLoading(false);
+    }
+  };
+
   return {
     initLoading,
     initError,
     fetchAuthUser,
     fetchAllPartiesInfo,
     fetchAllTicketsInfo,
+    fetchAllMessagesInfo,
     checkRedirectPath,
   };
 };

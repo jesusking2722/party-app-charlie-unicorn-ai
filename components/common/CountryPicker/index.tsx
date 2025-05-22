@@ -13,6 +13,8 @@ import {
   ViewStyle,
 } from "react-native";
 import { CountryPicker } from "react-native-country-codes-picker";
+import Translate from "../Translate";
+import { useTranslator } from "@/contexts/TranslatorContext";
 
 // Custom light theme secondary color - to match Input
 const LIGHT_THEME_ACCENT = "#FF0099";
@@ -49,6 +51,23 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
 
   const [showModal, setShowModal] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+
+  const [inputPlaceholder, setInputPlaceholder] = useState<string>("");
+  const [searchMessage, setSearchMessage] = useState<string>("");
+
+  const { translateText } = useTranslator();
+
+  useEffect(() => {
+    const translate = async () => {
+      const translatedInput = await translateText("Search countries...");
+      const translatedSearch = await translateText("No coutries found");
+
+      setInputPlaceholder(translatedInput);
+      setSearchMessage(translatedSearch);
+    };
+
+    translate();
+  }, []);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -98,7 +117,7 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
 
   // Format display text
   const getSelectedCountryName = () => {
-    if (!value) return placeholder;
+    if (!value) return <Translate>{placeholder}</Translate>;
     return `${value.flag} ${value.name}`;
   };
 
@@ -153,7 +172,7 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
         ]}
       >
         <Text style={[styles.modalTitle, { color: COLORS.WHITE }]}>
-          Select a Country
+          <Translate>Select a Country</Translate>
         </Text>
       </View>
     </View>
@@ -176,7 +195,7 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
     <View style={[styles.inputContainer, containerStyle]}>
       {label && (
         <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
-          {label}
+          <Translate>{label}</Translate>
         </Text>
       )}
 
@@ -252,7 +271,9 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
       </View>
 
       {error && (
-        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>
+          <Translate>{error}</Translate>
+        </Text>
       )}
 
       {/* Country Picker Modal */}
@@ -262,8 +283,8 @@ const CustomCountryPicker: React.FC<CustomCountryPickerProps> = ({
         enableModalAvoiding={true}
         pickerButtonOnPress={(item) => handleSelect(item)}
         onBackdropPress={handleModalClose}
-        inputPlaceholder="Search countries..."
-        searchMessage="No countries found"
+        inputPlaceholder={inputPlaceholder}
+        searchMessage={searchMessage}
         ListHeaderComponent={ListHeaderComponent}
         style={{
           // Modal container

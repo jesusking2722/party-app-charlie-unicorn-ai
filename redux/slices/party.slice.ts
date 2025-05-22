@@ -4,6 +4,8 @@ import {
   addNewApplicantToSelectedPartyAsync,
   addNewPartyAsync,
   setPartySliceAsync,
+  updateApplicantStatusInSelectedPartyAsync,
+  updatePartyStatusSliceAsync,
   updateSelectedPartyAsnyc,
 } from "../actions/party.actions";
 
@@ -18,28 +20,7 @@ const initialPartySliceState: PartySliceState = {
 const partySlice = createSlice({
   name: "party",
   initialState: initialPartySliceState,
-  reducers: {
-    updateApplicantStatusInSelectedParty(
-      state: PartySliceState,
-      action: PayloadAction<{
-        partyId: string;
-        applicantId: string;
-        status: "pending" | "accepted" | "declined";
-      }>
-    ) {
-      const { partyId, applicantId, status } = action.payload;
-      state.parties.forEach((party) => {
-        if (party._id === partyId) {
-          let selectedApplicant = party.applicants.find(
-            (applicant) => applicant._id === applicantId
-          );
-          if (selectedApplicant) {
-            selectedApplicant.status = status;
-          }
-        }
-      });
-    },
-  },
+  reducers: {},
   extraReducers(builder) {
     builder.addCase(setPartySliceAsync.fulfilled, (state, action) => {
       state.parties = action.payload;
@@ -51,22 +32,51 @@ const partySlice = createSlice({
       addNewApplicantToSelectedPartyAsync.fulfilled,
       (state, action) => {
         const { partyId, newApplicant } = action.payload;
-        const party = state.parties.find((p) => p._id === partyId);
-        if (party) {
+        const party = state.parties.find(
+          (p) => p._id?.toString() === partyId?.toString()
+        );
+        if (party && Array.isArray(party.applicants)) {
           party.applicants.unshift(newApplicant);
         }
       }
     );
     builder.addCase(updateSelectedPartyAsnyc.fulfilled, (state, action) => {
       const selectedParty = action.payload;
-      state.parties.forEach((party) => {
-        if (party._id === selectedParty._id) {
-          party = selectedParty;
+      const index = state.parties.findIndex(
+        (party) => party._id?.toString() === selectedParty._id?.toString()
+      );
+      if (index !== -1) {
+        state.parties[index] = selectedParty;
+      }
+    });
+    builder.addCase(
+      updateApplicantStatusInSelectedPartyAsync.fulfilled,
+      (state, action) => {
+        const { partyId, applicantId, status } = action.payload;
+        const party = state.parties.find(
+          (p) => p._id?.toString() === partyId?.toString()
+        );
+        if (party && Array.isArray(party.applicants)) {
+          const selectedApplicant = party.applicants.find(
+            (applicant) => applicant._id?.toString() === applicantId?.toString()
+          );
+          if (selectedApplicant) {
+            selectedApplicant.status = status;
+          }
         }
-      });
+      }
+    );
+
+    builder.addCase(updatePartyStatusSliceAsync.fulfilled, (state, action) => {
+      const { partyId, status } = action.payload;
+      const party = state.parties.find(
+        (p) => p._id?.toString() === partyId?.toString()
+      );
+      if (party) {
+        party.status = status;
+      }
     });
   },
 });
 
-export const { updateApplicantStatusInSelectedParty } = partySlice.actions;
 export default partySlice.reducer;

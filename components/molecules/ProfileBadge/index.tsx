@@ -5,6 +5,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { BORDER_RADIUS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Translate } from "@/components/common";
 
 // Badge type definitions
 export type BadgeType = "premium" | "verified" | "new" | "featured" | "popular";
@@ -133,7 +134,7 @@ const Badge = ({
           style={styles.icon}
         />
         <Text style={[styles.text, { color: badgeConfig.text }]}>
-          {displayLabel}
+          <Translate>{displayLabel}</Translate>
         </Text>
       </LinearGradient>
     </View>

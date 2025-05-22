@@ -4,6 +4,7 @@ import { Feather } from "@expo/vector-icons"; // Using Expo Icons
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useTheme } from "@/contexts/ThemeContext"; // Import your theme context
+import Translate from "../Translate";
 
 interface AlertProps {
   type: "success" | "error" | "warning" | "info";
@@ -170,9 +171,11 @@ const Alert: FC<AlertProps> = ({ type, title, message }) => {
       </View>
 
       <View style={styles.contentContainer}>
-        <Text style={[styles.title, { color: colors.title }]}>{title}</Text>
+        <Text style={[styles.title, { color: colors.title }]}>
+          <Translate>{title}</Translate>
+        </Text>
         <Text style={[styles.message, { color: colors.message }]}>
-          {message}
+          <Translate>{message}</Translate>
         </Text>
       </View>
     </Animated.View>

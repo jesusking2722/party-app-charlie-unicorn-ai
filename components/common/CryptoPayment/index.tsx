@@ -1,5 +1,5 @@
 import { FONTS } from "@/app/theme";
-import { Button, Currency } from "@/components/common";
+import { Button, Currency, Translate } from "@/components/common";
 import { FontAwesome, FontAwesome5, Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,7 +30,20 @@ import {
   SPACING,
 } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useAppKit, useAppKitAccount } from "@reown/appkit-ethers-react-native";
+import {
+  useAppKit,
+  useAppKitAccount,
+  useAppKitState,
+} from "@reown/appkit-ethers-react-native";
+import { useToast } from "@/contexts/ToastContext";
+import { extractNumericPrice } from "@/utils/price";
+import useWeb3 from "@/hooks/useWeb3";
+import fetchUsdRates from "@/utils/currency";
+import { User } from "@/types/data";
+import { TransactionResponse } from "@/types/api";
+import { saveCryptoTransaction } from "@/lib/scripts/crypto.transaction.scripts";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
 const PaymentHeaderImage = require("@/assets/images/crypto-payment.png");
 const { width, height } = Dimensions.get("window");
@@ -44,74 +57,6 @@ const CoinbaseImage = require("@/assets/images/logos/coinbase.png");
 // Custom light theme secondary color
 const LIGHT_THEME_ACCENT = "#FF0099";
 
-// Mock function to connect wallet
-const connectWallet = async (): Promise<any> => {
-  try {
-    // Simulate connection delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Return mock wallet data - in a real app, this would use a wallet SDK
-    return {
-      address: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
-      isConnected: true,
-      chainId: "56", // BNB Smart Chain
-    };
-  } catch (error) {
-    console.error("Error connecting wallet:", error);
-    throw new Error("Failed to connect wallet. Please try again.");
-  }
-};
-
-// Mock function to initiate payment
-const initiatePayment = async (
-  walletAddress: string,
-  amount: string
-): Promise<any> => {
-  try {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Return mock transaction data
-    return {
-      paymentId: `PAY-${Math.random()
-        .toString(36)
-        .substring(2, 10)
-        .toUpperCase()}`,
-      amount: "0.021",
-      amountUSD: amount.replace("$", ""),
-      currency: "BNB",
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 minutes from now
-    };
-  } catch (error) {
-    console.error("Error initiating payment:", error);
-    throw new Error("Failed to initiate payment. Please try again.");
-  }
-};
-
-// Check payment status from backend
-const checkPaymentStatus = async (paymentId: string): Promise<any> => {
-  try {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // For demo purposes, return a random status
-    const status = Math.random() < 0.3 ? "confirmed" : "pending"; // 30% chance of being confirmed
-
-    return {
-      status,
-      txHash:
-        status === "confirmed"
-          ? "0x" + Math.random().toString(36).substring(2, 34)
-          : null,
-      confirmations:
-        status === "confirmed" ? Math.floor(Math.random() * 6) + 1 : 0,
-    };
-  } catch (error) {
-    console.error("Error checking payment status:", error);
-    throw new Error("Failed to check payment status. Please try again.");
-  }
-};
-
 // Format address for display (show first and last few characters)
 const formatAddress = (address: string): string => {
   if (!address || address.length < 10) return address;
@@ -122,6 +67,7 @@ const formatAddress = (address: string): string => {
 
 // Props for the crypto payment component
 interface CryptoPaymentProps {
+  type: "ticket" | "subscription";
   amount: string;
   planTitle: string;
   formattedAmount: string;
@@ -131,7 +77,7 @@ interface CryptoPaymentProps {
 }
 
 const CryptoPayment: React.FC<CryptoPaymentProps> = ({
-  amount,
+  type,
   planTitle,
   formattedAmount,
   currency,
@@ -145,11 +91,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("initial");
-  const [paymentDetails, setPaymentDetails] = useState<any>(null);
-  const [remainingTime, setRemainingTime] = useState(900);
-  const [statusCheckInterval, setStatusCheckInterval] =
-    useState<NodeJS.Timeout | null>(null);
   const [showWalletInfo, setShowWalletInfo] = useState(true);
+  const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [balance, setBalance] = useState<number>(0);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -161,6 +105,14 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
 
   const { open } = useAppKit();
   const { isConnected, address } = useAppKitAccount();
+  const { selectedNetworkId } = useAppKitState();
+
+  const { getBalance, fetchBnbPrice, depositSticker, depositSubscription } =
+    useWeb3();
+
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  const { showToast } = useToast();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -263,6 +215,12 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
     }
   };
 
+  const getBnbEquivalent = (usdAmount: number, bnbPrice: number) => {
+    // Mock conversion rate: 1 BNB = $300 USD
+    const bnbAmount = usdAmount / bnbPrice;
+    return Number(bnbAmount.toFixed(6));
+  };
+
   // Continuous animation for floating particles
   const animateParticles = () => {
     particles.forEach((particle) => {
@@ -318,112 +276,112 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
     });
   };
 
-  // Format time as MM:SS
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
-  };
-
   // Helper function to get accent color based on theme
   const getAccentColor = () =>
     isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
-  // Toggle wallet info section
-  const toggleWalletInfo = () => {
-    setShowWalletInfo(!showWalletInfo);
+  const handleBuyTicket = async (
+    amount: string,
+    address: string,
+    buyer: User
+  ): Promise<boolean> => {
+    try {
+      const txResponse = await depositSticker(
+        Number(amount).toString(),
+        address
+      );
+
+      if (txResponse?.success) {
+        const transaction: TransactionResponse = {
+          ...txResponse,
+          user: buyer,
+        };
+        await saveCryptoTransaction(transaction);
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      return false;
+    }
   };
 
-  // Make payment
+  const handleBuySubscription = async (
+    amount: string,
+    buyer: User
+  ): Promise<boolean> => {
+    try {
+      const txResponse = await depositSubscription(amount);
+
+      if (txResponse?.success) {
+        const transaction: TransactionResponse = {
+          ...txResponse,
+          user: buyer,
+        };
+        await saveCryptoTransaction(transaction);
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      return false;
+    }
+  };
+
+  // Make payment with smart contract integration
   const handlePay = async () => {
     if (!walletConnected || !walletAddress) {
-      Alert.alert("Error", "Please connect your wallet first");
+      showToast("Please connect your wallet first", "error");
       return;
     }
+
+    if (selectedNetworkId !== 56) {
+      showToast("Please change your network into BNB in your wallet", "error");
+      return;
+    }
+
+    if (totalAmount === 0) {
+      showToast("Payment amount not calculated yet", "error");
+      return;
+    }
+
+    if (balance <= totalAmount) {
+      showToast("Insufficient balance for this transaction", "error");
+      return;
+    }
+
+    if (!type || !user) return;
 
     try {
       setLoading(true);
       setPaymentStatus("processing");
 
-      // Initiate payment
-      const details = await initiatePayment(walletAddress, amount);
-      setPaymentDetails(details);
+      let result = false;
 
-      // Start checking payment status
-      startPaymentStatusCheck(details.paymentId);
-
-      // Calculate remaining time if expiration is provided
-      if (details.expiresAt) {
-        const expiresAt = new Date(details.expiresAt).getTime();
-        const now = Date.now();
-        const timeRemaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
-        setRemainingTime(timeRemaining);
+      if (type === "subscription") {
+        result = await handleBuySubscription(totalAmount.toString(), user);
+      } else if (type === "ticket") {
+        result = await handleBuyTicket(
+          totalAmount.toString(),
+          address as string,
+          user
+        );
       }
 
-      // After initiating, move to confirming state
-      setPaymentStatus("confirming");
+      if (result) {
+        setPaymentStatus("completed");
+      } else {
+        setPaymentStatus("failed");
+        showToast("Failed to process payment. Please try again.", "error");
+      }
     } catch (error: any) {
-      Alert.alert(
-        "Payment Error",
-        error.message || "Failed to process payment"
-      );
+      console.error("Smart contract payment error:", error);
+      showToast("Failed to process payment. Please try again.", "error");
       setPaymentStatus("failed");
     } finally {
       setLoading(false);
     }
   };
-
-  // Start checking for payment status
-  const startPaymentStatusCheck = (paymentId: string) => {
-    // Clear any existing interval
-    if (statusCheckInterval) {
-      clearInterval(statusCheckInterval);
-    }
-
-    // Check every 10 seconds
-    const interval = setInterval(async () => {
-      try {
-        const status = await checkPaymentStatus(paymentId);
-
-        if (status.status === "confirmed" || status.status === "completed") {
-          clearInterval(interval);
-          setStatusCheckInterval(null);
-          setPaymentStatus("completed");
-        }
-      } catch (error) {
-        console.error("Error checking status:", error);
-      }
-    }, 10000) as unknown as NodeJS.Timeout; // Cast to NodeJS.Timeout
-
-    setStatusCheckInterval(interval);
-  };
-
-  // Countdown timer
-  useEffect(() => {
-    if (paymentStatus !== "confirming") return;
-
-    const timer = setInterval(() => {
-      setRemainingTime((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setPaymentStatus("failed");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [paymentStatus]);
-
-  // Clean up interval on unmount
-  useEffect(() => {
-    return () => {
-      if (statusCheckInterval) {
-        clearInterval(statusCheckInterval);
-      }
-    };
-  }, [statusCheckInterval]);
 
   // When payment is completed, notify parent component
   useEffect(() => {
@@ -436,9 +394,39 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   }, [paymentStatus, onPaymentComplete]);
 
   useEffect(() => {
-    setWalletConnected(isConnected);
-    setWalletAddress(address as string);
-  }, [isConnected, address]);
+    const initializeAfterConnected = async () => {
+      if (isConnected && address && selectedNetworkId) {
+        const balance = await getBalance(address, selectedNetworkId);
+        setBalance(balance);
+        setWalletConnected(isConnected);
+        setWalletAddress(address as string);
+      }
+    };
+
+    initializeAfterConnected();
+  }, [isConnected, address, selectedNetworkId]);
+
+  useEffect(() => {
+    const calculateTotalBnb = async () => {
+      if (formattedAmount && currency) {
+        let amount = extractNumericPrice(formattedAmount);
+
+        const bnbPrice = await fetchBnbPrice();
+        const usdRates = await fetchUsdRates();
+
+        // Convert amount to USD if needed
+        if (currency.toLowerCase() === "eur") {
+          amount /= usdRates.eur;
+        } else if (currency.toLowerCase() === "pln") {
+          amount /= usdRates.pln;
+        }
+
+        setTotalAmount(getBnbEquivalent(amount, bnbPrice));
+      }
+    };
+
+    calculateTotalBnb();
+  }, [formattedAmount, currency]);
 
   // Render particles for background effect
   const renderParticles = () => {
@@ -548,7 +536,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                         },
                       ]}
                     >
-                      Crypto Payment
+                      <Translate>Crypto Payment</Translate>
                     </Text>
                     <Text
                       style={[
@@ -560,11 +548,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                         },
                       ]}
                     >
-                      {planTitle} Plan • {formattedAmount} (
-                      {getCurrencyText(currency)})
-                      {paymentDetails && (
-                        <Text> • ≈ {paymentDetails.amount} BNB</Text>
-                      )}
+                      <Translate>{planTitle}</Translate> • {formattedAmount} (
+                      {getCurrencyText(currency)}) • {totalAmount.toFixed(6)}{" "}
+                      BNB
                     </Text>
 
                     {/* Wallet Info Section */}
@@ -579,22 +565,8 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                           },
                         ]}
                       >
-                        Crypto Wallet
+                        <Translate>Crypto Wallet</Translate>
                       </Text>
-                      {/* <TouchableOpacity
-                        style={styles.infoButton}
-                        onPress={toggleWalletInfo}
-                      >
-                        <FontAwesome
-                          name={showWalletInfo ? "chevron-up" : "chevron-down"}
-                          size={14}
-                          color={
-                            isDarkMode
-                              ? COLORS.DARK_TEXT_SECONDARY
-                              : COLORS.LIGHT_TEXT_SECONDARY
-                          }
-                        />
-                      </TouchableOpacity> */}
                     </View>
 
                     {/* Wallet Info (collapsible) */}
@@ -626,7 +598,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                           },
                         ]}
                       >
-                        Why use cryptocurrency?
+                        <Translate>Why use cryptocurrency?</Translate>
                       </Text>
 
                       <View style={styles.walletInfoItem}>
@@ -646,7 +618,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                             },
                           ]}
                         >
-                          Enhanced security with blockchain technology
+                          <Translate>
+                            Enhanced security with blockchain technology
+                          </Translate>
                         </Text>
                       </View>
 
@@ -667,7 +641,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                             },
                           ]}
                         >
-                          Faster settlement compared to traditional banking
+                          <Translate>
+                            Faster settlement compared to traditional banking
+                          </Translate>
                         </Text>
                       </View>
 
@@ -688,7 +664,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                             },
                           ]}
                         >
-                          Complete control over your funds at all times
+                          <Translate>
+                            Complete control over your funds at all times
+                          </Translate>
                         </Text>
                       </View>
 
@@ -704,7 +682,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                           },
                         ]}
                       >
-                        Popular wallets
+                        <Translate>Popular wallets</Translate>
                       </Text>
                       <View style={styles.walletsList}>
                         <View style={styles.walletItem}>
@@ -802,8 +780,6 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                             styles.statusIndicator,
                             paymentStatus === "processing" &&
                               styles.statusProcessing,
-                            paymentStatus === "confirming" &&
-                              styles.statusConfirming,
                             paymentStatus === "completed" &&
                               styles.statusCompleted,
                             paymentStatus === "failed" && styles.statusFailed,
@@ -813,13 +789,6 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                             <ActivityIndicator
                               color={getAccentColor()}
                               size="small"
-                            />
-                          )}
-                          {paymentStatus === "confirming" && (
-                            <Ionicons
-                              name="wallet"
-                              size={16}
-                              color={getAccentColor()}
                             />
                           )}
                           {paymentStatus === "completed" && (
@@ -850,8 +819,6 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                         >
                           {paymentStatus === "processing" &&
                             "Processing Payment"}
-                          {paymentStatus === "confirming" &&
-                            "Confirming Payment"}
                           {paymentStatus === "completed" && "Payment Complete"}
                           {paymentStatus === "failed" && "Payment Failed"}
                         </Text>
@@ -867,15 +834,11 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                           ]}
                         >
                           {paymentStatus === "processing" &&
-                            "Your payment is being processed. Please wait..."}
-                          {paymentStatus === "confirming" &&
-                            `Please confirm the transaction in your wallet. Expires in ${formatTime(
-                              remainingTime
-                            )}`}
+                            "Processing smart contract transaction..."}
                           {paymentStatus === "completed" &&
                             "Your payment has been successfully processed!"}
                           {paymentStatus === "failed" &&
-                            "The payment process has failed. Please try again."}
+                            "Transaction failed. Please try again."}
                         </Text>
                       </View>
                     )}
@@ -913,7 +876,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                                 },
                               ]}
                             >
-                              Connect your wallet to pay with BNB
+                              <Translate>
+                                Connect your wallet to pay with BNB
+                              </Translate>
                             </Text>
                           </View>
                         ) : (
@@ -947,7 +912,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                                   },
                                 ]}
                               >
-                                Connected Wallet:
+                                <Translate>Connected Wallet:</Translate>
                               </Text>
                             </View>
                             <Text
@@ -962,6 +927,69 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                             >
                               {formatAddress(walletAddress)}
                             </Text>
+
+                            {/* Wallet Balance */}
+                            <View style={styles.walletBalanceRow}>
+                              <FontAwesome5
+                                name="coins"
+                                size={14}
+                                color={getAccentColor()}
+                                style={{ marginRight: SPACING.XS }}
+                              />
+                              <Text
+                                style={[
+                                  styles.walletBalanceLabel,
+                                  {
+                                    color: isDarkMode
+                                      ? COLORS.DARK_TEXT_SECONDARY
+                                      : COLORS.LIGHT_TEXT_SECONDARY,
+                                  },
+                                ]}
+                              >
+                                <Translate>Balance:</Translate>
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.walletBalanceAmount,
+                                  {
+                                    color:
+                                      balance >= totalAmount
+                                        ? isDarkMode
+                                          ? "#4CAF50"
+                                          : "#00C853"
+                                        : isDarkMode
+                                        ? "#F44336"
+                                        : "#D32F2F",
+                                  },
+                                ]}
+                              >
+                                {balance.toFixed(6)} BNB
+                              </Text>
+                            </View>
+
+                            {/* Insufficient Balance Warning */}
+                            {balance < totalAmount && totalAmount > 0 && (
+                              <View style={styles.insufficientBalanceContainer}>
+                                <FontAwesome
+                                  name="exclamation-triangle"
+                                  size={12}
+                                  color={isDarkMode ? "#F44336" : "#D32F2F"}
+                                  style={{ marginRight: SPACING.XS }}
+                                />
+                                <Text
+                                  style={[
+                                    styles.insufficientBalanceText,
+                                    {
+                                      color: isDarkMode ? "#F44336" : "#D32F2F",
+                                    },
+                                  ]}
+                                >
+                                  <Translate>
+                                    Insufficient balance for this transaction
+                                  </Translate>
+                                </Text>
+                              </View>
+                            )}
                           </View>
                         )}
                       </>
@@ -996,11 +1024,12 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
 
                       {paymentStatus === "initial" && walletConnected && (
                         <Button
-                          title={`Pay ${amount} with BNB`}
+                          title={`Pay ${totalAmount.toFixed(6)} BNB`}
                           onPress={handlePay}
                           loading={loading}
                           variant={isDarkMode ? "primary" : "secondary"}
                           small={false}
+                          disabled={balance < totalAmount || totalAmount === 0}
                           icon={
                             <FontAwesome5
                               name="coins"
@@ -1068,7 +1097,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                           },
                         ]}
                       >
-                        Transactions are secure and irreversible
+                        <Translate>
+                          Transactions are secure and irreversible
+                        </Translate>
                       </Text>
                     </View>
 
@@ -1087,7 +1118,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                           },
                         ]}
                       >
-                        Go back
+                        <Translate>Go back</Translate>
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -1291,6 +1322,33 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.SEMIBOLD,
     fontSize: FONT_SIZES.S,
   },
+  walletBalanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: SPACING.XS,
+  },
+  walletBalanceLabel: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
+    marginRight: SPACING.XS,
+  },
+  walletBalanceAmount: {
+    fontFamily: FONTS.SEMIBOLD,
+    fontSize: FONT_SIZES.XS,
+  },
+  insufficientBalanceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: SPACING.XS,
+    padding: SPACING.XS,
+    backgroundColor: "rgba(244, 67, 54, 0.1)",
+    borderRadius: BORDER_RADIUS.S,
+  },
+  insufficientBalanceText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
+    flex: 1,
+  },
   statusContainer: {
     borderRadius: BORDER_RADIUS.L,
     padding: SPACING.M,
@@ -1310,9 +1368,6 @@ const styles = StyleSheet.create({
   },
   statusProcessing: {
     backgroundColor: "rgba(0, 150, 255, 0.15)",
-  },
-  statusConfirming: {
-    backgroundColor: "rgba(255, 193, 7, 0.15)",
   },
   statusCompleted: {
     backgroundColor: "rgba(76, 175, 80, 0.15)",

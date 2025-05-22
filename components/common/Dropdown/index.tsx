@@ -18,6 +18,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import Translate from "../Translate";
 
 // Enable layout animations for Android
 if (Platform.OS === "android") {
@@ -211,7 +212,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         <Text
           style={[styles.inputLabel, { color: getLabelColor() }, labelStyle]}
         >
-          {label}
+          <Translate>{label}</Translate>
         </Text>
       )}
 
@@ -245,7 +246,11 @@ const Dropdown: React.FC<DropdownProps> = ({
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {value ? value.label : placeholder}
+            {value ? (
+              <Translate>{value.label}</Translate>
+            ) : (
+              <Translate>{placeholder}</Translate>
+            )}
           </Text>
         </TouchableOpacity>
 
@@ -282,7 +287,9 @@ const Dropdown: React.FC<DropdownProps> = ({
       </View>
 
       {error && (
-        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>
+          <Translate>{error}</Translate>
+        </Text>
       )}
 
       {/* If dropdown is open, show the options directly under the button */}
@@ -331,7 +338,7 @@ const Dropdown: React.FC<DropdownProps> = ({
                     <Text
                       style={[styles.optionText, { color: getTextColor() }]}
                     >
-                      {option.label}
+                      <Translate>{option.label}</Translate>
                     </Text>
 
                     {value?.value === option.value && (

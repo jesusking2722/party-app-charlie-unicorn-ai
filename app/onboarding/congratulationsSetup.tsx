@@ -26,7 +26,7 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, ThemeToggle } from "@/components/common";
+import { Button, ThemeToggle, Translate } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 
 const CelebrateImage = require("@/assets/images/congratulations.png");
@@ -231,7 +231,7 @@ const CongratulationsScreen = () => {
       }),
     ]).start();
 
-    router.push("/main");
+    router.push("/home");
   };
 
   return (
@@ -343,7 +343,7 @@ const CongratulationsScreen = () => {
                     },
                   ]}
                 >
-                  Congratulations!
+                  <Translate>Congratulations!</Translate>
                 </Text>
                 <Text
                   style={[
@@ -355,7 +355,9 @@ const CongratulationsScreen = () => {
                     },
                   ]}
                 >
-                  You've successfully completed the onboarding
+                  <Translate>
+                    You've successfully completed the onboarding
+                  </Translate>
                 </Text>
 
                 {/* Message */}
@@ -369,8 +371,10 @@ const CongratulationsScreen = () => {
                     },
                   ]}
                 >
-                  You're all set to explore our platform and discover all the
-                  amazing features we have to offer
+                  <Translate>
+                    You're all set to explore our platform and discover all the
+                    amazing features we have to offer
+                  </Translate>
                 </Text>
 
                 {/* Progress Indicator */}
@@ -386,7 +390,7 @@ const CongratulationsScreen = () => {
                         },
                       ]}
                     >
-                      Onboarding Complete
+                      <Translate>Onboarding Complete</Translate>
                     </Text>
                     <Text
                       style={[
@@ -396,7 +400,7 @@ const CongratulationsScreen = () => {
                         },
                       ]}
                     >
-                      4 of 4
+                      <Translate>Step 4 of 4</Translate>
                     </Text>
                   </View>
 

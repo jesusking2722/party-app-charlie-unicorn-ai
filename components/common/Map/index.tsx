@@ -254,9 +254,9 @@ const Map: FC<MapProps> = ({
           pitchEnabled={true}
         >
           {/* Render party markers */}
-          {parties.map((party) => (
+          {parties.map((party, index) => (
             <PartyMarker
-              key={party._id}
+              key={index}
               party={party}
               onClick={onClick}
               isDarkMode={isDarkMode}

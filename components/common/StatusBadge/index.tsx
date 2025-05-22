@@ -5,6 +5,7 @@ import { StyleSheet, Text, TextStyle, View, ViewStyle } from "react-native";
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { PartyStatus, PartyType } from "@/types/data";
+import Translate from "../Translate";
 
 type BadgeType = "date" | "status" | "payment" | "eventType";
 type BadgePayment = "free" | "paid";
@@ -171,7 +172,7 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({
           ]}
           numberOfLines={1}
         >
-          {text}
+          <Translate>{text}</Translate>
         </Text>
       </LinearGradient>
     </View>

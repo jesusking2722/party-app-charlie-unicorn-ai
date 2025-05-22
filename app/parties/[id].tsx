@@ -1,4 +1,4 @@
-import { FontAwesome5 } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -28,15 +28,20 @@ import {
   Alert,
   Button,
   CountdownProgress,
+  Modal,
+  PaymentModal,
   Rating,
   Slider,
+  Spinner,
   Tabs,
   Textarea,
+  Translate,
 } from "@/components/common";
 import {
   ApplicantGroup,
   EventStepper,
   ProfileBadge,
+  Ticket as TicketComponent,
 } from "@/components/molecules";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -44,13 +49,16 @@ import { useToast } from "@/contexts/ToastContext";
 import socket from "@/lib/socketInstance";
 import {
   addNewApplicantToSelectedPartyAsync,
-  updateSelectedPartyAsnyc,
+  updateApplicantStatusInSelectedPartyAsync,
 } from "@/redux/actions/party.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
-import { Applicant, Party, PartyType, Ticket } from "@/types/data";
+import { Applicant, Party, PartyType, Ticket, User } from "@/types/data";
 import { router, useLocalSearchParams } from "expo-router";
 import CountryFlag from "react-native-country-flag";
 import { useSelector } from "react-redux";
+import { fetchUserById } from "@/lib/scripts/user.scripts";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 
 // Get screen dimensions
 const { width, height } = Dimensions.get("window");
@@ -91,9 +99,15 @@ const EventDetailScreen = () => {
   const [event, setEvent] = useState<Party | null>(null);
   const [daysLeft, setDaysLeft] = useState<number>(0);
   const [alreadyApplied, setAlreadyApplied] = useState<boolean>(false);
+  const [earnedEventDetail, setEarnedEventDetail] = useState<boolean>(false);
   const [isCreator, setIsCreator] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [playLoading, setPlayLoading] = useState<boolean>(false);
+  const [approveLoading, setApproveLoading] = useState<boolean>(false);
+  const [cancelLoading, setCancelLoading] = useState<boolean>(false);
+  const [chatLoading, setChatLoading] = useState<boolean>(false);
 
   // Event progress states
   const [eventSteps, setEventSteps] = useState<any[]>([
@@ -124,8 +138,16 @@ const EventDetailScreen = () => {
   const [pendingApplicants, setPendingApplicants] = useState<Applicant[]>([]);
   const [acceptedApplicants, setAcceptedApplicants] = useState<Applicant[]>([]);
   const [declinedApplicants, setDeclinedApplicants] = useState<Applicant[]>([]);
-
   const [myApplicant, setMyApplicant] = useState<Applicant | null>(null);
+
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(
+    null
+  );
+  const [seeTicketModalVisible, setSeeTicketModalVisible] =
+    useState<boolean>(false);
+  const [paymentModalVisible, setPaymentModalVisible] =
+    useState<boolean>(false);
 
   // Refs
   const scrollViewRef = useRef<any>(null);
@@ -154,27 +176,35 @@ const EventDetailScreen = () => {
           found.applicants.some((app) => app.applier._id === user._id)
         );
 
+        // Check if user already eanred event detail
+        setEarnedEventDetail(
+          found.applicants.some(
+            (app) => app.applier._id === user._id && app.stickers.length > 0
+          )
+        );
+
         // Calculate days left
         const dl = formatDaysLeft(found.openingAt);
         setDaysLeft(dl);
 
-        // Update event steps based on status
         let steps = [...eventSteps];
-        let currentStep = 1;
+        let currentStep = 0;
 
         if (found.status === "finished") {
           steps = steps.map((step) => ({ ...step, completed: true }));
-          currentStep = 4;
-        } else if (found.status === "playing") {
-          steps = steps.map((step, index) =>
-            index < 3 ? { ...step, completed: true } : step
-          );
           currentStep = 3;
-        } else if (found.status === "accepted") {
+        } else if (found.status === "playing") {
           steps = steps.map((step, index) =>
             index < 2 ? { ...step, completed: true } : step
           );
-          currentStep = 2;
+          currentStep = 2; // Third step (index 2)
+        } else if (found.status === "accepted") {
+          steps = steps.map((step, index) =>
+            index < 1 ? { ...step, completed: true } : step
+          );
+          currentStep = 1; // Second step (index 1)
+        } else {
+          currentStep = 0;
         }
 
         setEventSteps(steps);
@@ -184,12 +214,22 @@ const EventDetailScreen = () => {
         const pending = found.applicants.filter(
           (app) => app.status === "pending"
         );
-        const accepted = found.applicants.filter(
+        let accepted = found.applicants.filter(
           (app) => app.status === "accepted"
         );
         const declined = found.applicants.filter(
           (app) => app.status === "declined"
         );
+
+        if (myApplicant && myApplicant.status === "accepted") {
+          accepted = [
+            myApplicant,
+            ...accepted.filter((app) => app.applier._id !== user._id),
+          ];
+          setActiveTab(1);
+        } else if (accepted.length > 0) {
+          setActiveTab(1);
+        }
 
         setPendingApplicants(pending);
         setAcceptedApplicants(accepted);
@@ -403,25 +443,65 @@ const EventDetailScreen = () => {
     showToast("Applied successfully", "success");
   };
 
+  const acceptApplicant = async (
+    applicantId: string,
+    event: Party,
+    applierId: string,
+    userId: string
+  ): Promise<any> => {
+    return new Promise((resolve) => {
+      socket.once(
+        "accepted:applicant",
+        (partyId: string, applicantId: string) => {
+          resolve({ partyId, applicantId });
+        }
+      );
+      socket.emit("applicant:accepted", applicantId, event, applierId, userId);
+    });
+  };
+
   // New handlers for ApplicantGroup actions
-  const handleAcceptApplicant = (applicantId: string) => {
+  const handleAcceptApplicant = async (applicantId: string) => {
     // Find the applicant
     const applicant = pendingApplicants.find((app) => app._id === applicantId);
-    if (!applicant) return;
+    if (
+      !applicant?._id ||
+      !user?._id ||
+      !applicant.applier._id ||
+      !event ||
+      !applicant.applier._id
+    )
+      return;
 
-    // Update state immediately for better UX
-    setPendingApplicants(
-      pendingApplicants.filter((app) => app._id !== applicantId)
+    setActionLoading(true);
+
+    const { partyId, applicantId: acceptedApplicantId } = await acceptApplicant(
+      applicant._id,
+      event,
+      applicant.applier._id,
+      user._id
     );
-    setAcceptedApplicants([
-      ...acceptedApplicants,
-      { ...applicant, status: "accepted" },
-    ]);
 
-    // Dispatch action to update on server
-    // dispatch(acceptApplicant(eventId, applicantId));
+    if (partyId && acceptedApplicantId) {
+      await dispatch(
+        updateApplicantStatusInSelectedPartyAsync({
+          partyId,
+          applicantId: acceptedApplicantId,
+          status: "accepted",
+        })
+      ).unwrap();
 
-    // Show success toast
+      // Update state immediately for better UX
+      setPendingApplicants(
+        pendingApplicants.filter((app) => app._id !== applicantId)
+      );
+      setAcceptedApplicants([
+        ...acceptedApplicants,
+        { ...applicant, status: "accepted" },
+      ]);
+      showToast("Applicant accepted successfully", "success");
+      setActionLoading(false);
+    }
   };
 
   const handleDeclineApplicant = (applicantId: string) => {
@@ -444,43 +524,52 @@ const EventDetailScreen = () => {
     // Show success toast
   };
 
-  const handleChatWithApplicant = (userId: string) => {
-    // Navigate to chat screen
-    // router.push({
-    //   pathname: "/chat",
-    //   params: { userId },
-    // });
-  };
+  const handleChatWithApplicant = async (userId: string) => {
+    if (!user) return;
 
-  const handleTicketExchange = (
-    applicantId: string,
-    ticketId: string,
-    method: "crypto" | "card"
-  ) => {
-    // Handle ticket exchange logic
-    // dispatch(exchangeTicket(eventId, applicantId, ticketId, method));
-    // Show success toast and update UI
-  };
-
-  const sendTicket = async (
-    eventData: Party,
-    applicantId: string,
-    ticket: Ticket,
-    userId: string
-  ): Promise<Party> => {
-    return new Promise((resolve) => {
-      socket.once("send-to-owner:sticker", (updatedEvent: Party) => {
-        resolve(updatedEvent);
+    if (user.contacts.some((c) => c._id === userId)) {
+      router.push({
+        pathname: "/chat",
+        params: { contactId: userId },
       });
-      socket.emit(
-        "sticker:send-to-owner",
-        eventData._id,
-        applicantId,
-        eventData.creator?._id,
-        ticket,
-        userId
-      );
-    });
+      return;
+    }
+
+    try {
+      if (userId === event?.creator?._id) {
+        setChatLoading(true);
+      } else {
+        setLoading(true);
+      }
+
+      const userResponse = await fetchUserById(userId);
+      if (userResponse.ok) {
+        const { user: contacter } = userResponse.data;
+
+        const updatingUser: User = {
+          ...user,
+          contacts: [...user.contacts, contacter],
+        };
+
+        const response = await updateAuthUser(updatingUser);
+
+        if (response.ok) {
+          const { user: updatedUser } = response.data;
+          await dispatch(setAuthUserAsync(updatedUser)).unwrap();
+          router.push({
+            pathname: "/chat",
+            params: { contactId: userId },
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("handle chat with applicant error: ", error);
+      showToast("Something went wrong", "error");
+    } finally {
+      setChatLoading(false);
+      setLoading(false);
+    }
   };
 
   const handleSendTicket = async (
@@ -491,59 +580,48 @@ const EventDetailScreen = () => {
 
     setLoading(true);
 
-    const updatedEvent = await sendTicket(
-      event,
+    socket.emit(
+      "sticker:send-to-owner",
+      event._id,
       applicant._id,
+      event.creator?._id,
       ticket,
       user._id
     );
 
-    if (updatedEvent) {
-      setEvent(updatedEvent);
+    const updatedEvent: Party = {
+      ...event,
+      applicants: event.applicants.map((app) =>
+        app._id === applicant._id
+          ? { ...app, stickers: [...app.stickers, ticket] }
+          : app
+      ),
+    };
 
-      await dispatch(updateSelectedPartyAsnyc(updatedEvent)).unwrap();
+    setEvent(updatedEvent);
 
-      const found = updatedEvent.applicants.find(
-        (app) => app.applier._id === user._id
-      );
-      setMyApplicant(found ?? null);
+    const found = updatedEvent.applicants.find(
+      (app) => app.applier._id === user._id
+    );
+    setMyApplicant(found ?? null);
 
-      // Change state
-      const pending = updatedEvent.applicants.filter(
-        (app) => app.status === "pending"
-      );
-      const accepted = updatedEvent.applicants.filter(
-        (app) => app.status === "accepted"
-      );
-      const declined = updatedEvent.applicants.filter(
-        (app) => app.status === "declined"
-      );
+    // Change state
+    const pending = updatedEvent.applicants.filter(
+      (app) => app.status === "pending"
+    );
+    const accepted = updatedEvent.applicants.filter(
+      (app) => app.status === "accepted"
+    );
+    const declined = updatedEvent.applicants.filter(
+      (app) => app.status === "declined"
+    );
 
-      setPendingApplicants(pending);
-      setAcceptedApplicants(accepted);
-      setDeclinedApplicants(declined);
+    setPendingApplicants(pending);
+    setAcceptedApplicants(accepted);
+    setDeclinedApplicants(declined);
 
-      showToast("Ticket sent successfully", "success");
-      setLoading(false);
-    }
-  };
-
-  const releaseTicket = async (
-    applicantId: string,
-    eventId: string,
-    applierName: string
-  ): Promise<Party> => {
-    return new Promise((resolve) => {
-      socket.once("approved-from-applier:sticker", (updatedEvent: Party) => {
-        resolve(updatedEvent);
-      });
-      socket.emit(
-        "sticker:approved-to-owner",
-        applicantId,
-        eventId,
-        applierName
-      );
-    });
+    showToast("Ticket sent successfully", "success");
+    setLoading(false);
   };
 
   const handleReleaseTicket = async (applicant: Applicant) => {
@@ -551,17 +629,22 @@ const EventDetailScreen = () => {
 
     setLoading(true);
 
-    const updatedEvent = await releaseTicket(
+    socket.emit(
+      "sticker:approved-to-owner",
       applicant._id,
       event._id,
-      user.name
+      applicant.applier.name
     );
 
-    if (updatedEvent) {
-      console.log("Updated Event", updatedEvent);
-      setEvent(updatedEvent);
+    const updatedEvent: Party = {
+      ...event,
+      applicants: event.applicants.map((app) =>
+        app._id === applicant._id ? { ...app, stickerLocked: false } : app
+      ),
+    };
 
-      await dispatch(updateSelectedPartyAsnyc(updatedEvent)).unwrap();
+    if (updatedEvent) {
+      setEvent(updatedEvent);
 
       const found = updatedEvent.applicants.find(
         (app) => app.applier._id === user._id
@@ -597,6 +680,137 @@ const EventDetailScreen = () => {
     });
   };
 
+  const handleSeeTicket = (applicant: Applicant) => {
+    if (applicant.stickers.length === 0) return;
+    setSelectedTicket(applicant.stickers[0]);
+    setSeeTicketModalVisible(true);
+  };
+
+  const handleSelectPaymentMethod = (method: string) => {
+    if (method === "card" && selectedApplicant?._id && event?._id) {
+      router.push({
+        pathname: "/exchange/cardExchange",
+        params: {
+          amount: selectedTicket?.price,
+          currency: selectedTicket?.currency,
+          ticketName: selectedTicket?.name,
+          applicantId: selectedApplicant?._id,
+          eventId: event?._id,
+          ticketId: selectedTicket?._id,
+        },
+      });
+      setPaymentModalVisible(false);
+    } else if (method === "crypto" && selectedApplicant?._id && event?._id) {
+      router.push({
+        pathname: "/exchange/cryptoExchange",
+        params: {
+          amount: selectedTicket?.price,
+          currency: selectedTicket?.currency,
+          ticketName: selectedTicket?.name,
+          applicantId: selectedApplicant?._id,
+          eventId: event?._id,
+          ticketId: selectedTicket?._id,
+        },
+      });
+      setPaymentModalVisible(false);
+    }
+  };
+
+  const handleExchangeTicket = (applicant: Applicant) => {
+    setSelectedTicket(applicant.stickers[0]);
+    setSelectedApplicant(applicant);
+    setPaymentModalVisible(true);
+  };
+
+  const handleStartPlaying = async () => {
+    if (!user?._id || !event) return;
+
+    const ticketCountsToExchange = event.applicants.filter(
+      (app) =>
+        app.status === "accepted" &&
+        app.stickers.length > 0 &&
+        !app.stickerLocked &&
+        !app.stickerSold
+    ).length;
+
+    if (ticketCountsToExchange > 0) {
+      showToast(
+        `${ticketCountsToExchange} tickets are still remaining to be exchanged`,
+        "warning"
+      );
+      return;
+    }
+
+    setPlayLoading(true);
+    const applierIds = event.applicants.map((app) => app.applier._id);
+
+    showToast("Starting the party...", "info");
+    socket.emit("party:playing", applierIds, event._id, user?._id);
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    showToast("Party has started!", "success");
+    setPlayLoading(false);
+  };
+
+  const handleRequestApprovalToFinish = async () => {
+    if (!event) return;
+
+    setApproveLoading(true);
+    let applierIds: string[] = [];
+    event.applicants.forEach((applicant) => {
+      if (
+        applicant.status === "accepted" &&
+        !event.finishApproved.some(
+          (approved) => approved.applier._id === applicant.applier._id
+        )
+      ) {
+        applierIds.push(applicant.applier._id as string);
+      }
+    });
+
+    showToast("Requesting...", "info");
+    socket.emit("request:party-finish-approve", applierIds, event);
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    showToast("Requested successfully", "success");
+    setPlayLoading(false);
+  };
+
+  const handleFinishEvent = async () => {
+    router.push({
+      pathname: "/review",
+      params: {
+        eventId: event?._id,
+        reviewType: "owner",
+      },
+    });
+  };
+
+  const handleCancelEvent = async () => {
+    if (!event || !user) return;
+
+    setCancelLoading(true);
+
+    const applierIds = event.applicants.map(
+      (applicant) => applicant.applier._id
+    );
+    const applicantIds = event.applicants.map((applicant) => applicant._id);
+
+    showToast("Cancelling...", "info");
+
+    socket.emit(
+      "party:cancelled",
+      applierIds,
+      event._id,
+      user._id,
+      applicantIds
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    showToast("Cancelled successfully", "success");
+    setCancelLoading(false);
+  };
+
   // Format days left percentage
   const daysPercentage = Math.min(100, Math.max(0, (daysLeft / 30) * 100));
 
@@ -614,10 +828,13 @@ const EventDetailScreen = () => {
             onAccept={handleAcceptApplicant}
             onDecline={handleDeclineApplicant}
             onChat={handleChatWithApplicant}
+            chatLoading={chatLoading}
             loading={loading}
             onSendTicket={handleSendTicket}
             onReleaseTicket={handleReleaseTicket}
             onApproveFinishingEvent={handleApprovalFinishingEvent}
+            onSeeTicket={handleSeeTicket}
+            onExchangeTicket={handleExchangeTicket}
             type="pending"
           />
         );
@@ -630,10 +847,12 @@ const EventDetailScreen = () => {
             onDecline={handleDeclineApplicant}
             onChat={handleChatWithApplicant}
             loading={loading}
+            chatLoading={chatLoading}
             onSendTicket={handleSendTicket}
             onReleaseTicket={handleReleaseTicket}
             onApproveFinishingEvent={handleApprovalFinishingEvent}
-            // onTicketExchange={handleTicketExchange}
+            onSeeTicket={handleSeeTicket}
+            onExchangeTicket={handleExchangeTicket}
             type="accepted"
           />
         );
@@ -646,10 +865,12 @@ const EventDetailScreen = () => {
             onDecline={handleDeclineApplicant}
             onChat={handleChatWithApplicant}
             loading={loading}
+            chatLoading={chatLoading}
             onSendTicket={handleSendTicket}
             onReleaseTicket={handleReleaseTicket}
             onApproveFinishingEvent={handleApprovalFinishingEvent}
-            // onTicketExchange={handleTicketExchange}
+            onSeeTicket={handleSeeTicket}
+            onExchangeTicket={handleExchangeTicket}
             type="declined"
           />
         );
@@ -665,6 +886,7 @@ const EventDetailScreen = () => {
         { backgroundColor: isDarkMode ? COLORS.DARK_BG : COLORS.LIGHT_BG },
       ]}
     >
+      <Spinner visible={actionLoading} message="Loading..." />
       <Animated.ScrollView
         ref={scrollViewRef}
         contentContainerStyle={styles.scrollContainer}
@@ -714,7 +936,7 @@ const EventDetailScreen = () => {
                     },
                   ]}
                 >
-                  {capitalizeFirstLetter(event.type)}
+                  <Translate>{capitalizeFirstLetter(event.type)}</Translate>
                 </Text>
               </LinearGradient>
             </View>
@@ -758,6 +980,110 @@ const EventDetailScreen = () => {
             <View style={styles.cardContent}>
               {/* Event Header with Title and Action Buttons */}
               <View style={styles.eventHeader}>
+                {/* Earned Event Detail */}
+                {earnedEventDetail && (
+                  <View
+                    style={{
+                      width: "100%",
+                      marginTop: 5,
+                      marginBottom: 15,
+                      borderRadius: BORDER_RADIUS.M,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <LinearGradient
+                      colors={
+                        isDarkMode ? GRADIENTS.PRIMARY : GRADIENTS.SECONDARY
+                      }
+                      style={{
+                        width: "100%",
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        borderRadius: BORDER_RADIUS.M,
+                        gap: 8,
+                      }}
+                    >
+                      <View
+                        style={{
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: 4,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <FontAwesome5
+                          name="crown"
+                          size={16}
+                          color="white"
+                          solid
+                        />
+                        <Text
+                          style={{
+                            color: "white",
+                            fontFamily: FONTS.MEDIUM,
+                            fontSize: FONT_SIZES.S,
+                          }}
+                        >
+                          <Translate>Your Earned Event Information</Translate>
+                        </Text>
+                      </View>
+
+                      <View
+                        style={{
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: 4,
+                          alignItems: "center",
+                        }}
+                      >
+                        <FontAwesome
+                          name="map-marker"
+                          size={18}
+                          color="white"
+                          solid
+                        />
+                        <Text
+                          style={{
+                            color: "white",
+                            fontFamily: FONTS.MEDIUM,
+                            fontSize: FONT_SIZES.S,
+                          }}
+                        >
+                          {event?.address}, {event?.region},{event?.country}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: 4,
+                          alignItems: "center",
+                        }}
+                      >
+                        <FontAwesome
+                          name="calendar-check-o"
+                          size={14}
+                          color="white"
+                          solid
+                        />
+                        <Text
+                          style={{
+                            color: "white",
+                            fontFamily: FONTS.MEDIUM,
+                            fontSize: FONT_SIZES.S,
+                          }}
+                        >
+                          <Translate>
+                            {formatDate(event?.openingAt ?? new Date())}
+                          </Translate>
+                        </Text>
+                      </View>
+                    </LinearGradient>
+                  </View>
+                )}
+
                 {/* Title and badge row */}
                 <View style={styles.titleContainer}>
                   <Text
@@ -770,7 +1096,7 @@ const EventDetailScreen = () => {
                       },
                     ]}
                   >
-                    {event?.title}
+                    <Translate>{event?.title ?? ""}</Translate>
                   </Text>
 
                   {event?.paidOption && (
@@ -795,11 +1121,14 @@ const EventDetailScreen = () => {
                           color="#FFFFFF"
                         />
                         <Text style={styles.paidBadgeText}>
-                          {event.paidOption === "paid"
-                            ? `${
-                                event.fee
-                              } ${event.currency.toUpperCase()} Paid`
-                            : "Free"}
+                          {event.paidOption === "paid" ? (
+                            <>
+                              {event?.fee} {event.currency.toUpperCase()}{" "}
+                              <Translate>Paid</Translate>
+                            </>
+                          ) : (
+                            <Translate>Free</Translate>
+                          )}
                         </Text>
                       </LinearGradient>
                     </View>
@@ -807,35 +1136,45 @@ const EventDetailScreen = () => {
                 </View>
 
                 {/* Quick action buttons */}
-                {!alreadyApplied && !isCreator && (
-                  <View style={styles.quickActionButtons}>
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={handleApplyPress}
-                    >
-                      <LinearGradient
-                        colors={
-                          isDarkMode
-                            ? (EVENT_PREVIEW[theme].APPLY_BUTTON_BG as any)
-                            : EVENT_PREVIEW[theme].APPLY_BUTTON_BG
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.actionButtonGradient}
+                {/* {!alreadyApplied &&
+                  !isCreator &&
+                  event?.status === "opening" && (
+                    <View style={styles.quickActionButtons}>
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={handleApplyPress}
                       >
-                        <FontAwesome5
-                          name="check-circle"
-                          size={14}
-                          color="#FFFFFF"
-                        />
-                        <Text style={styles.actionButtonText}>Apply Now</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </View>
-                )}
+                        <LinearGradient
+                          colors={
+                            isDarkMode
+                              ? (EVENT_PREVIEW[theme].APPLY_BUTTON_BG as any)
+                              : EVENT_PREVIEW[theme].APPLY_BUTTON_BG
+                          }
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.actionButtonGradient}
+                        >
+                          <FontAwesome5
+                            name="check-circle"
+                            size={14}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.actionButtonText}><Translate>Apply Now</Translate></Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  )} */}
 
                 {/* Compact Creator Profile */}
-                <TouchableOpacity style={styles.creatorCompact}>
+                <TouchableOpacity
+                  style={styles.creatorCompact}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/profile",
+                      params: { userId: event?.creator?._id },
+                    })
+                  }
+                >
                   {event?.creator?.avatar ? (
                     <Image
                       source={{
@@ -942,7 +1281,7 @@ const EventDetailScreen = () => {
                       },
                     ]}
                   >
-                    {event?.address}, {event?.region}, {event?.country}
+                    {event?.region}, {event?.country}
                   </Text>
                 </View>
                 <View style={styles.infoItem}>
@@ -962,9 +1301,11 @@ const EventDetailScreen = () => {
                       },
                     ]}
                   >
-                    {event?.openingAt
-                      ? formatDate(event.openingAt)
-                      : "Date not set"}
+                    {event?.openingAt ? (
+                      <Translate>{formatDate(event.openingAt)}</Translate>
+                    ) : (
+                      <Translate>Date not set</Translate>
+                    )}
                   </Text>
                 </View>
                 <View style={styles.infoItem}>
@@ -984,8 +1325,9 @@ const EventDetailScreen = () => {
                       },
                     ]}
                   >
-                    {acceptedApplicants.length} participants,{" "}
-                    {pendingApplicants.length} pending
+                    {acceptedApplicants.length}{" "}
+                    <Translate>participants</Translate>,{" "}
+                    {pendingApplicants.length} <Translate>pending</Translate>
                   </Text>
                 </View>
               </View>
@@ -1002,7 +1344,7 @@ const EventDetailScreen = () => {
                     },
                   ]}
                 >
-                  About This Event
+                  <Translate>About This Event</Translate>
                 </Text>
                 <Text
                   style={[
@@ -1014,7 +1356,7 @@ const EventDetailScreen = () => {
                     },
                   ]}
                 >
-                  {event?.description}
+                  <Translate>{event?.description ?? ""}</Translate>
                 </Text>
               </View>
 
@@ -1032,7 +1374,7 @@ const EventDetailScreen = () => {
                         },
                       ]}
                     >
-                      Time Remaining
+                      <Translate>Time Remaining</Translate>
                     </Text>
                     <Text
                       style={[
@@ -1042,7 +1384,7 @@ const EventDetailScreen = () => {
                         },
                       ]}
                     >
-                      {daysLeft} days left
+                      {daysLeft} <Translate>days left</Translate>
                     </Text>
                   </View>
 
@@ -1066,7 +1408,7 @@ const EventDetailScreen = () => {
                         },
                       ]}
                     >
-                      Time is over
+                      <Translate>Time is over</Translate>
                     </Text>
                   </View>
 
@@ -1091,142 +1433,236 @@ const EventDetailScreen = () => {
                     },
                   ]}
                 >
-                  Event Status
+                  <Translate>Event Status</Translate>
                 </Text>
                 <EventStepper steps={eventSteps} activeStep={activeStep} />
               </View>
 
-              {/* Creator Profile (Expanded) */}
-              <View style={styles.creatorProfileContainer}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    {
-                      color: isDarkMode
-                        ? COLORS.DARK_TEXT_PRIMARY
-                        : COLORS.LIGHT_TEXT_PRIMARY,
-                    },
-                  ]}
-                >
-                  Creator Profile
-                </Text>
-
-                <View
-                  style={[
-                    styles.creatorProfileCard,
-                    {
-                      backgroundColor: isDarkMode
-                        ? EVENT_PREVIEW.DARK.PROFILE_CARD_BG
-                        : EVENT_PREVIEW.LIGHT.PROFILE_CARD_BG,
-                      borderColor: isDarkMode
-                        ? EVENT_PREVIEW.DARK.PROFILE_CARD_BORDER
-                        : EVENT_PREVIEW.LIGHT.PROFILE_CARD_BORDER,
-                    },
-                  ]}
-                >
-                  <View style={styles.creatorProfileHeader}>
-                    {event?.creator?.avatar ? (
-                      <Image
-                        source={{
-                          uri: BACKEND_BASE_URL + event?.creator?.avatar,
-                        }}
-                        style={styles.creatorProfileAvatar}
-                      />
-                    ) : (
-                      <View>
-                        <LinearGradient
-                          colors={
-                            isDarkMode
-                              ? GRADIENTS.PRIMARY
-                              : ["#FF0099", "#FF6D00"]
-                          }
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={styles.creatorProfileAvatarGradient}
-                        >
-                          <Text style={styles.creatorProfileAvatarText}>
-                            {event?.creator?.name
-                              ? event.creator.name.slice(0, 2).toUpperCase()
-                              : ""}
-                          </Text>
-                        </LinearGradient>
-                      </View>
+              {/* Creator Control Buttons Section */}
+              {isCreator && (
+                <View style={styles.descriptionContainer}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
+                      },
+                    ]}
+                  >
+                    <Translate>Control Panel</Translate>
+                  </Text>
+                  {(event?.status === "opening" ||
+                    event?.status === "accepted") &&
+                    event.paidOption === "paid" &&
+                    event.applicants.filter(
+                      (app) =>
+                        app.status === "accepted" && app.stickers.length > 0
+                    ).length > 0 && (
+                      <>
+                        <Alert
+                          type="info"
+                          title="Tip for starting paid event"
+                          message="You can start playing the event after exchanging tickets"
+                        />
+                        <View style={{ height: 10 }}></View>
+                      </>
                     )}
-                    <View style={styles.creatorProfileInfo}>
-                      <View style={styles.creatorProfileNameRow}>
-                        <Text
-                          style={[
-                            styles.creatorProfileName,
-                            {
-                              color: isDarkMode
-                                ? COLORS.DARK_TEXT_PRIMARY
-                                : COLORS.LIGHT_TEXT_PRIMARY,
-                            },
-                          ]}
-                        >
-                          {event?.creator?.name}
-                        </Text>
-                      </View>
 
-                      <View style={styles.creatorBadgeRow}>
-                        {event?.creator?.kycVerified && (
-                          <ProfileBadge type="verified" />
-                        )}
-                        {event?.creator?.membership === "premium" && (
-                          <ProfileBadge type="premium" />
-                        )}
-                      </View>
-
-                      <View style={styles.creatorRatingRow}>
-                        <Rating
-                          value={event?.creator?.rate ?? 0}
-                          size={16}
-                          color={
-                            isDarkMode
-                              ? EVENT_PREVIEW.DARK.RATING_STAR_FILLED
-                              : EVENT_PREVIEW.LIGHT.RATING_STAR_FILLED
-                          }
-                          emptyColor={
-                            isDarkMode
-                              ? EVENT_PREVIEW.DARK.RATING_STAR_EMPTY
-                              : EVENT_PREVIEW.LIGHT.RATING_STAR_EMPTY
-                          }
-                        />
-                        <Text
-                          style={[
-                            styles.ratingCount,
-                            {
-                              color: isDarkMode
-                                ? COLORS.DARK_TEXT_SECONDARY
-                                : COLORS.LIGHT_TEXT_SECONDARY,
-                            },
-                          ]}
-                        >
-                          ({event?.creator?.rate})
-                        </Text>
-                      </View>
-
-                      <View style={styles.creatorLocationRow}>
-                        <FontAwesome5
-                          name="map-marker-alt"
-                          size={14}
-                          color={
-                            isDarkMode
-                              ? COLORS.DARK_TEXT_SECONDARY
-                              : COLORS.LIGHT_TEXT_SECONDARY
-                          }
-                          style={styles.locationIcon}
-                        />
-                        <View style={styles.creatorProfileLocationWrapper}>
-                          <CountryFlag
-                            isoCode={
-                              event?.creator?.country?.toLowerCase() ?? "us"
+                  <View style={{ width: "100%" }}>
+                    {event?.applicants.some(
+                      (app) =>
+                        app.status === "accepted" && app.stickers.length > 0
+                    ) &&
+                      (event.status === "opening" ||
+                        event.status === "accepted") && (
+                        <>
+                          <Button
+                            title={
+                              event.applicants.filter(
+                                (app) =>
+                                  app.status === "accepted" &&
+                                  app.stickers.length > 0 &&
+                                  !app.stickerLocked &&
+                                  !app.stickerSold
+                              ).length === 0
+                                ? "Start playing"
+                                : `${
+                                    event.applicants.filter(
+                                      (app) =>
+                                        app.status === "accepted" &&
+                                        app.stickers.length > 0 &&
+                                        !app.stickerLocked &&
+                                        !app.stickerSold
+                                    ).length === 0
+                                  } tickets remaning to exchange`
                             }
-                            size={12}
+                            variant={isDarkMode ? "primary" : "secondary"}
+                            icon={
+                              <FontAwesome
+                                name="play"
+                                size={14}
+                                color="#FFFFFF"
+                              />
+                            }
+                            small={true}
+                            loading={playLoading}
+                            onPress={handleStartPlaying}
+                          />
+                          <View style={{ height: 10 }}></View>
+                        </>
+                      )}
+
+                    {event?.status === "playing" &&
+                      event.finishApproved.length <
+                        event.applicants.filter(
+                          (app) => app.status === "accepted" && app.stickerSold
+                        ).length && (
+                        <Button
+                          title="Request approval to finish"
+                          variant={isDarkMode ? "primary" : "secondary"}
+                          small={true}
+                          onPress={handleRequestApprovalToFinish}
+                        />
+                      )}
+
+                    {event?.status === "playing" &&
+                      event.finishApproved.length ===
+                        event.applicants.filter(
+                          (app) => app.status === "accepted" && app.stickerSold
+                        ).length && (
+                        <Button
+                          title="Finish this event"
+                          variant={isDarkMode ? "primary" : "secondary"}
+                          small={true}
+                          onPress={handleFinishEvent}
+                        />
+                      )}
+
+                    {event?.status === "opening" &&
+                      event.applicants.filter(
+                        (app) => app.status === "accepted"
+                      ).length === 0 && (
+                        <Button
+                          title="Cancel Event"
+                          variant="ghost"
+                          icon={
+                            <FontAwesome
+                              name="times"
+                              size={14}
+                              color={isDarkMode ? "#FFFFFF" : "#000000"}
+                            />
+                          }
+                          disabled={playLoading}
+                          small={true}
+                          onPress={handleCancelEvent}
+                        />
+                      )}
+                  </View>
+                </View>
+              )}
+
+              {!isCreator && (
+                <View style={styles.creatorProfileContainer}>
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: isDarkMode
+                          ? COLORS.DARK_TEXT_PRIMARY
+                          : COLORS.LIGHT_TEXT_PRIMARY,
+                      },
+                    ]}
+                  >
+                    <Translate>Creator Profile</Translate>
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.creatorProfileCard,
+                      {
+                        backgroundColor: isDarkMode
+                          ? EVENT_PREVIEW.DARK.PROFILE_CARD_BG
+                          : EVENT_PREVIEW.LIGHT.PROFILE_CARD_BG,
+                        borderColor: isDarkMode
+                          ? EVENT_PREVIEW.DARK.PROFILE_CARD_BORDER
+                          : EVENT_PREVIEW.LIGHT.PROFILE_CARD_BORDER,
+                      },
+                    ]}
+                  >
+                    <View style={styles.creatorProfileHeader}>
+                      {event?.creator?.avatar ? (
+                        <Image
+                          source={{
+                            uri: BACKEND_BASE_URL + event?.creator?.avatar,
+                          }}
+                          style={styles.creatorProfileAvatar}
+                        />
+                      ) : (
+                        <View>
+                          <LinearGradient
+                            colors={
+                              isDarkMode
+                                ? GRADIENTS.PRIMARY
+                                : ["#FF0099", "#FF6D00"]
+                            }
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={styles.creatorProfileAvatarGradient}
+                          >
+                            <Text style={styles.creatorProfileAvatarText}>
+                              {event?.creator?.name
+                                ? event.creator.name.slice(0, 2).toUpperCase()
+                                : ""}
+                            </Text>
+                          </LinearGradient>
+                        </View>
+                      )}
+
+                      <View style={styles.creatorProfileInfo}>
+                        <View style={styles.creatorProfileNameRow}>
+                          <Text
+                            style={[
+                              styles.creatorProfileName,
+                              {
+                                color: isDarkMode
+                                  ? COLORS.DARK_TEXT_PRIMARY
+                                  : COLORS.LIGHT_TEXT_PRIMARY,
+                              },
+                            ]}
+                          >
+                            {event?.creator?.name}
+                          </Text>
+                        </View>
+
+                        <View style={styles.creatorBadgeRow}>
+                          {event?.creator?.kycVerified && (
+                            <ProfileBadge type="verified" />
+                          )}
+                          {event?.creator?.membership === "premium" && (
+                            <ProfileBadge type="premium" />
+                          )}
+                        </View>
+
+                        <View style={styles.creatorRatingRow}>
+                          <Rating
+                            value={event?.creator?.rate ?? 0}
+                            size={16}
+                            color={
+                              isDarkMode
+                                ? EVENT_PREVIEW.DARK.RATING_STAR_FILLED
+                                : EVENT_PREVIEW.LIGHT.RATING_STAR_FILLED
+                            }
+                            emptyColor={
+                              isDarkMode
+                                ? EVENT_PREVIEW.DARK.RATING_STAR_EMPTY
+                                : EVENT_PREVIEW.LIGHT.RATING_STAR_EMPTY
+                            }
                           />
                           <Text
                             style={[
-                              styles.creatorProfileLocation,
+                              styles.ratingCount,
                               {
                                 color: isDarkMode
                                   ? COLORS.DARK_TEXT_SECONDARY
@@ -1234,45 +1670,97 @@ const EventDetailScreen = () => {
                               },
                             ]}
                           >
-                            {event?.creator?.region}, {event?.creator?.country}
+                            ({event?.creator?.rate})
                           </Text>
+                        </View>
+
+                        <View style={styles.creatorLocationRow}>
+                          <FontAwesome5
+                            name="map-marker-alt"
+                            size={14}
+                            color={
+                              isDarkMode
+                                ? COLORS.DARK_TEXT_SECONDARY
+                                : COLORS.LIGHT_TEXT_SECONDARY
+                            }
+                            style={styles.locationIcon}
+                          />
+                          <View style={styles.creatorProfileLocationWrapper}>
+                            <CountryFlag
+                              isoCode={
+                                event?.creator?.country?.toLowerCase() ?? "us"
+                              }
+                              size={12}
+                            />
+                            <Text
+                              style={[
+                                styles.creatorProfileLocation,
+                                {
+                                  color: isDarkMode
+                                    ? COLORS.DARK_TEXT_SECONDARY
+                                    : COLORS.LIGHT_TEXT_SECONDARY,
+                                },
+                              ]}
+                            >
+                              {event?.creator?.region},{" "}
+                              {event?.creator?.country}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>
-                  </View>
 
-                  {/* Chat with creator button */}
-                  {!isCreator &&
-                    event?.creator?._id &&
-                    user?.membership === "premium" &&
-                    event.applicants.some(
-                      (app) =>
-                        app.applier._id === user._id &&
-                        app.status === "accepted"
-                    ) && (
-                      <View style={styles.chatWithCreatorContainer}>
-                        <Button
-                          title="Chat with Creator"
-                          variant={isDarkMode ? "secondary" : "primary"}
-                          icon={
-                            <FontAwesome5
-                              name="comment"
-                              size={14}
-                              color="#FFFFFF"
-                            />
-                          }
-                          iconPosition="left"
-                          small={true}
-                          onPress={() => {
-                            if (event.creator?._id) {
-                              handleChatWithApplicant(event.creator._id);
+                    {/* Chat with creator button */}
+                    {!isCreator &&
+                      event?.creator?._id &&
+                      user?.membership === "premium" && (
+                        <View style={styles.chatWithCreatorContainer}>
+                          <Button
+                            title="Chat with Creator"
+                            variant={isDarkMode ? "secondary" : "primary"}
+                            icon={
+                              <FontAwesome5
+                                name="comment"
+                                size={14}
+                                color="#FFFFFF"
+                              />
                             }
-                          }}
-                        />
-                      </View>
-                    )}
+                            iconPosition="left"
+                            small={true}
+                            onPress={() => {
+                              if (event.creator?._id) {
+                                handleChatWithApplicant(event.creator._id);
+                              }
+                            }}
+                          />
+                        </View>
+                      )}
+
+                    {!isCreator &&
+                      event?.creator?._id &&
+                      user?.membership === "free" && (
+                        <View style={styles.chatWithCreatorContainer}>
+                          <Button
+                            title="Become Premium to Chat with Creator"
+                            variant={isDarkMode ? "secondary" : "primary"}
+                            icon={
+                              <FontAwesome5
+                                name="comment"
+                                size={14}
+                                color="#FFFFFF"
+                              />
+                            }
+                            iconPosition="left"
+                            small={true}
+                            onPress={() => {
+                              router.push("/subscription");
+                            }}
+                          />
+                        </View>
+                      )}
+                  </View>
                 </View>
-              </View>
+              )}
 
               {/* Apply Section */}
               {!alreadyApplied && !isCreator && (
@@ -1287,7 +1775,7 @@ const EventDetailScreen = () => {
                       },
                     ]}
                   >
-                    Apply for Event
+                    <Translate>Apply for Event</Translate>
                   </Text>
 
                   <Textarea
@@ -1320,6 +1808,7 @@ const EventDetailScreen = () => {
               {/* Alert Section */}
               {alreadyApplied &&
                 myApplicant &&
+                myApplicant.status === "accepted" &&
                 myApplicant?.stickers.length === 0 && (
                   <>
                     <Alert
@@ -1330,6 +1819,24 @@ const EventDetailScreen = () => {
                     <View style={{ height: 20 }}></View>
                   </>
                 )}
+
+              {myApplicant && (
+                <Alert
+                  type="info"
+                  title="Tip for joining paid event"
+                  message="You must purchase a valid ticket after your application is approved by the owner"
+                />
+              )}
+
+              {myApplicant && user?.membership === "free" && (
+                <View style={{ marginTop: 10, marginBottom: 10 }}>
+                  <Alert
+                    type="success"
+                    title="Premium Tip"
+                    message="Premium members can view all competing applications"
+                  />
+                </View>
+              )}
 
               {alreadyApplied &&
                 myApplicant &&
@@ -1365,7 +1872,8 @@ const EventDetailScreen = () => {
               {(isCreator ||
                 user?.membership === "premium" ||
                 event?.status === "playing" ||
-                event?.status === "finished") && (
+                event?.status === "finished" ||
+                myApplicant?.status === "accepted") && (
                 <View style={styles.applicationsContainer}>
                   <Text
                     style={[
@@ -1377,12 +1885,13 @@ const EventDetailScreen = () => {
                       },
                     ]}
                   >
-                    Applications
+                    <Translate>Applications</Translate>
                   </Text>
 
                   {/* Use the Tabs component */}
                   <Tabs
-                    tabs={["Pending", "Accepted", "Declined"]}
+                    // tabs={["Pending", "Accepted", "Declined"]}
+                    tabs={["Pending", "Accepted"]}
                     activeIndex={activeTab}
                     onTabPress={setActiveTab}
                     badgeCounts={[
@@ -1402,6 +1911,31 @@ const EventDetailScreen = () => {
           </Animated.View>
         </View>
       </Animated.ScrollView>
+
+      <Modal
+        title="See Ticket"
+        isVisible={seeTicketModalVisible}
+        onClose={() => setSeeTicketModalVisible(false)}
+      >
+        <TicketComponent
+          _id={selectedTicket?._id as string}
+          price={selectedTicket?.price as number}
+          currency={selectedTicket?.currency as any}
+          image={selectedTicket?.image as string}
+          name={selectedTicket?.name as string}
+          hiddenButton={true}
+          onPurchase={() => {}}
+        />
+      </Modal>
+
+      <PaymentModal
+        visible={paymentModalVisible}
+        onClose={() => setPaymentModalVisible(false)}
+        onSelectPaymentMethod={handleSelectPaymentMethod}
+        amount={selectedTicket?.price.toString() ?? "0"}
+        currency={selectedTicket?.currency.toUpperCase() as any}
+        planTitle={`Exchange ${selectedTicket?.name}`}
+      />
     </SafeAreaView>
   );
 };

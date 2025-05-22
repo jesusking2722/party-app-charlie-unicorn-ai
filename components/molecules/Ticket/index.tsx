@@ -35,6 +35,7 @@ interface TicketProps {
   price: number;
   isOwned?: boolean;
   currency: "usd" | "eur" | "pln";
+  hiddenButton?: boolean;
   onPurchase: (id: string) => void;
 }
 
@@ -52,11 +53,10 @@ const Ticket: React.FC<TicketProps> = ({
   price,
   isOwned,
   currency,
+  hiddenButton,
   onPurchase,
 }) => {
   const { isDarkMode } = useTheme();
-
-  const { user } = useSelector((state: RootState) => state.auth);
 
   // STRICTLY Native driver animations (opacity, transform)
   const shimmerPosition = useRef(new Animated.Value(-width * 2)).current;
@@ -477,21 +477,23 @@ const Ticket: React.FC<TicketProps> = ({
               </View>
 
               {/* Fixed button implementation */}
-              <TouchableOpacity
-                style={styles.buttonWrapper}
-                activeOpacity={0.9}
-                onPress={() => onPurchase(_id)}
-              >
-                <View pointerEvents="none">
-                  <Button
-                    title={isOwned ? "Owned" : "Purchase"}
-                    variant={isDarkMode ? "primary" : "secondary"}
-                    disabled={isOwned}
-                    small={true}
-                    onPress={() => onPurchase(_id)}
-                  />
-                </View>
-              </TouchableOpacity>
+              {!hiddenButton && (
+                <TouchableOpacity
+                  style={styles.buttonWrapper}
+                  activeOpacity={0.9}
+                  onPress={() => onPurchase(_id)}
+                >
+                  <View pointerEvents="none">
+                    <Button
+                      title={isOwned ? "Owned" : "Purchase"}
+                      variant={isDarkMode ? "primary" : "secondary"}
+                      disabled={isOwned}
+                      small={true}
+                      onPress={() => onPurchase(_id)}
+                    />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </Animated.View>

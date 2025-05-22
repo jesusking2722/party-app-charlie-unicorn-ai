@@ -30,9 +30,11 @@ import {
   Button,
   CountryPicker,
   Input,
+  LanguageToggleGroup,
   LocationPicker,
   RegionPicker,
   ThemeToggle,
+  Translate,
 } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -322,6 +324,7 @@ const ProfileSetupScreen = () => {
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />
+        <LanguageToggleGroup containerStyle={{ marginRight: SPACING.M }} />
       </View>
 
       <KeyboardAvoidingView
@@ -398,7 +401,7 @@ const ProfileSetupScreen = () => {
                         },
                       ]}
                     >
-                      Personal Details
+                      <Translate>Personal Details</Translate>
                     </Text>
                     <Text
                       style={[
@@ -410,7 +413,7 @@ const ProfileSetupScreen = () => {
                         },
                       ]}
                     >
-                      Tell us a bit about yourself
+                      <Translate>Tell us a bit about yourself</Translate>
                     </Text>
 
                     {/* Form Inputs */}
@@ -522,7 +525,7 @@ const ProfileSetupScreen = () => {
                               },
                             ]}
                           >
-                            Profile Setup
+                            <Translate>Profile Setup</Translate>
                           </Text>
                           <Text
                             style={[
@@ -532,7 +535,7 @@ const ProfileSetupScreen = () => {
                               },
                             ]}
                           >
-                            Step 1 of 4
+                            <Translate>Step 1 of 4</Translate>
                           </Text>
                         </View>
 
@@ -618,7 +621,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   partyImageContainer: {
-    height: height * 0.4, // Shorter top image area for more form space
+    height: height * 0.4,
     width: "100%",
     overflow: "hidden",
     position: "relative",
@@ -730,6 +733,9 @@ const styles = StyleSheet.create({
     top: Platform.OS === "ios" ? 50 : 40,
     right: 20,
     zIndex: 100,
+    display: "flex",
+    flexDirection: "row",
+    gap: 4,
   },
 });
 

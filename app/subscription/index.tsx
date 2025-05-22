@@ -3,6 +3,7 @@ import {
   MembershipRadioGroup,
   PaymentMethodType,
   SubscriptionPlan,
+  Translate,
 } from "@/components/common";
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -500,6 +501,7 @@ const SubscriptionScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <CardPayment
+          type="subscription"
           amount={selectedPlan?.price.toString() || ""}
           formattedAmount={formattedAmount}
           currency={selectedCurrency}
@@ -515,6 +517,7 @@ const SubscriptionScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <CryptoPayment
+          type="subscription"
           amount={selectedPlan?.price.toString() || ""}
           formattedAmount={formattedAmount}
           currency={selectedCurrency}
@@ -640,7 +643,7 @@ const SubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      Manage Subscription
+                      <Translate>Manage Subscription</Translate>
                     </Text>
 
                     {user?.membership === "premium" && (
@@ -678,7 +681,7 @@ const SubscriptionScreen = () => {
                               },
                             ]}
                           >
-                            Active Premium Subscription
+                            <Translate>Active Premium Subscription</Translate>
                           </Text>
                         </View>
 
@@ -693,7 +696,8 @@ const SubscriptionScreen = () => {
                               },
                             ]}
                           >
-                            Expires on: {expirationDate}
+                            <Translate>Expires on:</Translate>{" "}
+                            <Translate>{expirationDate}</Translate>
                           </Text>
 
                           {!isExpired && (
@@ -707,7 +711,7 @@ const SubscriptionScreen = () => {
                                 },
                               ]}
                             >
-                              {timeRemaining}
+                              <Translate>{timeRemaining}</Translate>
                             </Text>
                           )}
                         </View>
@@ -723,8 +727,10 @@ const SubscriptionScreen = () => {
                               },
                             ]}
                           >
-                            You can change your plan once the current plan
-                            expires.
+                            <Translate>
+                              You can change your plan once the current plan
+                              expires.
+                            </Translate>
                           </Text>
                         )}
                       </View>
@@ -740,11 +746,23 @@ const SubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      {user?.membership === "premium"
-                        ? isExpired
-                          ? "Your subscription has expired. Choose a new plan below."
-                          : "You can renew or change your plan after the current period ends."
-                        : "Upgrade to premium to access all features"}
+                      {user?.membership === "premium" ? (
+                        isExpired ? (
+                          <Translate>
+                            Your subscription has expired. Choose a new plan
+                            below.
+                          </Translate>
+                        ) : (
+                          <Translate>
+                            You can renew or change your plan after the current
+                            period ends.
+                          </Translate>
+                        )
+                      ) : (
+                        <Translate>
+                          Upgrade to premium to access all features
+                        </Translate>
+                      )}
                     </Text>
 
                     {/* Premium Features */}
@@ -788,7 +806,9 @@ const SubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Unlimited access to all features
+                          <Translate>
+                            Unlimited access to all features
+                          </Translate>
                         </Text>
                       </View>
 
@@ -819,7 +839,9 @@ const SubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Create events without KYC verification
+                          <Translate>
+                            Create events without KYC verification
+                          </Translate>
                         </Text>
                       </View>
 
@@ -850,7 +872,7 @@ const SubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Priority customer support
+                          <Translate>Priority customer support</Translate>
                         </Text>
                       </View>
                     </View>
@@ -867,7 +889,7 @@ const SubscriptionScreen = () => {
                           },
                         ]}
                       >
-                        Select a plan
+                        <Translate>Select a plan</Translate>
                       </Text>
 
                       <MembershipRadioGroup
@@ -904,7 +926,7 @@ const SubscriptionScreen = () => {
                           ) : undefined
                         }
                         iconPosition="right"
-                        // disabled={isSubscribeDisabled()}
+                        disabled={isSubscribeDisabled()}
                       />
                     </Animated.View>
 
@@ -919,10 +941,12 @@ const SubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      By subscribing, you agree to our Terms of Service and
-                      Privacy Policy. Subscriptions automatically renew unless
-                      auto-renew is turned off at least 24 hours before the end
-                      of the current period.
+                      <Translate>
+                        By subscribing, you agree to our Terms of Service and
+                        Privacy Policy. Subscriptions automatically renew unless
+                        auto-renew is turned off at least 24 hours before the
+                        end of the current period.
+                      </Translate>
                     </Text>
                   </View>
                 </LinearGradient>

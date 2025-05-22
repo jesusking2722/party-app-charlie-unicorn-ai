@@ -12,45 +12,63 @@ import { fetchStripePublishableKey } from "@/lib/scripts/stripe.scripts";
 import { store } from "@/redux/store";
 import { Provider } from "react-redux";
 import socket from "@/lib/socketInstance";
-
-import "@walletconnect/react-native-compat";
-import {
-  AppKit,
-  createAppKit,
-  defaultConfig,
-} from "@reown/appkit-ethers-react-native";
 import { jwtDecode } from "jwt-decode";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import useSocket from "@/hooks/useSocket";
 import AppStateListener from "./AppStateListener";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
+import Translator from "@/contexts/TranslatorContext";
+import { GOOGLE_API_KEY } from "@/constant";
+import cacheProvider from "@/utils/cacheProvider";
 
-const projectId = "985f93ef94b75e99a064d6d6ff61071c";
+import "@walletconnect/react-native-compat";
 
+import {
+  createAppKit,
+  defaultConfig,
+  AppKit,
+} from "@reown/appkit-ethers-react-native";
+
+// 1. Get projectId from https://cloud.reown.com
+const projectId = "496a6d2135269fb305efd97d87c9d969";
+
+// 2. Create config
 const metadata = {
   name: "AppKit RN",
   description: "AppKit RN Example",
   url: "https://reown.com/appkit",
   icons: ["https://avatars.githubusercontent.com/u/179229932"],
   redirect: {
-    native: "YOUR_APP_SCHEME://",
+    native: "charliehousepartymobilefrontend://",
   },
 };
 
 const config = defaultConfig({ metadata });
 
-const bscMainnet = {
-  chainId: 56,
-  name: "Binance Smart Chain",
-  currency: "BNB",
-  explorerUrl: "https://bscscan.com",
-  rpcUrl: "https://bsc-dataseed.binance.org",
+// 3. Define your chains
+const mainnet = {
+  chainId: 1,
+  name: "Ethereum",
+  currency: "ETH",
+  explorerUrl: "https://etherscan.io",
+  rpcUrl: "https://cloudflare-eth.com",
 };
 
+const polygon = {
+  chainId: 137,
+  name: "Polygon",
+  currency: "MATIC",
+  explorerUrl: "https://polygonscan.com",
+  rpcUrl: "https://polygon-rpc.com",
+};
+
+const chains = [mainnet, polygon];
+
+// 4. Create modal
 createAppKit({
   projectId,
-  chains: [bscMainnet],
+  chains,
   config,
-  enableAnalytics: true,
+  enableAnalytics: true, // Optional - defaults to your Cloud configuration
 });
 
 SplashScreen.preventAutoHideAsync();
@@ -170,6 +188,8 @@ export default function RootLayout() {
     onLayoutRootView();
   }, [onLayoutRootView]);
 
+  const { language } = useLanguage();
+
   return (
     <Provider store={store}>
       <StripeProvider
@@ -178,39 +198,54 @@ export default function RootLayout() {
         urlScheme="your-url-scheme"
         threeDSecureParams={{ backgroundColor: "#FFF" }}
       >
-        <ThemeProvider>
-          <ToastProvider>
-            <AppStateListener />
+        <LanguageProvider>
+          <Translator
+            from="en"
+            to={language}
+            googleApiKey={GOOGLE_API_KEY}
+            cacheProvider={cacheProvider}
+          >
+            <ThemeProvider>
+              <ToastProvider>
+                <AppStateListener />
 
-            <View style={styles.container} onLayout={onLayoutRootView}>
-              {/* Header component */}
-              {showNavigation && <Header />}
+                <View style={styles.container} onLayout={onLayoutRootView}>
+                  {/* Header component */}
+                  {showNavigation && <Header />}
 
-              {/* Main content */}
-              <View
-                style={[
-                  styles.content,
-                  showNavigation && styles.contentWithNavigation,
-                ]}
-              >
-                <Stack screenOptions={{ headerShown: false }}>
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="start" />
-                  <Stack.Screen name="auth" />
-                  <Stack.Screen name="onboarding" />
-                  <Stack.Screen name="home/index" />
-                  <Stack.Screen name="parties" />
-                  <Stack.Screen name="subscription/index" />
-                  <Stack.Screen name="tickets/index" />
-                  <Stack.Screen name="review/index" />
-                </Stack>
-              </View>
+                  {/* Main content */}
+                  <View
+                    style={[
+                      styles.content,
+                      showNavigation && styles.contentWithNavigation,
+                    ]}
+                  >
+                    <Stack screenOptions={{ headerShown: false }}>
+                      <Stack.Screen name="index" />
+                      <Stack.Screen name="start" />
+                      <Stack.Screen name="auth" />
+                      <Stack.Screen name="onboarding" />
+                      <Stack.Screen name="home/index" />
+                      <Stack.Screen name="parties" />
+                      <Stack.Screen name="subscription/index" />
+                      <Stack.Screen name="tickets/index" />
+                      <Stack.Screen name="review/index" />
+                      <Stack.Screen name="exchange" />
+                      <Stack.Screen name="profile/index" />
+                      <Stack.Screen name="chat/index" />
+                    </Stack>
+                  </View>
 
-              {showNavigation && <Navbar unreadChats={userData.chatCount} />}
-            </View>
-            <AppKit />
-          </ToastProvider>
-        </ThemeProvider>
+                  {showNavigation && (
+                    <Navbar unreadChats={userData.chatCount} />
+                  )}
+                </View>
+
+                <AppKit />
+              </ToastProvider>
+            </ThemeProvider>
+          </Translator>
+        </LanguageProvider>
       </StripeProvider>
     </Provider>
   );

@@ -63,6 +63,7 @@ const Header: React.FC<HeaderProps> = ({
   const [unreadNotifications, setUnreadNotifications] = useState<number>(0);
 
   const { user } = useSelector((state: RootState) => state.auth);
+  const { messages } = useSelector((state: RootState) => state.message);
 
   // Helper function to get accent color based on theme
   const getAccentColor = () =>
@@ -187,7 +188,7 @@ const Header: React.FC<HeaderProps> = ({
           <View style={styles.rightSection}>
             {/* Notification Button */}
             <TouchableOpacity
-              onPress={handleNotificationPress}
+              onPress={() => router.push("/chat")}
               activeOpacity={0.8}
               style={[
                 styles.iconButton,
@@ -208,7 +209,9 @@ const Header: React.FC<HeaderProps> = ({
               />
 
               {/* Notification dot */}
-              {unreadNotifications > 0 && (
+              {messages.filter(
+                (m) => m.receiver._id === user?._id && m.status !== "read"
+              ).length > 0 && (
                 <View
                   style={[
                     styles.notificationDot,

@@ -25,3 +25,5 @@ export { default as StatusBadge } from "./StatusBadge";
 export { default as Tabs } from "./Tabs";
 export { default as Textarea } from "./Textarea";
 export { default as ThemeToggle } from "./ThemeToggle";
+export { default as Translate } from "./Translate";
+export { default as LanguageToggleGroup } from "./LanguageToggleGroup";

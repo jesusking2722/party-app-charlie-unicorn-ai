@@ -6,6 +6,7 @@ export default function AuthRootLayout() {
       <Stack.Screen name="login" />
       <Stack.Screen name="register" />
       <Stack.Screen name="verify" />
+      <Stack.Screen name="resetPassword" />
     </Stack>
   );
 }

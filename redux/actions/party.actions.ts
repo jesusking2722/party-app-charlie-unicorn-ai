@@ -29,13 +29,23 @@ export const updateSelectedPartyAsnyc = createAsyncThunk(
   }
 );
 
-// export const updateApplicantStatusInSelectedPartyAsync = createAsyncThunk(
-//   "party/updateApplicantStatusInSelectedParty",
-//   async (payload: {
-//     partyId: string;
-//     applicantId: string;
-//     status: "pending" | "accepted" | "declined";
-//   }) => {
-//     return payload;
-//   }
-// );
+export const updateApplicantStatusInSelectedPartyAsync = createAsyncThunk(
+  "party/updateApplicantStatusInSelectedParty",
+  async (payload: {
+    partyId: string;
+    applicantId: string;
+    status: "pending" | "accepted" | "declined";
+  }) => {
+    return payload;
+  }
+);
+
+export const updatePartyStatusSliceAsync = createAsyncThunk(
+  "party/updatePartyStatusSlice",
+  async (payload: {
+    partyId: string;
+    status: "opening" | "accepted" | "playing" | "finished" | "cancelled";
+  }) => {
+    return payload;
+  }
+);

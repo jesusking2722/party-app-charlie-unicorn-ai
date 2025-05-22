@@ -27,6 +27,7 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
+import { Translate } from "@/components/common";
 
 // Toast types
 export type ToastType = "success" | "info" | "warning" | "error";
@@ -187,7 +188,9 @@ const ToastItem = ({
           </View>
 
           {/* Message */}
-          <Text style={styles.message}>{message}</Text>
+          <Text style={styles.message}>
+            <Translate>{message}</Translate>
+          </Text>
 
           {/* Close button */}
           <TouchableOpacity
@@ -235,9 +238,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
     <ToastContext.Provider value={contextValue}>
       {children}
       <View style={styles.toastWrapper}>
-        {toasts.map((toast) => (
+        {toasts.map((toast, index) => (
           <ToastItem
-            key={toast.id}
+            key={index}
             id={toast.id}
             message={toast.message}
             type={toast.type}

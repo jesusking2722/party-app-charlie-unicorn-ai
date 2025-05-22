@@ -6,7 +6,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Dimensions,
   FlatList,
   Modal,
@@ -18,6 +17,8 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import Translate from "../Translate";
+import { useTranslator } from "@/contexts/TranslatorContext";
 
 // Custom light theme secondary color - to match Input
 const LIGHT_THEME_ACCENT = "#FF0099";
@@ -56,12 +57,18 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const [recentAddresses, setRecentAddresses] = useState<string[]>([]);
   const [isFocused, setIsFocused] = useState(false);
 
-  // Animation values
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(20)).current;
-  const modalSlideAnim = useRef(
-    new Animated.Value(Dimensions.get("window").height)
-  ).current;
+  const [inputPlaceholder, setInputPlaceholder] = useState<string>("");
+
+  const { translateText } = useTranslator();
+
+  useEffect(() => {
+    const translate = async () => {
+      const translatedInput = await translateText("Enter your address");
+      setInputPlaceholder(translatedInput);
+    };
+
+    translate();
+  }, []);
 
   // Add a ref for the text input to maintain focus
   const textInputRef = useRef<TextInput>(null);
@@ -69,55 +76,15 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   // Check if location picker is enabled (requires country and region)
   const isEnabled = countryCode && regionCode;
 
-  // Run animations when error state changes
-  useEffect(() => {
-    if (error) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 20,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [error]);
-
-  // Run modal animation
+  // Handle modal open/close
   useEffect(() => {
     if (showModal) {
-      Animated.timing(modalSlideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-      setSearchText(value || "");
-
-      // Focus the text input when modal opens
+      setSearchText("");
+      setGeocodingError(null);
+      // Focus the input when modal opens
       setTimeout(() => {
-        if (textInputRef.current) {
-          textInputRef.current.focus();
-        }
-      }, 400); // Add a delay to ensure modal is fully visible
-    } else {
-      modalSlideAnim.setValue(Dimensions.get("window").height);
+        textInputRef.current?.focus();
+      }, 100);
     }
   }, [showModal]);
 
@@ -171,6 +138,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     setShowModal(false);
     setGeocodingError(null);
     setIsFocused(false);
+    setSearchText("");
   };
 
   // Geocode the address using Google Geocoding API directly
@@ -221,9 +189,11 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         };
 
         // Store in recent addresses
-        if (!recentAddresses.includes(address)) {
-          setRecentAddresses([address, ...recentAddresses.slice(0, 4)]);
-        }
+        const newRecentAddresses = [
+          address,
+          ...recentAddresses.filter((addr) => addr !== address),
+        ].slice(0, 5);
+        setRecentAddresses(newRecentAddresses);
 
         onSelect(locationData);
         handleCloseModal();
@@ -260,136 +230,19 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     }
   };
 
-  // Handle text change without losing focus
+  // Handle text change
   const handleTextChange = (text: string) => {
     setSearchText(text);
+    // Clear any previous geocoding errors when user types
+    if (geocodingError) {
+      setGeocodingError(null);
+    }
   };
 
-  // Render list header with search input
-  const ListHeader = () => (
-    <View style={styles.listHeaderContainer}>
-      <LinearGradient
-        colors={isDarkMode ? ["#111827", "#1F2937"] : ["#FF0099", "#FF6D00"]}
-        style={styles.gradientBackground}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-      />
-
-      <View
-        style={[
-          styles.modalHeader,
-          {
-            borderBottomColor: isDarkMode
-              ? "rgba(255, 255, 255, 0.1)"
-              : "rgba(0, 0, 0, 0.1)",
-          },
-        ]}
-      >
-        <Text style={[styles.modalTitle, { color: COLORS.WHITE }]}>
-          Enter Address
-        </Text>
-      </View>
-
-      <View
-        style={[
-          styles.searchContainer,
-          {
-            backgroundColor: isDarkMode
-              ? "rgba(40, 45, 55, 0.65)"
-              : "rgba(255, 255, 255, 0.8)",
-            borderColor: isDarkMode
-              ? "rgba(255, 255, 255, 0.1)"
-              : "rgba(0, 0, 0, 0.05)",
-          },
-        ]}
-      >
-        <FontAwesome
-          name="search"
-          size={16}
-          color={
-            isDarkMode
-              ? COLORS.DARK_TEXT_SECONDARY
-              : COLORS.LIGHT_TEXT_SECONDARY
-          }
-          style={styles.searchIcon}
-        />
-        <TextInput
-          ref={textInputRef}
-          style={[styles.searchInput, { color: getTextColor() }]}
-          placeholder="Enter your address"
-          placeholderTextColor={getPlaceholderColor()}
-          value={searchText}
-          onChangeText={handleTextChange}
-          autoFocus={true}
-        />
-        {searchText.length > 0 && (
-          <TouchableOpacity
-            style={styles.clearButton}
-            onPress={() => {
-              setSearchText("");
-              // Refocus input after clearing
-              setTimeout(() => {
-                if (textInputRef.current) {
-                  textInputRef.current.focus();
-                }
-              }, 50);
-            }}
-          >
-            <FontAwesome
-              name="times-circle"
-              size={16}
-              color={
-                isDarkMode
-                  ? COLORS.DARK_TEXT_SECONDARY
-                  : COLORS.LIGHT_TEXT_SECONDARY
-              }
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {geocodingError && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorMessage}>{geocodingError}</Text>
-        </View>
-      )}
-
-      <TouchableOpacity
-        style={[
-          styles.confirmButton,
-          {
-            backgroundColor: isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT,
-            opacity: !searchText.trim() || geocoding ? 0.5 : 1,
-          },
-        ]}
-        onPress={() => geocodeAddress(searchText)}
-        disabled={!searchText.trim() || geocoding}
-      >
-        {geocoding ? (
-          <ActivityIndicator color="white" size="small" />
-        ) : (
-          <Text style={styles.confirmButtonText}>Find Location</Text>
-        )}
-      </TouchableOpacity>
-
-      {recentAddresses.length > 0 && (
-        <View style={styles.recentContainer}>
-          <Text
-            style={[
-              styles.recentTitle,
-              {
-                color: isDarkMode
-                  ? COLORS.DARK_TEXT_SECONDARY
-                  : COLORS.LIGHT_TEXT_SECONDARY,
-              },
-            ]}
-          >
-            Recent Addresses
-          </Text>
-        </View>
-      )}
-    </View>
-  );
+  // Handle recent address selection
+  const handleRecentAddressSelect = (address: string) => {
+    setSearchText(address);
+  };
 
   // Render recent address item
   const renderRecentItem = ({ item }: { item: string }) => (
@@ -402,10 +255,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
             : "rgba(0, 0, 0, 0.05)",
         },
       ]}
-      onPress={() => {
-        setSearchText(item);
-        geocodeAddress(item);
-      }}
+      onPress={() => handleRecentAddressSelect(item)}
     >
       <FontAwesome
         name="history"
@@ -428,7 +278,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     <View style={[styles.inputContainer, containerStyle]}>
       {label && (
         <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
-          {label}
+          <Translate>{label}</Translate>
         </Text>
       )}
 
@@ -482,7 +332,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {getDisplayText()}
+            <Translate>{getDisplayText()}</Translate>
           </Text>
         </TouchableOpacity>
 
@@ -521,41 +371,168 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       </View>
 
       {error && (
-        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>
+          <Translate>{error}</Translate>
+        </Text>
       )}
 
       {/* Location Picker Modal */}
       <Modal
         visible={showModal}
         transparent={true}
-        animationType="none"
+        animationType="slide"
         onRequestClose={handleCloseModal}
       >
         <TouchableWithoutFeedback onPress={handleCloseModal}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <Animated.View
+              <View
                 style={[
                   styles.modalContainer,
                   {
-                    transform: [{ translateY: modalSlideAnim }],
                     backgroundColor: isDarkMode
                       ? COLORS.DARK_BG_SECONDARY
                       : "#FFFFFF",
                   },
                 ]}
               >
-                <FlatList
-                  data={recentAddresses}
-                  renderItem={renderRecentItem}
-                  keyExtractor={(item) => item}
-                  ListHeaderComponent={ListHeader}
-                  style={styles.addressList}
-                  contentContainerStyle={styles.listContent}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                />
-              </Animated.View>
+                {/* Fixed Header */}
+                <View style={styles.modalHeaderContainer}>
+                  <LinearGradient
+                    colors={
+                      isDarkMode
+                        ? ["#111827", "#1F2937"]
+                        : ["#FF0099", "#FF6D00"]
+                    }
+                    style={styles.gradientBackground}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  />
+
+                  <View
+                    style={[
+                      styles.modalHeader,
+                      {
+                        borderBottomColor: isDarkMode
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "rgba(0, 0, 0, 0.1)",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.modalTitle, { color: COLORS.WHITE }]}>
+                      <Translate>Enter Address</Translate>
+                    </Text>
+                  </View>
+
+                  {/* Search Input - Fixed outside of FlatList */}
+                  <View
+                    style={[
+                      styles.searchContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(40, 45, 55, 0.65)"
+                          : "rgba(255, 255, 255, 0.8)",
+                        borderColor: isDarkMode
+                          ? "rgba(255, 255, 255, 0.1)"
+                          : "rgba(0, 0, 0, 0.05)",
+                      },
+                    ]}
+                  >
+                    <FontAwesome
+                      name="search"
+                      size={16}
+                      color={
+                        isDarkMode
+                          ? COLORS.DARK_TEXT_SECONDARY
+                          : COLORS.LIGHT_TEXT_SECONDARY
+                      }
+                      style={styles.searchIcon}
+                    />
+                    <TextInput
+                      ref={textInputRef}
+                      style={[styles.searchInput, { color: getTextColor() }]}
+                      placeholder={inputPlaceholder || "Enter your address"}
+                      placeholderTextColor={getPlaceholderColor()}
+                      value={searchText}
+                      onChangeText={handleTextChange}
+                      autoFocus={false}
+                      returnKeyType="search"
+                      onSubmitEditing={() => geocodeAddress(searchText)}
+                    />
+                    {searchText.length > 0 && (
+                      <TouchableOpacity
+                        style={styles.clearButton}
+                        onPress={() => setSearchText("")}
+                      >
+                        <FontAwesome
+                          name="times-circle"
+                          size={16}
+                          color={getPlaceholderColor()}
+                        />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {/* Error Message */}
+                  {geocodingError && (
+                    <View style={styles.errorContainer}>
+                      <Text style={styles.errorMessage}>
+                        <Translate>{geocodingError}</Translate>
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Find Location Button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.confirmButton,
+                      {
+                        backgroundColor: isDarkMode
+                          ? COLORS.SECONDARY
+                          : LIGHT_THEME_ACCENT,
+                        opacity: !searchText.trim() || geocoding ? 0.5 : 1,
+                      },
+                    ]}
+                    onPress={() => geocodeAddress(searchText)}
+                    disabled={!searchText.trim() || geocoding}
+                  >
+                    {geocoding ? (
+                      <ActivityIndicator color="white" size="small" />
+                    ) : (
+                      <Text style={styles.confirmButtonText}>
+                        <Translate>Find Location</Translate>
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Recent Addresses List */}
+                {recentAddresses.length > 0 && (
+                  <View style={styles.recentSection}>
+                    <Text
+                      style={[
+                        styles.recentTitle,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_SECONDARY
+                            : COLORS.LIGHT_TEXT_SECONDARY,
+                        },
+                      ]}
+                    >
+                      <Translate>Recent Addresses</Translate>
+                    </Text>
+
+                    <FlatList
+                      data={recentAddresses}
+                      renderItem={renderRecentItem}
+                      keyExtractor={(item, index) => `${item}-${index}`}
+                      style={styles.addressList}
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="always"
+                    />
+                  </View>
+                )}
+              </View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
@@ -636,6 +613,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     overflow: "hidden",
   },
+  modalHeaderContainer: {
+    backgroundColor: "transparent",
+  },
   gradientBackground: {
     position: "absolute",
     top: 0,
@@ -644,10 +624,6 @@ const styles = StyleSheet.create({
     height: 56,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-  },
-  listHeaderContainer: {
-    width: "100%",
-    position: "relative",
   },
   modalHeader: {
     paddingVertical: SPACING.M,
@@ -679,12 +655,7 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: 4,
-  },
-  addressList: {
-    flex: 1,
-  },
-  listContent: {
-    paddingBottom: 20,
+    marginLeft: SPACING.XS,
   },
   confirmButton: {
     borderRadius: BORDER_RADIUS.M,
@@ -712,16 +683,20 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.REGULAR,
     textAlign: "center",
   },
-  recentContainer: {
-    marginTop: SPACING.S,
-    marginHorizontal: SPACING.M,
-    marginBottom: SPACING.XS,
+  recentSection: {
+    flex: 1,
+    paddingTop: SPACING.S,
   },
   recentTitle: {
     fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.MEDIUM,
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    marginHorizontal: SPACING.M,
+    marginBottom: SPACING.XS,
+  },
+  addressList: {
+    flex: 1,
   },
   recentItem: {
     flexDirection: "row",

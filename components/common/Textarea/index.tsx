@@ -1,6 +1,6 @@
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   StyleSheet,
@@ -11,6 +11,8 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import Translate from "../Translate";
+import { useTranslator } from "@/contexts/TranslatorContext";
 
 interface TextAreaProps extends Omit<TextInputProps, "style"> {
   label?: string;
@@ -41,6 +43,10 @@ const TextArea: React.FC<TextAreaProps> = ({
 }) => {
   const { isDarkMode } = useTheme();
   const [isFocused, setIsFocused] = useState<boolean>(false);
+  const [translattedPlaceholder, setTranslattedPlaceholder] =
+    useState<string>("");
+
+  const { translateText } = useTranslator();
 
   // Animation for error text
   const fadeAnim = useRef(new Animated.Value(error ? 1 : 0)).current;
@@ -84,7 +90,7 @@ const TextArea: React.FC<TextAreaProps> = ({
     isDarkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)";
 
   // Update animation when error state changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -120,11 +126,21 @@ const TextArea: React.FC<TextAreaProps> = ({
   const handleFocus = () => setIsFocused(true);
   const handleBlur = () => setIsFocused(false);
 
+  useEffect(() => {
+    const translatePlaceholder = async () => {
+      if (!placeholder) return;
+      const translatted = await translateText(placeholder);
+      setTranslattedPlaceholder(translatted);
+    };
+
+    translatePlaceholder();
+  }, [placeholder]);
+
   return (
     <View style={[styles.container, containerStyle]}>
       {label && (
         <Text style={[styles.label, { color: getLabelColor() }, labelStyle]}>
-          {label}
+          <Translate>{label}</Translate>
         </Text>
       )}
 
@@ -149,7 +165,7 @@ const TextArea: React.FC<TextAreaProps> = ({
             },
             textAreaStyle,
           ]}
-          placeholder={placeholder}
+          placeholder={translattedPlaceholder}
           placeholderTextColor={getPlaceholderColor()}
           value={value}
           onChangeText={onChangeText}
@@ -202,7 +218,7 @@ const TextArea: React.FC<TextAreaProps> = ({
             },
           ]}
         >
-          {error}
+          <Translate>{error}</Translate>
         </Animated.Text>
       )}
     </View>

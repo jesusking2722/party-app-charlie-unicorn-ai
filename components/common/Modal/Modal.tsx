@@ -17,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import theme from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import Translate from "../Translate";
 
 // Get screen dimensions
 const { width, height } = Dimensions.get("window");
@@ -132,7 +133,7 @@ const PremiumModal: React.FC<PremiumModalProps> = ({
         styles.modalContainer,
         {
           transform: [{ translateY }, { scale }],
-          backgroundColor: withBlur ? "transparent" : cardBg,
+          backgroundColor: cardBg,
           borderColor: borderColor,
         },
         containerStyle,
@@ -153,7 +154,9 @@ const PremiumModal: React.FC<PremiumModalProps> = ({
         end={{ x: 1, y: 0 }}
         style={[styles.headerGradient, headerStyle]}
       >
-        <Text style={[styles.title, { color: textColor }]}>{title}</Text>
+        <Text style={[styles.title, { color: textColor }]}>
+          <Translate>{title}</Translate>
+        </Text>
         {showCloseButton && (
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Text style={[styles.closeText, { color: textColor }]}>✕</Text>

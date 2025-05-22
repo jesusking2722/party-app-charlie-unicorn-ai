@@ -1,9 +1,11 @@
 import {
   Currency,
+  LanguageToggleGroup,
   MembershipRadioGroup,
   PaymentMethodType,
   Spinner,
   SubscriptionPlan,
+  Translate,
 } from "@/components/common";
 import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -390,6 +392,7 @@ const PremiumSubscriptionScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar style="light" />
         <CardPayment
+          type="subscription"
           amount={selectedPlan?.price.toString() || ""}
           formattedAmount={formattedAmount}
           currency={selectedCurrency}
@@ -406,6 +409,7 @@ const PremiumSubscriptionScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar style={isDarkMode ? "light" : "dark"} />
         <CryptoPayment
+          type="subscription"
           amount={selectedPlan?.price.toString() || ""}
           formattedAmount={formattedAmount}
           currency={selectedCurrency}
@@ -432,6 +436,7 @@ const PremiumSubscriptionScreen = () => {
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />
+        <LanguageToggleGroup containerStyle={{ marginRight: SPACING.M }} />
       </View>
 
       <KeyboardAvoidingView
@@ -508,7 +513,7 @@ const PremiumSubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      Upgrade to Premium
+                      <Translate>Upgrade to Premium</Translate>
                     </Text>
                     <Text
                       style={[
@@ -520,7 +525,9 @@ const PremiumSubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      Unlock all features and enhance your experience
+                      <Translate>
+                        Unlock all features and enhance your experience
+                      </Translate>
                     </Text>
 
                     {/* Premium Features */}
@@ -564,7 +571,9 @@ const PremiumSubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Unlimited access to all features
+                          <Translate>
+                            Unlimited access to all features
+                          </Translate>
                         </Text>
                       </View>
 
@@ -595,7 +604,9 @@ const PremiumSubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Create events without KYC verification
+                          <Translate>
+                            Create events without KYC verification
+                          </Translate>
                         </Text>
                       </View>
 
@@ -626,7 +637,7 @@ const PremiumSubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Priority customer support
+                          <Translate>Priority customer support</Translate>
                         </Text>
                       </View>
                     </View>
@@ -643,7 +654,7 @@ const PremiumSubscriptionScreen = () => {
                           },
                         ]}
                       >
-                        Choose your plan
+                        <Translate>Choose your plan</Translate>
                       </Text>
 
                       <MembershipRadioGroup
@@ -668,7 +679,7 @@ const PremiumSubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Membership Setup
+                          <Translate>Membership Setup</Translate>
                         </Text>
                         <Text
                           style={[
@@ -678,7 +689,7 @@ const PremiumSubscriptionScreen = () => {
                             },
                           ]}
                         >
-                          Step 4 of 4
+                          <Translate>Step 4 of 4</Translate>
                         </Text>
                       </View>
 
@@ -744,6 +755,14 @@ const PremiumSubscriptionScreen = () => {
                         }
                         iconPosition="right"
                       />
+
+                      <Button
+                        title="Continue with Free"
+                        variant="ghost"
+                        onPress={() =>
+                          router.push("/onboarding/congratulationsSetup")
+                        }
+                      />
                     </Animated.View>
 
                     {/* Terms Text */}
@@ -757,10 +776,12 @@ const PremiumSubscriptionScreen = () => {
                         },
                       ]}
                     >
-                      By subscribing, you agree to our Terms of Service and
-                      Privacy Policy. Subscriptions automatically renew unless
-                      auto-renew is turned off at least 24 hours before the end
-                      of the current period.
+                      <Translate>
+                        By subscribing, you agree to our Terms of Service and
+                        Privacy Policy. Subscriptions automatically renew unless
+                        auto-renew is turned off at least 24 hours before the
+                        end of the current period.
+                      </Translate>
                     </Text>
                   </View>
                 </LinearGradient>
@@ -951,6 +972,9 @@ const styles = StyleSheet.create({
     top: Platform.OS === "ios" ? 50 : 40,
     right: 20,
     zIndex: 100,
+    display: "flex",
+    flexDirection: "row",
+    gap: 4,
   },
 });
 

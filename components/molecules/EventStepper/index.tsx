@@ -5,6 +5,7 @@ import { Animated, StyleSheet, Text, View } from "react-native";
 
 import { COLORS, EVENT_PREVIEW, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Translate } from "@/components/common";
 
 export type StepItem = {
   icon: string;
@@ -19,7 +20,6 @@ interface EventStepperProps {
 
 const EventStepper: React.FC<EventStepperProps> = ({ steps, activeStep }) => {
   const { isDarkMode } = useTheme();
-  const theme = isDarkMode ? "DARK" : "LIGHT";
 
   // Animation refs for each step
   const stepAnims = useRef(
@@ -37,6 +37,11 @@ const EventStepper: React.FC<EventStepperProps> = ({ steps, activeStep }) => {
   ).current;
 
   useEffect(() => {
+    // Reset animation values when steps or activeStep changes
+    progressLines.forEach((line, index) => {
+      line.setValue(0);
+    });
+
     // Animate steps with staggered timing
     steps.forEach((_, index) => {
       Animated.sequence([
@@ -68,7 +73,7 @@ const EventStepper: React.FC<EventStepperProps> = ({ steps, activeStep }) => {
         }).start();
       }
     });
-  }, []);
+  }, [steps, activeStep]);
 
   return (
     <View style={styles.container}>
@@ -171,7 +176,7 @@ const EventStepper: React.FC<EventStepperProps> = ({ steps, activeStep }) => {
                 },
               ]}
             >
-              {step.label}
+              <Translate>{step.label}</Translate>
             </Text>
           </View>
         ))}

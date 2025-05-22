@@ -17,6 +17,7 @@ import {
 import { BORDER_RADIUS, COLORS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Currency } from "../MembershipRadioGroup";
+import Translate from "../Translate";
 
 // Get screen dimensions
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -103,7 +104,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                       },
                     ]}
                   >
-                    Select Payment Method
+                    <Translate>Select Payment Method</Translate>
                   </Text>
                   <Text
                     style={[
@@ -115,7 +116,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                       },
                     ]}
                   >
-                    {planTitle} Plan • {amount} ({getCurrencyText(currency)})
+                    <Translate>{planTitle}</Translate> • {amount} (
+                    {getCurrencyText(currency)})
                   </Text>
 
                   <View style={styles.methodsContainer}>
@@ -163,7 +165,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             },
                           ]}
                         >
-                          Credit/Debit Card
+                          <Translate>Credit/Debit Card</Translate>
                         </Text>
                         <Text
                           style={[
@@ -175,7 +177,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             },
                           ]}
                         >
-                          Pay with Visa, Mastercard, Google pay or Apple pay
+                          <Translate>
+                            Pay with Visa, Mastercard, Google pay or Apple pay
+                          </Translate>
                         </Text>
                       </View>
                       <FontAwesome
@@ -233,7 +237,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             },
                           ]}
                         >
-                          Cryptocurrency
+                          <Translate>Cryptocurrency</Translate>
                         </Text>
                         <Text
                           style={[
@@ -245,7 +249,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                             },
                           ]}
                         >
-                          Pay with BNB
+                          <Translate>Pay with BNB</Translate>
                         </Text>
                       </View>
                       <FontAwesome
@@ -275,7 +279,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                         },
                       ]}
                     >
-                      Cancel
+                      <Translate>Cancel</Translate>
                     </Text>
                   </TouchableOpacity>
                 </View>

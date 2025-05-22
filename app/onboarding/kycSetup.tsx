@@ -34,7 +34,12 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, ThemeToggle } from "@/components/common";
+import {
+  Button,
+  LanguageToggleGroup,
+  ThemeToggle,
+  Translate,
+} from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import {
@@ -56,6 +61,7 @@ const LIGHT_THEME_ACCENT = "#FF0099";
 enum VerificationStatus {
   NOT_STARTED = "Not Started",
   PENDING = "In Progress",
+  IN_REVIEW = "In Review",
   COMPLETED = "Completed",
   DECLINED = "Declined",
   EXPIRED = "Expired",
@@ -173,10 +179,12 @@ const KYCVerificationScreen = () => {
     }
   }, [user]);
 
-  // Start polling for KYC result when verification is pending
+  // Start polling for KYC result when verification is pending or in review
   useEffect(() => {
     if (
-      (verificationStatus === VerificationStatus.PENDING || isPollingActive) &&
+      (verificationStatus === VerificationStatus.PENDING ||
+        verificationStatus === VerificationStatus.IN_REVIEW ||
+        isPollingActive) &&
       !pollingIntervalRef.current
     ) {
       startKycPolling();
@@ -271,6 +279,10 @@ const KYCVerificationScreen = () => {
         setVerificationStatus(VerificationStatus.PENDING);
         setIsPollingActive(true);
         break;
+      case "in review":
+        setVerificationStatus(VerificationStatus.IN_REVIEW);
+        setIsPollingActive(true);
+        break;
       case "completed":
         setVerificationStatus(VerificationStatus.COMPLETED);
         setRedirectCountdown(180); // 3 minutes in seconds
@@ -313,6 +325,7 @@ const KYCVerificationScreen = () => {
     pollingIntervalRef.current = setInterval(() => {
       if (
         verificationStatus === VerificationStatus.PENDING ||
+        verificationStatus === VerificationStatus.IN_REVIEW ||
         isPollingActive
       ) {
         fetchKycResult();
@@ -559,7 +572,7 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Identity Verification
+              <Translate>Identity Verification</Translate>
             </Text>
             <Text
               style={[
@@ -571,7 +584,9 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              We need to verify your identity to comply with regulations
+              <Translate>
+                We need to verify your identity to comply with regulations
+              </Translate>
             </Text>
 
             <View style={styles.infoContainer}>
@@ -597,7 +612,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Have your ID card or passport ready
+                  <Translate>Have your ID card or passport ready</Translate>
                 </Text>
               </View>
 
@@ -623,7 +638,9 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Find a well-lit area for video verification
+                  <Translate>
+                    Find a well-lit area for video verification
+                  </Translate>
                 </Text>
               </View>
 
@@ -649,7 +666,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  The process takes about 2-3 minutes
+                  <Translate>The process takes about 2-3 minutes</Translate>
                 </Text>
               </View>
             </View>
@@ -667,7 +684,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Verification Process
+                  <Translate>Verification Process</Translate>
                 </Text>
                 <Text
                   style={[
@@ -677,7 +694,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Step 3 of 4
+                  <Translate>Step 3 of 4</Translate>
                 </Text>
               </View>
 
@@ -753,7 +770,7 @@ const KYCVerificationScreen = () => {
                   },
                 ]}
               >
-                Skip for now
+                <Translate>Skip for now</Translate>
               </Text>
             </TouchableOpacity>
           </>
@@ -781,7 +798,7 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Verification in Progress
+              <Translate>Verification in Progress</Translate>
             </Text>
             <Text
               style={[
@@ -793,7 +810,9 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              We're checking your identity. This may take a few minutes.
+              <Translate>
+                We're checking your identity. This may take a few minutes.
+              </Translate>
             </Text>
 
             <View style={styles.pendingContainer}>
@@ -812,7 +831,9 @@ const KYCVerificationScreen = () => {
                   },
                 ]}
               >
-                Please wait while we process your verification...
+                <Translate>
+                  Please wait while we process your verification...
+                </Translate>
               </Text>
               <Text
                 style={[
@@ -824,7 +845,7 @@ const KYCVerificationScreen = () => {
                   },
                 ]}
               >
-                Didn't you get verification session?
+                <Translate>Didn't you get verification session?</Translate>
               </Text>
               <View style={{ width: "100%", marginTop: 10 }}>
                 <Button
@@ -849,7 +870,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Verification Process
+                  <Translate>Verification Process</Translate>
                 </Text>
                 <Text
                   style={[
@@ -859,7 +880,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Step 3 of 4
+                  <Translate>Step 3 of 4</Translate>
                 </Text>
               </View>
 
@@ -892,6 +913,195 @@ const KYCVerificationScreen = () => {
                 </View>
               </View>
             </View>
+          </>
+        );
+
+      case VerificationStatus.IN_REVIEW:
+        return (
+          <>
+            <View style={styles.animationContainer}>
+              <VerificationAnimation
+                type={AnimationType.PENDING}
+                loop={true}
+                speed={0.8}
+                style={styles.animation}
+              />
+            </View>
+
+            <Text
+              style={[
+                styles.welcomeText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_PRIMARY
+                    : COLORS.LIGHT_TEXT_PRIMARY,
+                },
+              ]}
+            >
+              <Translate>Identity Under Review</Translate>
+            </Text>
+            <Text
+              style={[
+                styles.subtitleText,
+                {
+                  color: isDarkMode
+                    ? COLORS.DARK_TEXT_SECONDARY
+                    : COLORS.LIGHT_TEXT_SECONDARY,
+                },
+              ]}
+            >
+              <Translate>Your identity verification is in review now</Translate>
+            </Text>
+
+            <View style={styles.infoContainer}>
+              <View style={styles.infoItem}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome5
+                    name="search"
+                    size={16}
+                    color={getAccentColor()}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  <Translate>
+                    Our team is reviewing your submitted documents
+                  </Translate>
+                </Text>
+              </View>
+
+              <View style={styles.infoItem}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome5
+                    name="clock"
+                    size={16}
+                    color={getAccentColor()}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  <Translate>
+                    Review process typically takes 24-48 hours
+                  </Translate>
+                </Text>
+              </View>
+
+              <View style={styles.infoItem}>
+                <View style={styles.iconContainer}>
+                  <FontAwesome5
+                    name="bell"
+                    size={16}
+                    color={getAccentColor()}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.infoText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_PRIMARY
+                        : COLORS.LIGHT_TEXT_PRIMARY,
+                    },
+                  ]}
+                >
+                  <Translate>
+                    You'll be notified once the review is complete
+                  </Translate>
+                </Text>
+              </View>
+            </View>
+
+            {/* Progress Indicator */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressHeader}>
+                <Text
+                  style={[
+                    styles.progressText,
+                    {
+                      color: isDarkMode
+                        ? COLORS.DARK_TEXT_SECONDARY
+                        : COLORS.LIGHT_TEXT_SECONDARY,
+                    },
+                  ]}
+                >
+                  <Translate>Verification Process</Translate>
+                </Text>
+                <Text
+                  style={[
+                    styles.progressStep,
+                    {
+                      color: getAccentColor(),
+                    },
+                  ]}
+                >
+                  <Translate>Step 3 of 4</Translate>
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.progressBarContainer,
+                  {
+                    backgroundColor: isDarkMode
+                      ? "rgba(255, 255, 255, 0.1)"
+                      : "rgba(0, 0, 0, 0.05)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.progressFill,
+                    {
+                      width: "75%", // 3 of 4 steps
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={
+                      isDarkMode ? GRADIENTS.PRIMARY : ["#FF0099", "#FF6D00"]
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.progressGradient}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Skip Button */}
+            <TouchableOpacity
+              style={styles.skipButton}
+              onPress={skipVerification}
+            >
+              <Text
+                style={[
+                  styles.skipButtonText,
+                  {
+                    color: isDarkMode
+                      ? "rgba(255, 255, 255, 0.6)"
+                      : "rgba(0, 0, 0, 0.5)",
+                  },
+                ]}
+              >
+                <Translate>Skip for now</Translate>
+              </Text>
+            </TouchableOpacity>
           </>
         );
 
@@ -928,7 +1138,7 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Congratulations!
+              <Translate>Congratulations!</Translate>
             </Text>
             <Text
               style={[
@@ -940,7 +1150,9 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Your identity has been successfully verified
+              <Translate>
+                Your identity has been successfully verified
+              </Translate>
             </Text>
 
             <Text
@@ -953,8 +1165,10 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              You're now ready to access all features of our platform. Thank you
-              for your patience.
+              <Translate>
+                You're now ready to access all features of our platform. Thank
+                you for your patience.
+              </Translate>
             </Text>
 
             {redirectCountdown > 0 && (
@@ -969,7 +1183,9 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  You'll be redirected in {formatTime(redirectCountdown)}
+                  <Translate>
+                    {`You'll be redirected in ${formatTime(redirectCountdown)}`}
+                  </Translate>
                 </Text>
               </View>
             )}
@@ -987,7 +1203,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Verification Process
+                  <Translate>Verification Process</Translate>
                 </Text>
                 <Text
                   style={[
@@ -997,7 +1213,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Step 3 of 4
+                  <Translate>Step 3 of 4</Translate>
                 </Text>
               </View>
 
@@ -1080,7 +1296,7 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Verification Declined
+              <Translate>Verification Declined</Translate>
             </Text>
             <Text
               style={[
@@ -1092,7 +1308,9 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Unfortunately, your verification was declined
+              <Translate>
+                Unfortunately, your verification was declined
+              </Translate>
             </Text>
 
             <View style={styles.infoContainer}>
@@ -1123,7 +1341,9 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  There was a problem with your verification documents
+                  <Translate>
+                    There was a problem with your verification documents
+                  </Translate>
                 </Text>
               </View>
 
@@ -1154,7 +1374,9 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Contact support team for more detailed information
+                  <Translate>
+                    Contact support team for more detailed information
+                  </Translate>
                 </Text>
               </View>
 
@@ -1181,7 +1403,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Verification Process
+                  <Translate>Verification Process</Translate>
                 </Text>
                 <Text
                   style={[
@@ -1191,7 +1413,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Step 3 of 4
+                  <Translate>Step 3 of 4</Translate>
                 </Text>
               </View>
 
@@ -1239,7 +1461,7 @@ const KYCVerificationScreen = () => {
                   },
                 ]}
               >
-                Skip for now
+                <Translate>Skip for now</Translate>
               </Text>
             </TouchableOpacity>
           </>
@@ -1268,10 +1490,14 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Verification{" "}
-              {verificationStatus === VerificationStatus.EXPIRED
-                ? "Expired"
-                : "Abandoned"}
+              <Translate>
+                {`Verification 
+                ${
+                  verificationStatus === VerificationStatus.EXPIRED
+                    ? "Expired"
+                    : "Abandoned"
+                }`}
+              </Translate>
             </Text>
             <Text
               style={[
@@ -1283,10 +1509,12 @@ const KYCVerificationScreen = () => {
                 },
               ]}
             >
-              Your verification session has{" "}
-              {verificationStatus === VerificationStatus.EXPIRED
-                ? "expired"
-                : "been abandoned"}
+              <Translate>{`Your verification session has 
+              ${
+                verificationStatus === VerificationStatus.EXPIRED
+                  ? "expired"
+                  : "been abandoned"
+              }`}</Translate>
             </Text>
 
             <View style={styles.infoContainer}>
@@ -1312,9 +1540,11 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  {verificationStatus === VerificationStatus.EXPIRED
-                    ? "Your verification session has timed out"
-                    : "Your verification was not completed"}
+                  <Translate>
+                    {verificationStatus === VerificationStatus.EXPIRED
+                      ? "Your verification session has timed out"
+                      : "Your verification was not completed"}
+                  </Translate>
                 </Text>
               </View>
 
@@ -1340,7 +1570,9 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Please start the verification process again
+                  <Translate>
+                    Please start the verification process again
+                  </Translate>
                 </Text>
               </View>
             </View>
@@ -1358,7 +1590,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Verification Process
+                  <Translate>Verification Process</Translate>
                 </Text>
                 <Text
                   style={[
@@ -1368,7 +1600,7 @@ const KYCVerificationScreen = () => {
                     },
                   ]}
                 >
-                  Step 3 of 4
+                  <Translate>Step 3 of 4</Translate>
                 </Text>
               </View>
 
@@ -1444,7 +1676,7 @@ const KYCVerificationScreen = () => {
                   },
                 ]}
               >
-                Skip for now
+                <Translate>Skip for now</Translate>
               </Text>
             </TouchableOpacity>
           </>
@@ -1467,6 +1699,7 @@ const KYCVerificationScreen = () => {
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />
+        <LanguageToggleGroup containerStyle={{ marginRight: SPACING.M }} />
       </View>
 
       <KeyboardAvoidingView
@@ -1603,7 +1836,7 @@ const KYCVerificationScreen = () => {
                       },
                     ]}
                   >
-                    Complete Verification
+                    <Translate>Complete Verification</Translate>
                   </Text>
                   <Text
                     style={[
@@ -1615,8 +1848,10 @@ const KYCVerificationScreen = () => {
                       },
                     ]}
                   >
-                    You'll be redirected to our verification partner to complete
-                    your identity verification.
+                    <Translate>
+                      You'll be redirected to our verification partner to
+                      complete your identity verification.
+                    </Translate>
                   </Text>
 
                   <Button
@@ -1640,7 +1875,7 @@ const KYCVerificationScreen = () => {
                         },
                       ]}
                     >
-                      Cancel
+                      <Translate>Cancel</Translate>
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1807,6 +2042,9 @@ const styles = StyleSheet.create({
     top: Platform.OS === "ios" ? 50 : 40,
     right: 20,
     zIndex: 100,
+    display: "flex",
+    flexDirection: "row",
+    gap: 4,
   },
   animationContainer: {
     width: "100%",

@@ -1,6 +1,14 @@
-import { ApiResponse, AuthResponse, UserResponse } from "@/types/api";
+import {
+  ApiResponse,
+  AuthResponse,
+  PaymentVerifyResponse,
+  UserResponse,
+} from "@/types/api";
 import { User } from "@/types/data";
 import {
+  AUTH_REQUEST_RESET_PASSWORD,
+  AUTH_RESET_PASSWORD,
+  AUTH_VERIFY_RESET_CODE,
   EMAIL_VERIFY,
   EMAIL_VERIFY_RESEND,
   FETCH_AUTH_USER_BY_ID,
@@ -8,6 +16,7 @@ import {
   REGISTER_BY_EMAIL,
   START_AUTH_USER_KYC_VERIFICATION,
   UPDATE_AUTH_USER,
+  UPDATE_MY_CARD,
 } from "../apis";
 import axiosInstance from "../axiosInstance";
 
@@ -67,4 +76,33 @@ export const startAuthUserKyc = async (
   user: User
 ): Promise<ApiResponse<UserResponse>> => {
   return await axiosInstance.post(START_AUTH_USER_KYC_VERIFICATION, { user });
+};
+
+// Card verification
+export const updateMyCard = async ({
+  user,
+}: {
+  user: User;
+}): Promise<ApiResponse<PaymentVerifyResponse>> => {
+  return await axiosInstance.patch(UPDATE_MY_CARD, { user });
+};
+
+export const resetPasswordRequest = async (
+  email: string
+): Promise<ApiResponse<boolean>> => {
+  return await axiosInstance.post(AUTH_REQUEST_RESET_PASSWORD, { email });
+};
+
+export const verifyResetCode = async (
+  email: string,
+  code: string
+): Promise<ApiResponse<boolean>> => {
+  return await axiosInstance.post(AUTH_VERIFY_RESET_CODE, { email, code });
+};
+
+export const resetPassword = async (
+  email: string,
+  password: string
+): Promise<ApiResponse<boolean>> => {
+  return await axiosInstance.post(AUTH_RESET_PASSWORD, { email, password });
 };

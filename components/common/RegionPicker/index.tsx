@@ -15,6 +15,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import Translate from "../Translate";
 
 // Custom light theme secondary color - to match Input
 const LIGHT_THEME_ACCENT = "#FF0099";
@@ -161,7 +162,7 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
 
   // Format display text
   const getSelectedRegionName = () => {
-    if (!value) return placeholder;
+    if (!value) return <Translate>{placeholder}</Translate>;
     return value.name;
   };
 
@@ -243,7 +244,7 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
           },
         ]}
       >
-        No regions available for this country
+        <Translate>No regions available for this country</Translate>
       </Text>
     </View>
   );
@@ -259,7 +260,7 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
     <View style={[styles.inputContainer, containerStyle]}>
       {label && (
         <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
-          {label}
+          <Translate>{label}</Translate>
         </Text>
       )}
 
@@ -313,7 +314,11 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
             numberOfLines={1}
             ellipsizeMode="tail"
           >
-            {!countryCode ? "Select a country first" : getSelectedRegionName()}
+            {!countryCode ? (
+              <Translate>Select a country first</Translate>
+            ) : (
+              getSelectedRegionName()
+            )}
           </Text>
         </TouchableOpacity>
 
@@ -352,7 +357,9 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
       </View>
 
       {error && (
-        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>
+          <Translate>{error}</Translate>
+        </Text>
       )}
 
       {/* Region Picker Modal */}
@@ -396,7 +403,9 @@ const RegionPicker: React.FC<RegionPickerProps> = ({
                         },
                       ]}
                     >
-                      No regions found matching your search
+                      <Translate>
+                        No regions found matching your search
+                      </Translate>
                     </Text>
                   </View>
                 }

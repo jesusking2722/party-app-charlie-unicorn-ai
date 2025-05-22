@@ -1,7 +1,7 @@
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { FontAwesome } from "@expo/vector-icons";
-import React, { useState } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import {
   StyleSheet,
   Text,
@@ -11,6 +11,9 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import Translate from "../Translate";
+import { useTranslator } from "@/contexts/TranslatorContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface InputProps extends Omit<TextInputProps, "style"> {
   label?: string;
@@ -36,6 +39,11 @@ const Input: React.FC<InputProps> = ({
   const { isDarkMode } = useTheme();
   const [isVisible, setIsVisible] = useState<boolean>(false);
   const [isFocused, setIsFocused] = useState<boolean>(false);
+  const [translattedPlaceholder, setTranslattedPlaceholder] =
+    useState<string>("");
+
+  const { translateText } = useTranslator();
+  const { language } = useLanguage();
 
   const toggleVisibility = (): void => {
     setIsVisible(!isVisible);
@@ -73,11 +81,21 @@ const Input: React.FC<InputProps> = ({
   const handleFocus = () => setIsFocused(true);
   const handleBlur = () => setIsFocused(false);
 
+  useEffect(() => {
+    const translatePlaceholder = async () => {
+      if (!placeholder) return;
+      const translatted = await translateText(placeholder);
+      setTranslattedPlaceholder(translatted);
+    };
+
+    translatePlaceholder();
+  }, [placeholder, language]);
+
   return (
     <View style={[styles.inputContainer, containerStyle]}>
       {label && (
         <Text style={[styles.inputLabel, { color: getLabelColor() }]}>
-          {label}
+          <Translate>{label}</Translate>
         </Text>
       )}
 
@@ -96,7 +114,7 @@ const Input: React.FC<InputProps> = ({
 
         <TextInput
           style={[styles.input, { color: getTextColor() }]}
-          placeholder={placeholder}
+          placeholder={translattedPlaceholder}
           placeholderTextColor={getPlaceholderColor()}
           value={value}
           onChangeText={onChangeText}
@@ -141,7 +159,9 @@ const Input: React.FC<InputProps> = ({
       </View>
 
       {error && (
-        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>{error}</Text>
+        <Text style={[styles.errorText, { color: COLORS.ERROR }]}>
+          <Translate>{error}</Translate>
+        </Text>
       )}
     </View>
   );

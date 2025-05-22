@@ -1,4 +1,6 @@
 import { FONTS, THEME } from "@/app/theme";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { useTranslator } from "@/contexts/TranslatorContext";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -12,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import CountryFlag from "react-native-country-flag";
 
 // Flag images - update with your actual flag paths
 const FLAGS = {
@@ -22,31 +25,30 @@ const FLAGS = {
   FR: require("@/assets/images/flags/fr.png"),
 };
 
-// Language options
-const languageOptions = [
-  { code: "EN", name: "English" },
-  { code: "PL", name: "Polski" },
-  { code: "DE", name: "Deutsch" },
-  { code: "ES", name: "Español" },
-  { code: "FR", name: "Français" },
-];
-
 interface LanguageDropdownProps {
-  currentLanguage: string;
-  onLanguageChange: (language: string) => void;
+  currentLanguage?: string;
+  onLanguageChange?: (language: string) => void;
   isDarkMode?: boolean; // Added isDarkMode prop
 }
 
 const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
-  currentLanguage = "EN",
-  onLanguageChange,
-  isDarkMode = false, // Default to light mode
+  isDarkMode = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownAnim = useRef(new Animated.Value(0)).current;
   const dropdownOpacity = useRef(new Animated.Value(0)).current;
   const screenWidth = Dimensions.get("window").width;
   const theme = isDarkMode ? THEME.DARK : THEME.LIGHT;
+
+  const { availableLanguages, setLanguage, language } = useLanguage();
+  const { setLanguage: setTranslatorLanguage } = useTranslator();
+
+  const languageOptions = Object.entries(availableLanguages).map(
+    ([code, name]) => ({
+      code: code.toUpperCase(),
+      name,
+    })
+  );
 
   // Animation for dropdown
   useEffect(() => {
@@ -86,8 +88,8 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
 
   // Select language
   const selectLanguage = (code: string) => {
-    onLanguageChange(code);
-    setIsOpen(false);
+    setLanguage(code.toLowerCase());
+    setTranslatorLanguage(code.toLowerCase());
   };
 
   // Calculate dropdown position - ensure it doesn't go off screen
@@ -114,7 +116,7 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
         >
           <View style={[styles.button, { backgroundColor: theme.BUTTON_BG }]}>
             <Image
-              source={FLAGS[currentLanguage as keyof typeof FLAGS]}
+              source={FLAGS[language as keyof typeof FLAGS]}
               style={styles.flagIcon}
               resizeMode="cover"
             />
@@ -157,23 +159,25 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
                     style={[
                       styles.languageOption,
                       { borderBottomColor: theme.BORDER_COLOR },
-                      currentLanguage === lang.code && [
+                      language === lang.code.toLowerCase() && [
                         styles.selectedLanguage,
                         { backgroundColor: theme.BUTTON_BG },
                       ],
                     ]}
                     onPress={() => selectLanguage(lang.code)}
                   >
-                    <Image
-                      source={FLAGS[lang.code as keyof typeof FLAGS]}
-                      style={styles.dropdownFlag}
-                    />
+                    <View style={styles.flagIcon}>
+                      <CountryFlag
+                        isoCode={lang.code.toLowerCase()}
+                        size={24}
+                      />
+                    </View>
                     <Text
                       style={[styles.languageName, { color: theme.TEXT_COLOR }]}
                     >
                       {lang.name}
                     </Text>
-                    {currentLanguage === lang.code && (
+                    {language === lang.code.toLowerCase() && (
                       <Feather
                         name="check"
                         size={14}

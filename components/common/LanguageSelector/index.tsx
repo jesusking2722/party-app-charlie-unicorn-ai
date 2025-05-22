@@ -1,8 +1,9 @@
 import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useTranslator } from "@/contexts/TranslatorContext";
 import React from "react";
 import {
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,15 +11,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-
-// Flag images - update with your actual flag paths
-const FLAGS = {
-  EN: require("@/assets/images/flags/en.png"),
-  PL: require("@/assets/images/flags/pl.png"),
-  DE: require("@/assets/images/flags/de.png"),
-  ES: require("@/assets/images/flags/es.png"),
-  FR: require("@/assets/images/flags/fr.png"),
-};
+import CountryFlag from "react-native-country-flag";
 
 // Custom light theme accent color
 const LIGHT_THEME_ACCENT = "#FF0099";
@@ -31,12 +24,17 @@ interface LanguageSelectorProps {
 }
 
 const LanguageSelector: React.FC<LanguageSelectorProps> = ({
-  currentLanguage = "EN",
-  onLanguageChange,
   containerStyle,
   hideLabel = false,
 }) => {
   const { isDarkMode } = useTheme();
+
+  const {
+    availableLanguages,
+    language: translateLanguage,
+    setLanguage,
+  } = useLanguage();
+  const { setLanguage: setTranslatorLanguage } = useTranslator();
 
   // Helper function to get accent color based on theme
   const getAccentColor = () =>
@@ -46,23 +44,21 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const getTextColor = () =>
     isDarkMode ? COLORS.DARK_TEXT_PRIMARY : COLORS.LIGHT_TEXT_PRIMARY;
 
-  // Helper function to get secondary text color based on theme
-  const getSecondaryTextColor = () =>
-    isDarkMode ? COLORS.DARK_TEXT_SECONDARY : COLORS.LIGHT_TEXT_SECONDARY;
-
   // Language options
-  const languageOptions = [
-    { code: "EN", name: "English" },
-    { code: "PL", name: "Polski" },
-    { code: "DE", name: "Deutsch" },
-    { code: "ES", name: "Español" },
-    { code: "FR", name: "Français" },
-  ];
+  const languageOptions = Object.entries(availableLanguages).map(
+    ([code, name]) => ({
+      code: code.toUpperCase(),
+      name,
+    })
+  );
 
   const handleLanguageSelect = (languageCode: string) => {
-    if (onLanguageChange) {
-      onLanguageChange(languageCode);
-    }
+    // if (onLanguageChange) {
+    //   onLanguageChange(languageCode);
+    // }
+
+    setLanguage(languageCode.toLowerCase());
+    setTranslatorLanguage(languageCode.toLowerCase());
   };
 
   return (
@@ -85,7 +81,7 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
               styles.languageItem,
               {
                 backgroundColor:
-                  currentLanguage === language.code
+                  translateLanguage === language.code.toLowerCase()
                     ? isDarkMode
                       ? "rgba(127, 0, 255, 0.2)"
                       : "rgba(255, 0, 153, 0.1)"
@@ -93,7 +89,7 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
                     ? "rgba(31, 41, 55, 0.7)"
                     : "rgba(240, 240, 240, 0.9)",
                 borderColor:
-                  currentLanguage === language.code
+                  translateLanguage === language.code.toLowerCase()
                     ? getAccentColor()
                     : isDarkMode
                     ? "rgba(55, 65, 81, 0.5)"
@@ -103,21 +99,25 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
             onPress={() => handleLanguageSelect(language.code)}
             activeOpacity={0.7}
           >
-            <Image
-              source={FLAGS[language.code as keyof typeof FLAGS]}
+            <CountryFlag
+              isoCode={
+                language.code.toLowerCase() === "en"
+                  ? "us"
+                  : language.code.toLowerCase()
+              }
+              size={34}
               style={styles.flagImage}
-              resizeMode="cover"
             />
             <Text
               style={[
                 styles.languageCode,
                 {
                   color:
-                    currentLanguage === language.code
+                    translateLanguage === language.code.toLowerCase()
                       ? getAccentColor()
                       : getTextColor(),
                   fontFamily:
-                    currentLanguage === language.code
+                    translateLanguage === language.code.toLowerCase()
                       ? FONTS.BOLD
                       : FONTS.MEDIUM,
                 },

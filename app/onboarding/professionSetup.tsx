@@ -27,7 +27,14 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, Input, Textarea, ThemeToggle } from "@/components/common";
+import {
+  Button,
+  Input,
+  LanguageToggleGroup,
+  Textarea,
+  ThemeToggle,
+  Translate,
+} from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { updateAuthUser } from "@/lib/scripts/auth.scripts";
@@ -291,6 +298,7 @@ const ProfessionalSetupScreen = () => {
       {/* Theme toggle button */}
       <View style={styles.themeToggle}>
         <ThemeToggle />
+        <LanguageToggleGroup containerStyle={{ marginRight: SPACING.M }} />
       </View>
 
       {/* Back button */}
@@ -387,7 +395,7 @@ const ProfessionalSetupScreen = () => {
                         },
                       ]}
                     >
-                      Professional Profile
+                      <Translate>Professional Profile</Translate>
                     </Text>
                     <Text
                       style={[
@@ -399,7 +407,7 @@ const ProfessionalSetupScreen = () => {
                         },
                       ]}
                     >
-                      Tell us about your expertise
+                      <Translate>Tell us about your expertise</Translate>
                     </Text>
 
                     {/* Form Inputs */}
@@ -458,7 +466,7 @@ const ProfessionalSetupScreen = () => {
                               },
                             ]}
                           >
-                            Professional Profile
+                            <Translate>Professional Profile</Translate>
                           </Text>
                           <Text
                             style={[
@@ -468,7 +476,7 @@ const ProfessionalSetupScreen = () => {
                               },
                             ]}
                           >
-                            Step 2 of 4
+                            <Translate>Step 2 of 4</Translate>
                           </Text>
                         </View>
 
@@ -666,6 +674,9 @@ const styles = StyleSheet.create({
     top: Platform.OS === "ios" ? 50 : 40,
     right: 20,
     zIndex: 100,
+    display: "flex",
+    flexDirection: "row",
+    gap: 4,
   },
   backButton: {
     position: "absolute",

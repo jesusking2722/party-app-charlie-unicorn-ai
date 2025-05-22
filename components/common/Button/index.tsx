@@ -19,6 +19,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import Translate from "../Translate";
 
 // Simplified button variants
 type ButtonVariant = "primary" | "secondary" | "outline" | "ghost";
@@ -156,7 +157,7 @@ const Button: React.FC<ButtonProps> = ({
             textStyle,
           ]}
         >
-          {title}
+          {title && <Translate>{title}</Translate>}
         </Text>
         {icon && iconPosition === "right" && (
           <View style={styles.iconRightContainer}>{icon}</View>

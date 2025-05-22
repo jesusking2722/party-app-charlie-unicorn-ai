@@ -22,6 +22,7 @@ import {
   SPACING,
 } from "@/app/theme";
 import fetchUsdRates from "@/utils/currency";
+import Translate from "../Translate";
 
 // Types for our subscription plan
 export interface SubscriptionPlan {
@@ -346,7 +347,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
             },
           ]}
         >
-          Currency:
+          <Translate>Currency:</Translate>
         </Text>
         <TouchableOpacity
           style={[
@@ -372,7 +373,8 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
               },
             ]}
           >
-            {selectedCurrency} {isLoadingRates && "(Loading...)"}
+            <Translate>{selectedCurrency}</Translate>{" "}
+            {isLoadingRates && <Translate>(Loading...)</Translate>}
           </Text>
           <FontAwesome5
             name="exchange-alt"
@@ -538,7 +540,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                     titleStyle,
                   ]}
                 >
-                  {plan.title}
+                  <Translate>{plan.title}</Translate>
                 </Text>
 
                 {/* Inline "Current" indicator for better visibility */}
@@ -561,7 +563,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                         },
                       ]}
                     >
-                      Current
+                      <Translate>Current</Translate>
                     </Text>
                   </View>
                 )}
@@ -585,7 +587,11 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                       !plan.isFree && isSelectable && styles.clickablePrice,
                     ]}
                   >
-                    {plan.isFree ? plan.priceLabel : getPriceLabel(plan)}
+                    {plan.isFree ? (
+                      <Translate>{plan.priceLabel}</Translate>
+                    ) : (
+                      <Translate>{getPriceLabel(plan)}</Translate>
+                    )}
                   </Text>
                 </TouchableOpacity>
 
@@ -610,7 +616,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                         },
                       ]}
                     >
-                      Save {savingsPercentage}%
+                      <Translate>Save</Translate> {savingsPercentage}%
                     </Text>
                   </View>
                 )}
@@ -651,7 +657,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                             },
                           ]}
                         >
-                          {limitation}
+                          <Translate>{limitation}</Translate>
                         </Text>
                       </View>
                     ))}
@@ -681,7 +687,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                           },
                         ]}
                       >
-                        {feature}
+                        <Translate>{feature}</Translate>
                       </Text>
                     </View>
                   ))}
@@ -706,7 +712,9 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                     color="white"
                     style={styles.badgeIcon}
                   />
-                  <Text style={styles.popularText}>Popular</Text>
+                  <Text style={styles.popularText}>
+                    <Translate>Popular</Translate>
+                  </Text>
                 </LinearGradient>
               </View>
             )}
@@ -734,7 +742,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                       },
                     ]}
                   >
-                    Basic
+                    <Translate>Basic</Translate>
                   </Text>
                 </View>
               </View>
@@ -770,7 +778,7 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                       },
                     ]}
                   >
-                    Current Plan
+                    <Translate>Current Plan</Translate>
                   </Text>
                 </View>
               </View>

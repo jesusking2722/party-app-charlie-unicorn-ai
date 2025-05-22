@@ -1,5 +1,5 @@
 import { FONTS } from "@/app/theme";
-import { Button, Spinner } from "@/components/common";
+import { Button, Spinner, Translate } from "@/components/common";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -46,6 +46,8 @@ import {
   useStripe,
 } from "@stripe/stripe-react-native";
 import { useSelector } from "react-redux";
+import { CardTransaction, User } from "@/types/data";
+import { saveCardTransaction } from "@/lib/scripts/card.transaction.scripts";
 
 const PaymentHeaderImage = require("@/assets/images/card-payment.png");
 const { width, height } = Dimensions.get("window");
@@ -53,6 +55,7 @@ const { width, height } = Dimensions.get("window");
 const LIGHT_THEME_ACCENT = "#FF0099";
 
 interface CardPaymentProps {
+  type: "subscription" | "ticket";
   amount: string;
   formattedAmount: string;
   currency: Currency;
@@ -62,6 +65,7 @@ interface CardPaymentProps {
 }
 
 const CardPayment: React.FC<CardPaymentProps> = ({
+  type,
   formattedAmount,
   currency,
   planTitle,
@@ -332,9 +336,34 @@ const CardPayment: React.FC<CardPaymentProps> = ({
     });
   };
 
+  const saveTransaction = async (
+    amount: number,
+    curr: string,
+    updatedUser: User
+  ): Promise<boolean> => {
+    try {
+      const transaction: CardTransaction = {
+        amount,
+        type: type === "subscription" ? "subscription" : "buy",
+        user: updatedUser,
+        createdAt: new Date(),
+        currency: curr,
+        status: "completed",
+      };
+      const txResponse = await saveCardTransaction(transaction);
+
+      return txResponse.ok;
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
+  };
+
   // Handle credit card payment
   const handlePayment = async () => {
     try {
+      if (!user || !type) return;
+
       setCardLoading(true);
       await initializePaymentSheet();
 
@@ -344,7 +373,15 @@ const CardPayment: React.FC<CardPaymentProps> = ({
         showToast(error.message, "error");
         onPaymentComplete(false);
       } else {
-        onPaymentComplete(true);
+        const amount = extractNumericPrice(formattedAmount);
+
+        const result = await saveTransaction(
+          amount,
+          currency.toLowerCase(),
+          user
+        );
+
+        onPaymentComplete(result);
       }
     } catch (error) {
       console.error("Payment error:", error);
@@ -356,7 +393,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
   // Handle Google Pay payment
   const handleGooglePay = async () => {
     const amount = extractNumericPrice(formattedAmount);
-    if (amount === 0 || !currency || !user) return;
+    if (amount === 0 || !currency || !user || !type) return;
 
     try {
       setGooglePayLoading(true);
@@ -394,7 +431,13 @@ const CardPayment: React.FC<CardPaymentProps> = ({
         return;
       }
 
-      onPaymentComplete(true);
+      const result = await saveTransaction(
+        amount,
+        currency.toLowerCase(),
+        user
+      );
+
+      onPaymentComplete(result);
     } catch (error) {
       console.error("Google Pay error:", error);
     } finally {
@@ -405,7 +448,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
   // Handle Apple Pay payment
   const handleApplePay = async () => {
     const amount = extractNumericPrice(formattedAmount);
-    if (amount === 0 || !currency || !user) return;
+    if (amount === 0 || !currency || !user || !type) return;
 
     try {
       setApplePayLoading(true);
@@ -446,10 +489,17 @@ const CardPayment: React.FC<CardPaymentProps> = ({
         return;
       }
 
-      onPaymentComplete(true);
+      const result = await saveTransaction(
+        amount,
+        currency.toLowerCase(),
+        user
+      );
+
+      onPaymentComplete(result);
     } catch (error) {
       console.error("Apple Pay error:", error);
     } finally {
+      setApplePayLoading(false);
     }
   };
 
@@ -534,7 +584,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                         },
                       ]}
                     >
-                      Payment Details
+                      <Translate>Payment Details</Translate>
                     </Text>
                     <Text
                       style={[
@@ -546,7 +596,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                         },
                       ]}
                     >
-                      {planTitle} • {formattedAmount} (
+                      <Translate>{planTitle}</Translate> • {formattedAmount} (
                       {getCurrencyText(currency)})
                     </Text>
 
@@ -563,7 +613,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          Express Checkout
+                          <Translate>Express Checkout</Translate>
                         </Text>
                       </View>
 
@@ -596,7 +646,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          Why use digital wallets?
+                          <Translate>Why use digital wallets?</Translate>
                         </Text>
 
                         <View style={styles.walletInfoItem}>
@@ -616,7 +666,9 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                               },
                             ]}
                           >
-                            Faster checkout without manual card entry
+                            <Translate>
+                              Faster checkout without manual card entry
+                            </Translate>
                           </Text>
                         </View>
 
@@ -637,7 +689,9 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                               },
                             ]}
                           >
-                            Enhanced security with tokenization technology
+                            <Translate>
+                              Enhanced security with tokenization technology
+                            </Translate>
                           </Text>
                         </View>
 
@@ -658,7 +712,9 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                               },
                             ]}
                           >
-                            Secure authentication with biometrics
+                            <Translate>
+                              Secure authentication with biometrics
+                            </Translate>
                           </Text>
                         </View>
 
@@ -679,49 +735,51 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                               },
                             ]}
                           >
-                            Your card details are never shared with merchants
+                            <Translate>
+                              Your card details are never shared with merchants
+                            </Translate>
                           </Text>
                         </View>
                       </Animated.View>
 
                       {/* Google Pay Button */}
                       {isGooglePayAvailable && (
-                        <View
-                          style={[
-                            styles.digitalWalletButton,
-                            {
-                              backgroundColor: isDarkMode
-                                ? "rgba(40, 45, 55, 0.65)"
-                                : "rgba(255, 255, 255, 0.65)",
-                              borderColor: isDarkMode
-                                ? "rgba(255, 255, 255, 0.1)"
-                                : "rgba(0, 0, 0, 0.05)",
-                            },
-                          ]}
-                        >
-                          {/* <PlatformPayButton
-                            type={PlatformPay.ButtonType.Pay}
-                            onPress={handleGooglePay}
-                            style={{
-                              width: "100%",
-                              height: 50,
-                            }}
-                          /> */}
-                          <Button
-                            title="Google pay"
-                            variant={isDarkMode ? "secondary" : "primary"}
-                            onPress={handleGooglePay}
-                            disabled={cardLoading}
-                            loading={googlePayLoading}
-                            icon={
-                              <FontAwesome5
-                                name="google"
-                                size={14}
-                                color="white"
-                              />
-                            }
-                          />
-                        </View>
+                        // <View
+                        //   style={[
+                        //     styles.digitalWalletButton,
+                        //     {
+                        //       backgroundColor: isDarkMode
+                        //         ? "rgba(40, 45, 55, 0.65)"
+                        //         : "rgba(255, 255, 255, 0.65)",
+                        //       borderColor: isDarkMode
+                        //         ? "rgba(255, 255, 255, 0.1)"
+                        //         : "rgba(0, 0, 0, 0.05)",
+                        //     },
+                        //   ]}
+                        // >
+                        <PlatformPayButton
+                          type={PlatformPay.ButtonType.Pay}
+                          onPress={handleGooglePay}
+                          style={{
+                            width: "100%",
+                            height: 50,
+                          }}
+                        />
+                        //   <Button
+                        //     title="Google pay"
+                        //     variant={isDarkMode ? "secondary" : "primary"}
+                        //     onPress={handleGooglePay}
+                        //     disabled={cardLoading}
+                        //     loading={googlePayLoading}
+                        //     icon={
+                        //       <FontAwesome5
+                        //         name="google"
+                        //         size={14}
+                        //         color="white"
+                        //       />
+                        //     }
+                        //   />
+                        // </View>
                       )}
 
                       {/* Apple Pay Button */}
@@ -759,7 +817,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             icon={
                               <FontAwesome5
                                 name="apple"
-                                size={14}
+                                size={20}
                                 color="white"
                               />
                             }
@@ -833,7 +891,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                           },
                         ]}
                       >
-                        Credit Card Payment
+                        <Translate>Credit Card Payment</Translate>
                       </Text>
                     </View>
 
@@ -867,7 +925,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                           },
                         ]}
                       >
-                        Why use credit card payment?
+                        <Translate>Why use credit card payment?</Translate>
                       </Text>
 
                       <View style={styles.walletInfoItem}>
@@ -887,7 +945,9 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          Industry-standard SSL encryption protects your data
+                          <Translate>
+                            Industry-standard SSL encryption protects your data
+                          </Translate>
                         </Text>
                       </View>
 
@@ -908,8 +968,10 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          Most cards offer fraud protection and purchase
-                          insurance
+                          <Translate>
+                            Most cards offer fraud protection and purchase
+                            insurance
+                          </Translate>
                         </Text>
                       </View>
 
@@ -930,7 +992,10 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          Accepted worldwide with comprehensive payment options
+                          <Translate>
+                            Accepted worldwide with comprehensive payment
+                            options
+                          </Translate>
                         </Text>
                       </View>
 
@@ -951,8 +1016,10 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          PCI-DSS compliant processing ensures your data is
-                          secure
+                          <Translate>
+                            PCI-DSS compliant processing ensures your data is
+                            secure
+                          </Translate>
                         </Text>
                       </View>
                     </Animated.View>
@@ -1000,7 +1067,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                           },
                         ]}
                       >
-                        Go back
+                        <Translate>Go back</Translate>
                       </Text>
                     </TouchableOpacity>
                   </View>
