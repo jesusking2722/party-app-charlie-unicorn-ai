@@ -39,11 +39,16 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import useInit from "@/hooks/useInit";
 import { setAuthToken } from "@/lib/axiosInstance";
-import { loginByEmail } from "@/lib/scripts/auth.scripts";
+import { loginByEmail, loginByGoogle } from "@/lib/scripts/auth.scripts";
 import { setAuthAsync } from "@/redux/actions/auth.actions";
 import { useAppDispatch } from "@/redux/store";
 
 import GoogleAuthService from "@/lib/services/google.auth.services";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+} from "@react-native-google-signin/google-signin";
 
 const PartyImage = require("@/assets/images/login_bg.png");
 
@@ -82,8 +87,7 @@ const LoginScreen = () => {
   const { checkRedirectPath } = useInit();
 
   // google auth
-  const [googleRequest, googleResponse, promptGoogleAsync] =
-    GoogleAuthService.useGoogleAuth();
+  const [googleRequest, googleResponse] = GoogleAuthService.useGoogleAuth();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -330,80 +334,36 @@ const LoginScreen = () => {
         }),
       ]).start();
 
-      // Prompt Google sign-in
-      await promptGoogleAsync();
-    } catch (error) {
-      console.error("Error initiating Google sign in:", error);
-      showToast("Failed to start Google sign in", "error");
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleGoogleAuthResponse = async (response: any) => {
-    try {
-      setLoading(true);
-
-      // Animation for button press
-      Animated.sequence([
-        Animated.timing(socialBtnAnimations[0], {
-          toValue: 0.95,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.spring(socialBtnAnimations[0], {
-          toValue: 1,
-          tension: 200,
-          friction: 20,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Get auth token
-      const { authentication } = response;
-
-      if (!authentication?.accessToken) {
-        throw new Error("No access token returned");
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices();
       }
+      const response = await GoogleSignin.signIn();
 
-      // Fetch user info from Google
-      const userInfo = await GoogleAuthService.fetchUserInfo(
-        authentication.accessToken
-      );
+      if (isSuccessResponse(response)) {
+        const { email } = response.data.user;
 
-      if (!userInfo || !userInfo.email) {
-        throw new Error("Failed to get user information");
-      }
+        const apiResponse = await loginByGoogle(email);
 
-      console.log("Google user info:", userInfo);
+        if (apiResponse.ok) {
+          const { token, user } = apiResponse.data;
 
-      // Call your API to login or register with Google
-      // You can use the email from userInfo.email
-      try {
-        // Example of how you might integrate with your existing login API
-        // Replace this with your actual API call
-
-        const response = await loginByEmail(userInfo.email, userInfo.id);
-
-        if (response.ok) {
-          const { user, token } = response.data;
           setAuthToken(token);
           await dispatch(
             setAuthAsync({ isAuthenticated: true, user })
           ).unwrap();
-          showToast("Signed in with Google!", "success");
+          showToast("Welcome back !!!", "success");
           checkRedirectPath(user);
         } else {
-          showToast(response.message, "error");
+          showToast(apiResponse.message, "error");
         }
-      } catch (error) {
-        console.error("Google login API error:", error);
-        showToast("Error processing Google login", "error");
       }
     } catch (error) {
-      console.error("Google auth error:", error);
-      showToast("Failed to sign in with Google", "error");
+      if (isErrorWithCode(error)) {
+        console.error(error, error.code);
+      }
+      showToast("Failed to start Google sign in", "error");
     } finally {
-      setLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -428,16 +388,6 @@ const LoginScreen = () => {
   const handleSignUp = (): void => {
     router.push("/auth/register");
   };
-
-  useEffect(() => {
-    if (googleResponse?.type === "success") {
-      handleGoogleAuthResponse(googleResponse);
-    } else if (googleResponse?.type === "error") {
-      console.error("Google sign in error:", googleResponse.error);
-      showToast("Google sign in failed", "error");
-      setLoading(false);
-    }
-  }, [googleResponse]);
 
   const renderParticles = () => {
     return particles.map((particle, index) => (
@@ -708,7 +658,11 @@ const LoginScreen = () => {
                         title="Sign in with Google"
                         variant="outline"
                         icon={
-                          <FontAwesome name="google" size={18} color="white" />
+                          <FontAwesome
+                            name="google"
+                            size={18}
+                            color={isDarkMode ? "white" : "black"}
+                          />
                         }
                         loading={googleLoading}
                         onPress={handleGoogleLogin}

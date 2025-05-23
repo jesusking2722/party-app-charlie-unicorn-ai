@@ -50,10 +50,10 @@ import {
   USD_FEE_OPTIONS,
 } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useToast } from "@/contexts/ToastContext";
 import { uploadMultipleToImgBB } from "@/lib/services/imgbb.uploads.servce";
 import socket from "@/lib/socketInstance";
-import { addNewPartyAsync } from "@/redux/actions/party.actions";
-import { RootState, useAppDispatch } from "@/redux/store";
+import { RootState } from "@/redux/store";
 import { Party } from "@/types/data";
 import { CountryType, RegionType } from "@/types/place";
 import { router } from "expo-router";
@@ -126,7 +126,8 @@ const CreatePartyScreen = () => {
   const scrollViewRef = useRef<ScrollView>(null);
 
   const { user } = useSelector((state: RootState) => state.auth);
-  const dispatch = useAppDispatch();
+
+  const { showToast } = useToast();
 
   // Particle animations for the background (matching other screens)
   const particles = Array(6)
@@ -505,14 +506,13 @@ const CreatePartyScreen = () => {
     });
   };
 
-  const createNewEvent = (partyData: Party, userId: string): Promise<Party> => {
-    return new Promise((resolve) => {
-      socket.once("party:created", (newParty: Party) => {
-        resolve(newParty);
-      });
-      socket.emit("party:creating", partyData, userId);
-    });
-  };
+  // const createNewEvent = (partyData: Party, userId: string): Promise<Party> => {
+  //   return new Promise((resolve) => {
+  //     socket.once("party:created", (newParty: Party) => {
+  //       resolve(newParty);
+  //     });
+  //   });
+  // };
 
   // Handle completion
   const handleComplete = async () => {
@@ -556,9 +556,12 @@ const CreatePartyScreen = () => {
         createdAt: new Date(),
       };
 
-      const createdEvent = await createNewEvent(newEvent, user._id);
+      showToast("Creating the event...", "info");
 
-      await dispatch(addNewPartyAsync(createdEvent)).unwrap();
+      socket.emit("party:creating", newEvent, user._id);
+
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      showToast("Event has been created!", "success");
 
       router.replace("/parties");
     } catch (error) {

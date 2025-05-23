@@ -36,10 +36,16 @@ import {
 } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
+import useInit from "@/hooks/useInit";
 import { setAuthToken } from "@/lib/axiosInstance";
-import { registerByEmail } from "@/lib/scripts/auth.scripts";
+import { registerByEmail, registerByGoogle } from "@/lib/scripts/auth.scripts";
 import { setAuthAsync } from "@/redux/actions/auth.actions";
 import { useAppDispatch } from "@/redux/store";
+import {
+  GoogleSignin,
+  isErrorWithCode,
+  isSuccessResponse,
+} from "@react-native-google-signin/google-signin";
 
 const PartyImage = require("@/assets/images/register_bg.png");
 
@@ -50,6 +56,8 @@ const LIGHT_THEME_ACCENT = "#FF0099";
 
 const RegisterScreen = () => {
   const { isDarkMode, toggleTheme } = useTheme();
+
+  const { checkRedirectPath } = useInit();
 
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -290,7 +298,57 @@ const RegisterScreen = () => {
     }
   };
 
-  const handleGoogleRegister = (): void => {};
+  const handleGoogleRegister = async () => {
+    try {
+      setGoogleLoading(true);
+
+      // Animation for button press
+      Animated.sequence([
+        Animated.timing(socialBtnAnimations[0], {
+          toValue: 0.95,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.spring(socialBtnAnimations[0], {
+          toValue: 1,
+          tension: 200,
+          friction: 20,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      if (Platform.OS === "android") {
+        await GoogleSignin.hasPlayServices();
+      }
+      const response = await GoogleSignin.signIn();
+
+      if (isSuccessResponse(response)) {
+        const { email, name } = response.data.user;
+
+        const apiResponse = await registerByGoogle(email, name as string);
+
+        if (apiResponse.ok) {
+          const { token, user } = apiResponse.data;
+
+          setAuthToken(token);
+          await dispatch(
+            setAuthAsync({ isAuthenticated: true, user })
+          ).unwrap();
+          showToast("Welcome !!!", "success");
+          checkRedirectPath(user);
+        } else {
+          showToast(apiResponse.message, "error");
+        }
+      }
+    } catch (error) {
+      if (isErrorWithCode(error)) {
+        console.error(error, error.code);
+      }
+      showToast("Failed to start Google sign in", "error");
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
 
   const handleSignIn = (): void => {
     router.push("/auth/login");
@@ -562,7 +620,11 @@ const RegisterScreen = () => {
                         title="Sign up with Google"
                         variant="outline"
                         icon={
-                          <FontAwesome name="google" size={18} color="white" />
+                          <FontAwesome
+                            name="google"
+                            size={18}
+                            color={isDarkMode ? "white" : "black"}
+                          />
                         }
                         onPress={handleGoogleRegister}
                       />

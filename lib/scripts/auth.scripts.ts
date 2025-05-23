@@ -13,7 +13,9 @@ import {
   EMAIL_VERIFY_RESEND,
   FETCH_AUTH_USER_BY_ID,
   LOGIN_BY_EMAIL,
+  LOGIN_BY_GOOGLE,
   REGISTER_BY_EMAIL,
+  REGISTER_BY_GOOGLE,
   START_AUTH_USER_KYC_VERIFICATION,
   UPDATE_AUTH_USER,
   UPDATE_MY_CARD,
@@ -21,6 +23,16 @@ import {
 import axiosInstance from "../axiosInstance";
 
 // Register scripts
+export const registerByGoogle = async (
+  email: string,
+  name: string
+): Promise<ApiResponse<AuthResponse>> => {
+  return await axiosInstance.post(REGISTER_BY_GOOGLE, {
+    email,
+    name,
+  });
+};
+
 export const registerByEmail = async (
   email: string,
   password: string
@@ -31,6 +43,14 @@ export const registerByEmail = async (
 };
 
 // Login scripts
+export const loginByGoogle = async (
+  email: string
+): Promise<ApiResponse<AuthResponse>> => {
+  return await axiosInstance.post(LOGIN_BY_GOOGLE, {
+    email,
+  });
+};
+
 export const loginByEmail = async (
   email: string,
   password: string

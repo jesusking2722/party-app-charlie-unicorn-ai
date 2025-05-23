@@ -31,8 +31,8 @@ import { updateAuthUser } from "@/lib/scripts/auth.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
 import { User } from "@/types/data";
-import { useSelector } from "react-redux";
 import { router } from "expo-router";
+import { useSelector } from "react-redux";
 
 const NotificationBannerImage = require("@/assets/images/notification-banner.png");
 
@@ -311,7 +311,10 @@ const NotificationScreen: React.FC = () => {
       n._id === id ? { ...n, read: true } : n
     );
 
-    console.log(notifications);
+    const updatingUser: User = {
+      ...user,
+      notifications,
+    };
 
     setNotifications((prevNotifications) =>
       prevNotifications.map((notification) =>
@@ -319,16 +322,11 @@ const NotificationScreen: React.FC = () => {
       )
     );
 
-    const updatingUser: User = {
-      ...user,
-      notifications,
-    };
-
     const response = await updateAuthUser(updatingUser);
 
     if (response.ok) {
       const { user: updatedUser } = response.data;
-      await dispatch(setAuthUserAsync(updatedUser));
+      await dispatch(setAuthUserAsync(updatedUser)).unwrap();
     }
   };
 
@@ -360,7 +358,7 @@ const NotificationScreen: React.FC = () => {
 
     if (response.ok) {
       const { user: updatedUser } = response.data;
-      await dispatch(setAuthUserAsync(updatedUser));
+      await dispatch(setAuthUserAsync(updatedUser)).unwrap();
     }
   };
 

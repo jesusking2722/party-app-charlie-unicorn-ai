@@ -1,5 +1,5 @@
 import { FONTS } from "@/app/theme";
-import { Button, Spinner, Input } from "@/components/common";
+import { Button, Input } from "@/components/common";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -29,24 +29,23 @@ import {
 } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { RootState, useAppDispatch } from "@/redux/store";
-import { useSelector } from "react-redux";
-import { CardTransaction, CurrencyType, ICard, User } from "@/types/data";
-import { formatPrice } from "@/utils/currency";
 import { updateMyCard } from "@/lib/scripts/auth.scripts";
-import * as WebBrowser from "expo-web-browser";
-import * as Linking from "expo-linking";
+import { saveCardTransaction } from "@/lib/scripts/card.transaction.scripts";
+import { sendTopUpMessageToOwner } from "@/lib/scripts/mail.scripts";
 import {
   fetchStripeBalance,
   transferStripeFunds,
 } from "@/lib/scripts/stripe.scripts";
-import { sendTopUpMessageToOwner } from "@/lib/scripts/mail.scripts";
-import { saveCardTransaction } from "@/lib/scripts/card.transaction.scripts";
-import { addNewCardTransactionSliceAsync } from "@/redux/actions/card.transaction.actions";
 import { exchangeSticker } from "@/lib/scripts/ticket.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { addNewCardTransactionSliceAsync } from "@/redux/actions/card.transaction.actions";
 import { updateSelectedPartyAsnyc } from "@/redux/actions/party.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { CardTransaction, CurrencyType, ICard, User } from "@/types/data";
+import { formatPrice } from "@/utils/currency";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import { useSelector } from "react-redux";
 
 const ExchangeHeaderImage = require("@/assets/images/card-exchange.png");
 const { width, height } = Dimensions.get("window");
@@ -500,7 +499,9 @@ const CardExchangeScreen: React.FC = () => {
         (item: any) => item.currency === currencyValue.toLowerCase()
       );
 
-      if (availableBalance && Number(availableBalance.amount) < netValue) {
+      const availableAmount = availableBalance ? availableBalance.amount : 0;
+
+      if (availableAmount < netValue) {
         const message = `From Party App/Party Application | Charlie Unicorn AI\n${
           user.email
         } is about to exchange stickers for ${currencyValue.toUpperCase()} ${netValue}.\nHis transaction is pending currently.\nPlease try to top up your stripe balance in USD`;

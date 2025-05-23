@@ -1,57 +1,50 @@
 // src/components/chat/ChatScreen.tsx
+import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import { isEqual } from "lodash";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Dimensions,
-  StatusBar,
-  TouchableOpacity,
-  Platform,
-  KeyboardAvoidingView,
-  BackHandler,
   ActivityIndicator,
   Alert,
+  Animated,
+  BackHandler,
+  Dimensions,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { BlurView } from "expo-blur";
-import { Ionicons } from "@expo/vector-icons";
-import { useSelector } from "react-redux";
-import { isEqual } from "lodash";
-import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useSelector } from "react-redux";
 
+import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
+import { Translate } from "@/components/common";
 import {
-  ChatList,
-  MessageList,
   ChatInput,
+  ChatList,
   ContactProfile,
-  UploadGroup,
+  MessageList,
   TypingIndicator,
+  UploadGroup,
 } from "@/components/molecules";
-import { RootState } from "@/redux/store";
-import { Message, User, IChatItem, IMessage } from "@/types/data";
-import {
-  COLORS,
-  FONTS,
-  FONT_SIZES,
-  SPACING,
-  BORDER_RADIUS,
-  GRADIENTS,
-} from "@/app/theme";
+import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
-import socket from "@/lib/socketInstance";
-import { uploadMultipleToImgBB } from "@/lib/services/imgbb.uploads.servce";
 import { useToast } from "@/contexts/ToastContext";
+import { uploadMultipleToImgBB } from "@/lib/services/imgbb.uploads.servce";
+import socket from "@/lib/socketInstance";
+import { RootState } from "@/redux/store";
+import { IChatItem, IMessage, Message, User } from "@/types/data";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import { MediaItem } from "../parties/create";
-import { BACKEND_BASE_URL } from "@/constant";
-import { LinearGradient } from "expo-linear-gradient";
-import { Translate } from "@/components/common";
 
 const { width, height } = Dimensions.get("window");
 

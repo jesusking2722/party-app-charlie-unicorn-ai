@@ -15,7 +15,8 @@ import {
   Textarea,
   Translate,
 } from "@/components/common";
-import { BACKEND_BASE_URL } from "@/constant";
+import { ReviewScreen } from "@/components/molecules";
+import { API_ENDPOINT, BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { setAuthToken } from "@/lib/axiosInstance";
@@ -24,11 +25,13 @@ import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
 import { User } from "@/types/data";
 import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Dimensions,
   Image,
@@ -41,11 +44,8 @@ import {
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { useSelector } from "react-redux";
-import { ReviewScreen } from "@/components/molecules";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -67,7 +67,6 @@ interface ProfileDrawerProps {
 const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   visible,
   onClose,
-  userAvatar,
   userName = "John Doe",
   professionalTitle = "Software Developer",
   description = "Experienced software developer with a passion for creating beautiful and functional applications.",
@@ -210,13 +209,13 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
         uri: imageUri,
         type: `image/${fileType}`,
         name: `avatar.${fileType}`,
-      } as any; // Type assertion for React Native FormData compatibility
+      } as any;
 
       formData.append("avatar", imageFile);
 
       // Make API call to upload avatar
       const response = await fetch(
-        `${BACKEND_BASE_URL}/api/auth/me/avatar/${user._id}`,
+        `${API_ENDPOINT}/auth/me/avatar/${user._id}`,
         {
           method: "PATCH",
           headers: {
@@ -227,79 +226,16 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
         }
       );
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json();
 
-        await dispatch(setAuthUserAsync(data.user));
+      await dispatch(setAuthUserAsync(data.data.user));
 
-        showToast("Avatar updated successfully!", "success");
-        setSelectedImage(null);
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to upload avatar");
-      }
+      showToast("Avatar updated successfully!", "success");
+      setSelectedImage(null);
     } catch (error: any) {
       console.error("Error uploading avatar:", error);
       showToast(error.message || "Failed to upload avatar", "error");
       setSelectedImage(null); // Clear selected image on error
-    } finally {
-      setIsUploadingAvatar(false);
-    }
-  };
-
-  // Alternative upload function using axios (if you prefer to use your existing API setup)
-  const uploadAvatarWithAxios = async (imageUri: string) => {
-    if (!user) return;
-
-    setIsUploadingAvatar(true);
-
-    try {
-      const formData = new FormData();
-
-      const uriParts = imageUri.split(".");
-      const fileType = uriParts[uriParts.length - 1];
-
-      const imageFile = {
-        uri: imageUri,
-        type: `image/${fileType}`,
-        name: `avatar.${fileType}`,
-      } as any;
-
-      formData.append("avatar", imageFile);
-
-      // If you have an uploadUserAvatar function in your auth.scripts
-      // const response = await uploadUserAvatar(user._id, formData);
-
-      // For now, using fetch - you can replace this with your axios instance
-      const response = await fetch(
-        `${BACKEND_BASE_URL}/api/users/${user._id}/avatar`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          body: formData,
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-
-        const updatedUser: User = {
-          ...user,
-          avatar: data.user.avatar,
-        };
-
-        await dispatch(setAuthUserAsync(updatedUser));
-        showToast("Avatar updated successfully!", "success");
-        setSelectedImage(null);
-      } else {
-        throw new Error("Failed to upload avatar");
-      }
-    } catch (error: any) {
-      console.error("Error uploading avatar:", error);
-      showToast("Failed to upload avatar", "error");
-      setSelectedImage(null);
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -803,89 +739,93 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                   <Translate>Settings</Translate>
                 </Text>
 
-                <TouchableOpacity
-                  style={[
-                    styles.settingButton,
-                    {
-                      borderBottomColor: isDarkMode
-                        ? "rgba(55, 65, 81, 0.5)"
-                        : "rgba(230, 234, 240, 0.8)",
-                    },
-                  ]}
-                  onPress={handleEditProfile}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.settingIconContainer,
-                      {
-                        backgroundColor: isDarkMode
-                          ? "rgba(31, 41, 55, 0.7)"
-                          : "rgba(240, 240, 240, 0.9)",
-                      },
-                    ]}
-                  >
-                    <Feather name="user" size={18} color={getIconColor()} />
-                  </View>
-                  <Text
-                    style={[
-                      styles.settingButtonText,
-                      { color: getTextColor() },
-                    ]}
-                  >
-                    <Translate>Edit Profile</Translate>
-                  </Text>
-                  <Feather
-                    name="chevron-right"
-                    size={18}
-                    color={getSecondaryTextColor()}
-                  />
-                </TouchableOpacity>
+                {user?._id && (
+                  <>
+                    <TouchableOpacity
+                      style={[
+                        styles.settingButton,
+                        {
+                          borderBottomColor: isDarkMode
+                            ? "rgba(55, 65, 81, 0.5)"
+                            : "rgba(230, 234, 240, 0.8)",
+                        },
+                      ]}
+                      onPress={handleEditProfile}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.settingIconContainer,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(31, 41, 55, 0.7)"
+                              : "rgba(240, 240, 240, 0.9)",
+                          },
+                        ]}
+                      >
+                        <Feather name="user" size={18} color={getIconColor()} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.settingButtonText,
+                          { color: getTextColor() },
+                        ]}
+                      >
+                        <Translate>Edit Profile</Translate>
+                      </Text>
+                      <Feather
+                        name="chevron-right"
+                        size={18}
+                        color={getSecondaryTextColor()}
+                      />
+                    </TouchableOpacity>
 
-                {/* New Reviews Button */}
-                <TouchableOpacity
-                  style={[
-                    styles.settingButton,
-                    {
-                      borderBottomColor: isDarkMode
-                        ? "rgba(55, 65, 81, 0.5)"
-                        : "rgba(230, 234, 240, 0.8)",
-                    },
-                  ]}
-                  onPress={handleViewReviews}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.settingIconContainer,
-                      {
-                        backgroundColor: isDarkMode
-                          ? "rgba(31, 41, 55, 0.7)"
-                          : "rgba(240, 240, 240, 0.9)",
-                      },
-                    ]}
-                  >
-                    <Feather name="star" size={18} color={getIconColor()} />
-                  </View>
-                  <Text
-                    style={[
-                      styles.settingButtonText,
-                      { color: getTextColor() },
-                    ]}
-                  >
-                    <Translate>My Reviews</Translate>
-                  </Text>
-                  <View style={styles.reviewBadge}>
-                    <Text style={styles.reviewBadgeText}>
-                      {user?.reviews?.length || 0}
-                    </Text>
-                  </View>
-                  <Feather
-                    name="chevron-right"
-                    size={18}
-                    color={getSecondaryTextColor()}
-                  />
-                </TouchableOpacity>
+                    {/* New Reviews Button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.settingButton,
+                        {
+                          borderBottomColor: isDarkMode
+                            ? "rgba(55, 65, 81, 0.5)"
+                            : "rgba(230, 234, 240, 0.8)",
+                        },
+                      ]}
+                      onPress={handleViewReviews}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.settingIconContainer,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(31, 41, 55, 0.7)"
+                              : "rgba(240, 240, 240, 0.9)",
+                          },
+                        ]}
+                      >
+                        <Feather name="star" size={18} color={getIconColor()} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.settingButtonText,
+                          { color: getTextColor() },
+                        ]}
+                      >
+                        <Translate>My Reviews</Translate>
+                      </Text>
+                      <View style={styles.reviewBadge}>
+                        <Text style={styles.reviewBadgeText}>
+                          {user?.reviews?.length || 0}
+                        </Text>
+                      </View>
+                      <Feather
+                        name="chevron-right"
+                        size={18}
+                        color={getSecondaryTextColor()}
+                      />
+                    </TouchableOpacity>
+                  </>
+                )}
 
                 {/* Language Setting */}
                 <View
@@ -987,27 +927,29 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                 </View>
 
                 {/* Logout Button */}
-                <TouchableOpacity
-                  style={[styles.settingButton, styles.logoutButton]}
-                  onPress={handleLogout}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.settingIconContainer,
-                      {
-                        backgroundColor: "rgba(255, 77, 77, 0.1)",
-                        borderColor: "rgba(255, 77, 77, 0.2)",
-                        borderWidth: 1,
-                      },
-                    ]}
+                {user?._id && (
+                  <TouchableOpacity
+                    style={[styles.settingButton, styles.logoutButton]}
+                    onPress={handleLogout}
+                    activeOpacity={0.7}
                   >
-                    <Feather name="log-out" size={18} color="#FF4D4D" />
-                  </View>
-                  <Text style={styles.logoutText}>
-                    <Translate>Logout</Translate>
-                  </Text>
-                </TouchableOpacity>
+                    <View
+                      style={[
+                        styles.settingIconContainer,
+                        {
+                          backgroundColor: "rgba(255, 77, 77, 0.1)",
+                          borderColor: "rgba(255, 77, 77, 0.2)",
+                          borderWidth: 1,
+                        },
+                      ]}
+                    >
+                      <Feather name="log-out" size={18} color="#FF4D4D" />
+                    </View>
+                    <Text style={styles.logoutText}>
+                      <Translate>Logout</Translate>
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 {/* Version info */}
                 <View style={styles.versionContainer}>

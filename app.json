@@ -1,16 +1,15 @@
 {
   "expo": {
-    "name": "charlie-house-party-mobile-frontend",
-    "slug": "charlie-house-party-mobile-frontend",
-    "owner": "jesusking2722",
+    "name": "party-app-charlie-unicorn-ai",
+    "slug": "party-app-charlie-unicorn-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "charliehousepartymobilefrontend",
+    "scheme": "partyappcharlieunicornai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "bundleIdentifier": "com.jesusking2722.charliehousepartymobilefrontend",
+      "bundleIdentifier": "com.vladgos.partyappcharlieunicornai",
       "supportsTablet": true,
       "config": {
         "googleMapsApiKey": "AIzaSyD-ON7g5hfIjGcbJ0AySwZn1BEbLdqLLnQ"
@@ -41,9 +40,13 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.jesusking2722.charliehousepartymobilefrontend"
+      "package": "com.vladgos.partyappcharlieunicornai"
     },
     "web": {
       "bundler": "metro",
@@ -77,7 +80,13 @@
       ],
       "./enableGooglePay.js",
       "./queries.js",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.996856391179-39prl3561vq266fcf8ttua2kh9lhbl3q"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -85,8 +94,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "ad4ce393-c10b-40e5-968f-c3a68d1d671c"
+        "projectId": "c53e1ef4-0ecc-477b-96e9-d439df580f0d"
       }
-    }
+    },
+    "owner": "vlad-gos"
   }
 }

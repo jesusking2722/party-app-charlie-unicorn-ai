@@ -1,20 +1,20 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Image,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  RefreshControl,
-} from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 // Import your components, types, and constants
 import {
@@ -26,20 +26,20 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { BACKEND_BASE_URL } from "@/constant";
-import { Review, User } from "@/types/data";
-import { useTheme } from "@/contexts/ThemeContext";
-import Rating from "@/components/common/Rating";
 import { Button, Translate } from "@/components/common";
-import { formatDate } from "@/utils/date";
-import { fetchUserById } from "@/lib/scripts/user.scripts";
+import Rating from "@/components/common/Rating";
 import { ProfileBadge } from "@/components/molecules";
-import { useSelector } from "react-redux";
-import { RootState, useAppDispatch } from "@/redux/store";
-import CountryFlag from "react-native-country-flag";
-import { updateAuthUser } from "@/lib/scripts/auth.scripts";
-import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { BACKEND_BASE_URL } from "@/constant";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { fetchUserById } from "@/lib/scripts/user.scripts";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import { Review, User } from "@/types/data";
+import { formatDate } from "@/utils/date";
+import CountryFlag from "react-native-country-flag";
+import { useSelector } from "react-redux";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -94,10 +94,10 @@ const ProfileScreen = () => {
   const handleContact = async () => {
     if (!user || !me) return;
 
-    if (me.contacts.some((c) => c._id === userId)) {
+    if (me.contacts.some((c) => c._id === user._id)) {
       router.push({
         pathname: "/chat",
-        params: { contactId: userId },
+        params: { contactId: user._id },
       });
       return;
     }
@@ -107,7 +107,7 @@ const ProfileScreen = () => {
 
       const updatingUser: User = {
         ...me,
-        contacts: [...user.contacts, user],
+        contacts: [...me.contacts, user],
       };
 
       const response = await updateAuthUser(updatingUser);

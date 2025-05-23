@@ -886,8 +886,10 @@ const HomeScreen = () => {
                                   <Translate>Free Event</Translate>
                                 ) : (
                                   <Translate>
-                                    formatPrice( party.fee ?? 0,
-                                    party.currency.toUpperCase() ?? "USD" )
+                                    {formatPrice(
+                                      party.fee ?? 0,
+                                      party.currency.toUpperCase() ?? "USD"
+                                    )}
                                   </Translate>
                                 )}
                               </Text>

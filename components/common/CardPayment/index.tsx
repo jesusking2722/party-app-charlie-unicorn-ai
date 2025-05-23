@@ -1,5 +1,5 @@
 import { FONTS } from "@/app/theme";
-import { Button, Spinner, Translate } from "@/components/common";
+import { Button, Translate } from "@/components/common";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -32,22 +32,21 @@ import { Currency } from "../MembershipRadioGroup";
 
 // Import Stripe dependencies
 import { useToast } from "@/contexts/ToastContext";
+import { saveCardTransaction } from "@/lib/scripts/card.transaction.scripts";
 import {
   createStripePaymentIntent,
   fetchStripePaymentIntentClientSecret,
 } from "@/lib/scripts/stripe.scripts";
 import { RootState } from "@/redux/store";
+import { CardTransaction, User } from "@/types/data";
 import { extractNumericPrice } from "@/utils/price";
 import {
   confirmPlatformPayPayment,
   PlatformPay,
-  PlatformPayButton,
   usePlatformPay,
   useStripe,
 } from "@stripe/stripe-react-native";
 import { useSelector } from "react-redux";
-import { CardTransaction, User } from "@/types/data";
-import { saveCardTransaction } from "@/lib/scripts/card.transaction.scripts";
 
 const PaymentHeaderImage = require("@/assets/images/card-payment.png");
 const { width, height } = Dimensions.get("window");
@@ -113,7 +112,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
     (async function () {
       setIsApplePayAvailable(await isPlatformPaySupported());
       setIsGooglePayAvailable(
-        await isPlatformPaySupported({ googlePay: { testEnv: true } })
+        await isPlatformPaySupported({ googlePay: { testEnv: false } })
       );
     })();
   }, [isPlatformPaySupported]);
@@ -744,42 +743,34 @@ const CardPayment: React.FC<CardPaymentProps> = ({
 
                       {/* Google Pay Button */}
                       {isGooglePayAvailable && (
-                        // <View
-                        //   style={[
-                        //     styles.digitalWalletButton,
-                        //     {
-                        //       backgroundColor: isDarkMode
-                        //         ? "rgba(40, 45, 55, 0.65)"
-                        //         : "rgba(255, 255, 255, 0.65)",
-                        //       borderColor: isDarkMode
-                        //         ? "rgba(255, 255, 255, 0.1)"
-                        //         : "rgba(0, 0, 0, 0.05)",
-                        //     },
-                        //   ]}
-                        // >
-                        <PlatformPayButton
-                          type={PlatformPay.ButtonType.Pay}
-                          onPress={handleGooglePay}
-                          style={{
-                            width: "100%",
-                            height: 50,
-                          }}
-                        />
-                        //   <Button
-                        //     title="Google pay"
-                        //     variant={isDarkMode ? "secondary" : "primary"}
-                        //     onPress={handleGooglePay}
-                        //     disabled={cardLoading}
-                        //     loading={googlePayLoading}
-                        //     icon={
-                        //       <FontAwesome5
-                        //         name="google"
-                        //         size={14}
-                        //         color="white"
-                        //       />
-                        //     }
-                        //   />
-                        // </View>
+                        <View
+                          style={[
+                            styles.digitalWalletButton,
+                            {
+                              backgroundColor: isDarkMode
+                                ? "rgba(40, 45, 55, 0.65)"
+                                : "rgba(255, 255, 255, 0.65)",
+                              borderColor: isDarkMode
+                                ? "rgba(255, 255, 255, 0.1)"
+                                : "rgba(0, 0, 0, 0.05)",
+                            },
+                          ]}
+                        >
+                          <Button
+                            title="Google pay"
+                            variant="outline"
+                            onPress={handleGooglePay}
+                            disabled={cardLoading}
+                            loading={googlePayLoading}
+                            icon={
+                              <FontAwesome5
+                                name="google"
+                                size={14}
+                                color={isDarkMode ? "white" : "black"}
+                              />
+                            }
+                          />
+                        </View>
                       )}
 
                       {/* Apple Pay Button */}
@@ -809,10 +800,10 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             }}
                           /> */}
                           <Button
-                            title="Apple pay"
+                            title="Apple pay (Coming soon)"
                             variant={isDarkMode ? "primary" : "secondary"}
                             onPress={handleApplePay}
-                            disabled={cardLoading}
+                            disabled={cardLoading || true}
                             loading={applePayLoading}
                             icon={
                               <FontAwesome5
@@ -1077,8 +1068,6 @@ const CardPayment: React.FC<CardPaymentProps> = ({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <Spinner visible={googlePayLoading || applePayLoading} />
     </SafeAreaView>
   );
 };

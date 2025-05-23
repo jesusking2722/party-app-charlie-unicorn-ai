@@ -10,7 +10,6 @@ export { default as Drawer } from "./Drawer";
 export { default as Dropdown } from "./Dropdown";
 export type { DropdownOption } from "./Dropdown";
 export { default as Input } from "./Input";
-export { default as LanguageDropdown } from "./LanguageDropdown";
 export { default as LanguageSelector } from "./LanguageSelector";
 export { default as LocationPicker } from "./LocationPicker";
 export { default as Map } from "./Map";

@@ -31,8 +31,8 @@ const useInit = () => {
       router.replace("/auth/login");
     } else if (!user.emailVerified) {
       router.replace("/auth/verify");
-    } else if (!user.name) {
-      router.replace("/onboarding/profileSetup");
+    } else if (!user.name || !user.country) {
+      router.replace("/onboarding");
     } else if (!user.title) {
       router.replace("/onboarding/professionSetup");
     } else {

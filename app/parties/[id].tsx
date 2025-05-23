@@ -46,19 +46,15 @@ import {
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
+import { updateAuthUser } from "@/lib/scripts/auth.scripts";
+import { fetchUserById } from "@/lib/scripts/user.scripts";
 import socket from "@/lib/socketInstance";
-import {
-  addNewApplicantToSelectedPartyAsync,
-  updateApplicantStatusInSelectedPartyAsync,
-} from "@/redux/actions/party.actions";
+import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
 import { Applicant, Party, PartyType, Ticket, User } from "@/types/data";
 import { router, useLocalSearchParams } from "expo-router";
 import CountryFlag from "react-native-country-flag";
 import { useSelector } from "react-redux";
-import { fetchUserById } from "@/lib/scripts/user.scripts";
-import { updateAuthUser } from "@/lib/scripts/auth.scripts";
-import { setAuthUserAsync } from "@/redux/actions/auth.actions";
 
 // Get screen dimensions
 const { width, height } = Dimensions.get("window");
@@ -163,25 +159,26 @@ const EventDetailScreen = () => {
 
   // Load event data
   useEffect(() => {
-    if (eventId && typeof eventId === "string" && user) {
+    if (eventId && typeof eventId === "string") {
       const found = parties.find((event) => event._id === eventId);
       if (found) {
         setEvent(found);
 
-        // Check if current user is the creator
-        setIsCreator(found.creator?._id === user._id);
+        if (user) {
+          // Check if current user is the creator
+          setIsCreator(found.creator?._id === user._id);
 
-        // Check if user already applied
-        setAlreadyApplied(
-          found.applicants.some((app) => app.applier._id === user._id)
-        );
-
-        // Check if user already eanred event detail
-        setEarnedEventDetail(
-          found.applicants.some(
-            (app) => app.applier._id === user._id && app.stickers.length > 0
-          )
-        );
+          // Check if user already applied
+          setAlreadyApplied(
+            found.applicants.some((app) => app.applier._id === user._id)
+          );
+          // Check if user already eanred event detail
+          setEarnedEventDetail(
+            found.applicants.some(
+              (app) => app.applier._id === user._id && app.stickers.length > 0
+            )
+          );
+        }
 
         // Calculate days left
         const dl = formatDaysLeft(found.openingAt);
@@ -221,14 +218,30 @@ const EventDetailScreen = () => {
           (app) => app.status === "declined"
         );
 
-        if (myApplicant && myApplicant.status === "accepted") {
-          accepted = [
-            myApplicant,
-            ...accepted.filter((app) => app.applier._id !== user._id),
-          ];
-          setActiveTab(1);
-        } else if (accepted.length > 0) {
-          setActiveTab(1);
+        if (user && event) {
+          const applicant = event.applicants.find(
+            (app) => app.applier._id === user._id
+          );
+          if (applicant) {
+            setMyApplicant(applicant);
+            if (applicant.status === "pending") {
+              setActiveTab(0);
+            } else if (applicant.status === "accepted") {
+              setActiveTab(1);
+            } else if (applicant.status === "declined") {
+              setActiveTab(2);
+            }
+
+            if (myApplicant && myApplicant.status === "accepted") {
+              accepted = [
+                myApplicant,
+                ...accepted.filter((app) => app.applier._id !== user._id),
+              ];
+              setActiveTab(1);
+            } else if (accepted.length > 0) {
+              setActiveTab(1);
+            }
+          }
         }
 
         setPendingApplicants(pending);
@@ -236,7 +249,7 @@ const EventDetailScreen = () => {
         setDeclinedApplicants(declined);
       }
     }
-  }, [eventId, parties]);
+  }, [eventId, parties, user]);
 
   // Run animations when component mounts
   useEffect(() => {
@@ -294,24 +307,6 @@ const EventDetailScreen = () => {
       animateParticles();
     }, 100);
   }, []);
-
-  useEffect(() => {
-    if (user && event) {
-      const found = event.applicants.find(
-        (app) => app.applier._id === user._id
-      );
-      if (found) {
-        setMyApplicant(found);
-        if (found.status === "pending") {
-          setActiveTab(0);
-        } else if (found.status === "accepted") {
-          setActiveTab(1);
-        } else if (found.status === "declined") {
-          setActiveTab(2);
-        }
-      }
-    }
-  }, [user, event]);
 
   // Animation for particle effects
   const particles = Array(8)
@@ -379,13 +374,6 @@ const EventDetailScreen = () => {
     });
   };
 
-  // Handle apply button press
-  const handleApplyPress = () => {
-    // if (applyButtonRef.current) {
-    //   scrollViewRef.current?.scrollToPosition(0, height * 0.85, true);
-    // }
-  };
-
   const submitNewApplicant = (
     applicant: Applicant,
     event: Party
@@ -394,13 +382,6 @@ const EventDetailScreen = () => {
       socket.once("applicant:created", (newApplicant: Applicant) => {
         resolve(newApplicant);
       });
-
-      socket.emit(
-        "creating:applicant",
-        applicant,
-        event._id,
-        event.creator?._id
-      );
     });
   };
 
@@ -429,17 +410,16 @@ const EventDetailScreen = () => {
       stickers: [],
     };
 
-    const sentApplicant = await submitNewApplicant(newApplicant, event);
+    showToast("Applying...", "info");
 
-    await dispatch(
-      addNewApplicantToSelectedPartyAsync({
-        partyId: event._id,
-        newApplicant: sentApplicant,
-      })
-    ).unwrap();
+    socket.emit(
+      "creating:applicant",
+      newApplicant,
+      event._id,
+      event.creator?._id
+    );
 
-    setPendingApplicants([...pendingApplicants, sentApplicant]);
-
+    await new Promise((resolve) => setTimeout(resolve, 3000));
     showToast("Applied successfully", "success");
   };
 
@@ -456,7 +436,6 @@ const EventDetailScreen = () => {
           resolve({ partyId, applicantId });
         }
       );
-      socket.emit("applicant:accepted", applicantId, event, applierId, userId);
     });
   };
 
@@ -475,33 +454,27 @@ const EventDetailScreen = () => {
 
     setActionLoading(true);
 
-    const { partyId, applicantId: acceptedApplicantId } = await acceptApplicant(
+    showToast("Accepting...", "info");
+
+    socket.emit(
+      "applicant:accepted",
       applicant._id,
       event,
       applicant.applier._id,
       user._id
     );
 
-    if (partyId && acceptedApplicantId) {
-      await dispatch(
-        updateApplicantStatusInSelectedPartyAsync({
-          partyId,
-          applicantId: acceptedApplicantId,
-          status: "accepted",
-        })
-      ).unwrap();
-
-      // Update state immediately for better UX
-      setPendingApplicants(
-        pendingApplicants.filter((app) => app._id !== applicantId)
-      );
-      setAcceptedApplicants([
-        ...acceptedApplicants,
-        { ...applicant, status: "accepted" },
-      ]);
-      showToast("Applicant accepted successfully", "success");
-      setActionLoading(false);
-    }
+    // Update state immediately for better UX
+    // setPendingApplicants(
+    //   pendingApplicants.filter((app) => app._id !== applicantId)
+    // );
+    // setAcceptedApplicants([
+    //   ...acceptedApplicants,
+    //   { ...applicant, status: "accepted" },
+    // ]);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    showToast("Applicant accepted successfully", "success");
+    setActionLoading(false);
   };
 
   const handleDeclineApplicant = (applicantId: string) => {
@@ -556,12 +529,12 @@ const EventDetailScreen = () => {
         if (response.ok) {
           const { user: updatedUser } = response.data;
           await dispatch(setAuthUserAsync(updatedUser)).unwrap();
-          router.push({
-            pathname: "/chat",
-            params: { contactId: userId },
-          });
-          return;
         }
+
+        router.push({
+          pathname: "/chat",
+          params: { contactId: userId },
+        });
       }
     } catch (error) {
       console.error("handle chat with applicant error: ", error);
@@ -1026,7 +999,7 @@ const EventDetailScreen = () => {
                             fontSize: FONT_SIZES.S,
                           }}
                         >
-                          <Translate>Your Earned Event Information</Translate>
+                          <Translate>Earned Event Information</Translate>
                         </Text>
                       </View>
 
@@ -1484,7 +1457,6 @@ const EventDetailScreen = () => {
                                 (app) =>
                                   app.status === "accepted" &&
                                   app.stickers.length > 0 &&
-                                  !app.stickerLocked &&
                                   !app.stickerSold
                               ).length === 0
                                 ? "Start playing"
@@ -1493,12 +1465,19 @@ const EventDetailScreen = () => {
                                       (app) =>
                                         app.status === "accepted" &&
                                         app.stickers.length > 0 &&
-                                        !app.stickerLocked &&
                                         !app.stickerSold
-                                    ).length === 0
-                                  } tickets remaning to exchange`
+                                    ).length
+                                  } tickets remaining to wait/exchange`
                             }
                             variant={isDarkMode ? "primary" : "secondary"}
+                            disabled={
+                              event.applicants.filter(
+                                (app) =>
+                                  app.status === "accepted" &&
+                                  app.stickers.length > 0 &&
+                                  !app.stickerSold
+                              ).length > 0
+                            }
                             icon={
                               <FontAwesome
                                 name="play"
@@ -1727,6 +1706,7 @@ const EventDetailScreen = () => {
                             }
                             iconPosition="left"
                             small={true}
+                            loading={chatLoading}
                             onPress={() => {
                               if (event.creator?._id) {
                                 handleChatWithApplicant(event.creator._id);
@@ -1763,7 +1743,7 @@ const EventDetailScreen = () => {
               )}
 
               {/* Apply Section */}
-              {!alreadyApplied && !isCreator && (
+              {!alreadyApplied && !isCreator && user && (
                 <View style={styles.applyContainer} ref={applyButtonRef}>
                   <Text
                     style={[
@@ -1820,13 +1800,18 @@ const EventDetailScreen = () => {
                   </>
                 )}
 
-              {myApplicant && (
-                <Alert
-                  type="info"
-                  title="Tip for joining paid event"
-                  message="You must purchase a valid ticket after your application is approved by the owner"
-                />
-              )}
+              {myApplicant &&
+                event?.paidOption === "paid" &&
+                myApplicant.stickers.length === 0 && (
+                  <>
+                    <Alert
+                      type="info"
+                      title="Tip for joining paid event"
+                      message="You must purchase a valid ticket after your application is approved by the owner"
+                    />
+                    <View style={{ height: 20 }}></View>
+                  </>
+                )}
 
               {myApplicant && user?.membership === "free" && (
                 <View style={{ marginTop: 10, marginBottom: 10 }}>
@@ -1873,40 +1858,41 @@ const EventDetailScreen = () => {
                 user?.membership === "premium" ||
                 event?.status === "playing" ||
                 event?.status === "finished" ||
-                myApplicant?.status === "accepted") && (
-                <View style={styles.applicationsContainer}>
-                  <Text
-                    style={[
-                      styles.sectionTitle,
-                      {
-                        color: isDarkMode
-                          ? COLORS.DARK_TEXT_PRIMARY
-                          : COLORS.LIGHT_TEXT_PRIMARY,
-                      },
-                    ]}
-                  >
-                    <Translate>Applications</Translate>
-                  </Text>
+                myApplicant?.status === "accepted") &&
+                user && (
+                  <View style={styles.applicationsContainer}>
+                    <Text
+                      style={[
+                        styles.sectionTitle,
+                        {
+                          color: isDarkMode
+                            ? COLORS.DARK_TEXT_PRIMARY
+                            : COLORS.LIGHT_TEXT_PRIMARY,
+                        },
+                      ]}
+                    >
+                      <Translate>Applications</Translate>
+                    </Text>
 
-                  {/* Use the Tabs component */}
-                  <Tabs
-                    // tabs={["Pending", "Accepted", "Declined"]}
-                    tabs={["Pending", "Accepted"]}
-                    activeIndex={activeTab}
-                    onTabPress={setActiveTab}
-                    badgeCounts={[
-                      pendingApplicants.length,
-                      acceptedApplicants.length,
-                      declinedApplicants.length,
-                    ]}
-                  />
+                    {/* Use the Tabs component */}
+                    <Tabs
+                      // tabs={["Pending", "Accepted", "Declined"]}
+                      tabs={["Pending", "Accepted"]}
+                      activeIndex={activeTab}
+                      onTabPress={setActiveTab}
+                      badgeCounts={[
+                        pendingApplicants.length,
+                        acceptedApplicants.length,
+                        declinedApplicants.length,
+                      ]}
+                    />
 
-                  {/* Render the appropriate ApplicantGroup based on the active tab */}
-                  <View style={styles.applicantGroupContainer}>
-                    {renderActiveApplicantGroup()}
+                    {/* Render the appropriate ApplicantGroup based on the active tab */}
+                    <View style={styles.applicantGroupContainer}>
+                      {renderActiveApplicantGroup()}
+                    </View>
                   </View>
-                </View>
-              )}
+                )}
             </View>
           </Animated.View>
         </View>

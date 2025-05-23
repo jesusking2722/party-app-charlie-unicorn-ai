@@ -6,45 +6,54 @@ import * as SplashScreen from "expo-splash-screen";
 import React, { useCallback, useEffect, useState } from "react";
 import { BackHandler, Linking, StyleSheet, View } from "react-native";
 
+import { GOOGLE_API_KEY } from "@/constant";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import { ToastProvider } from "@/contexts/ToastContext";
+import Translator from "@/contexts/TranslatorContext";
 import { Header, Navbar } from "@/layouts";
 import { fetchStripePublishableKey } from "@/lib/scripts/stripe.scripts";
-import { store } from "@/redux/store";
-import { Provider } from "react-redux";
 import socket from "@/lib/socketInstance";
-import { jwtDecode } from "jwt-decode";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import AppStateListener from "./AppStateListener";
-import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
-import Translator from "@/contexts/TranslatorContext";
-import { GOOGLE_API_KEY } from "@/constant";
+import { store } from "@/redux/store";
 import cacheProvider from "@/utils/cacheProvider";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { jwtDecode } from "jwt-decode";
+import { Provider } from "react-redux";
+import AppStateListener from "./AppStateListener";
+
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
+
+export const configGoogleSignIn = () => {
+  GoogleSignin.configure({
+    webClientId:
+      "996856391179-4dfdrkcluv31jtcqefn3gc9adppqjqm0.apps.googleusercontent.com",
+    iosClientId:
+      "996856391179-39prl3561vq266fcf8ttua2kh9lhbl3q.apps.googleusercontent.com",
+    offlineAccess: true,
+  });
+};
 
 import "@walletconnect/react-native-compat";
 
 import {
+  AppKit,
   createAppKit,
   defaultConfig,
-  AppKit,
 } from "@reown/appkit-ethers-react-native";
 
-// 1. Get projectId from https://cloud.reown.com
 const projectId = "496a6d2135269fb305efd97d87c9d969";
 
-// 2. Create config
 const metadata = {
-  name: "AppKit RN",
-  description: "AppKit RN Example",
+  name: "PARTY APP",
+  description: "PARTY APP POWERED BY CHARLIE UNICORN AI",
   url: "https://reown.com/appkit",
   icons: ["https://avatars.githubusercontent.com/u/179229932"],
   redirect: {
-    native: "charliehousepartymobilefrontend://",
+    native: "partyappcharlieunicornai://",
   },
 };
 
 const config = defaultConfig({ metadata });
 
-// 3. Define your chains
 const mainnet = {
   chainId: 1,
   name: "Ethereum",
@@ -53,22 +62,13 @@ const mainnet = {
   rpcUrl: "https://cloudflare-eth.com",
 };
 
-const polygon = {
-  chainId: 137,
-  name: "Polygon",
-  currency: "MATIC",
-  explorerUrl: "https://polygonscan.com",
-  rpcUrl: "https://polygon-rpc.com",
-};
+const chains = [mainnet];
 
-const chains = [mainnet, polygon];
-
-// 4. Create modal
 createAppKit({
   projectId,
   chains,
   config,
-  enableAnalytics: true, // Optional - defaults to your Cloud configuration
+  enableAnalytics: true,
 });
 
 SplashScreen.preventAutoHideAsync();
@@ -115,6 +115,10 @@ export default function RootLayout() {
     }
 
     prepare();
+  }, []);
+
+  useEffect(() => {
+    configGoogleSignIn();
   }, []);
 
   const onLayoutRootView = useCallback(async () => {

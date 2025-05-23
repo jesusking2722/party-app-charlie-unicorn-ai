@@ -1,21 +1,21 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
   Animated,
+  Image,
   Platform,
   RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
 
-import { IChatItem } from "@/types/data";
-import { BORDER_RADIUS, COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
-import { BACKEND_BASE_URL } from "@/constant";
+import { COLORS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { Translate } from "@/components/common";
+import { BACKEND_BASE_URL } from "@/constant";
+import { IChatItem } from "@/types/data";
 
 interface ChatListProps {
   chatItems: IChatItem[];
@@ -452,7 +452,8 @@ const ChatList = ({
     </View>
   );
 
-  const keyExtractor = (item: IChatItem) => item._id;
+  const keyExtractor = (item: IChatItem, index: number) =>
+    item._id ? `${item._id}-${index}` : `chatlist-${index}`;
   const groups = groupChatsByDate();
 
   // Create a flattened data structure with section headers and items

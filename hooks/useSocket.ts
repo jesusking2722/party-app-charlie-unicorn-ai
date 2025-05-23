@@ -27,7 +27,6 @@ import {
 
 const useSocket = () => {
   const dispatch = useAppDispatch();
-  const normalDispatch = useDispatch();
   const { user } = useSelector((state: RootState) => state.auth);
 
   const socket = getSocket();

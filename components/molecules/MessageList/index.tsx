@@ -1,24 +1,24 @@
 // src/components/chat/MessageList.tsx
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Image,
-  TouchableOpacity,
   Animated,
   Dimensions,
-  Platform,
+  FlatList,
+  Image,
   Modal,
+  Platform,
   StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
 
-import { IMessage } from "@/types/data";
 import { ANIMATIONS, FONTS, FONT_SIZES, SPACING } from "@/app/theme";
 import { Translate } from "@/components/common";
+import { IMessage } from "@/types/data";
 
 interface MessageListProps {
   messages: IMessage[];
@@ -602,7 +602,8 @@ const MessageList = ({
   );
 
   // Key extractor for FlatList
-  const keyExtractor = (item: IMessage) => item._id;
+  const keyExtractor = (item: IMessage, index: number) =>
+    item._id ? `${item._id}-${index}` : `message-${index}`;
 
   // Image Modal Component
   const ImageModal = () => {

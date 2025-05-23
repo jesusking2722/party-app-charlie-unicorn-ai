@@ -1,4 +1,7 @@
 // Auth apis
+export const REGISTER_BY_GOOGLE = "/auth/google-register/mobile";
+export const LOGIN_BY_GOOGLE = "/auth/google-login/mobile";
+
 export const REGISTER_BY_EMAIL = "/auth/email-register";
 export const LOGIN_BY_EMAIL = "/auth/email-login";
 
@@ -45,6 +48,7 @@ export const PAY_USER_SELL = "/web3/sell";
 
 // Users apis
 export const FETCH_USER_BY_ID = "/user/";
+export const UPDATE_USER = "/user/update";
 
 // Message apis
 export const FETCH_SELECTED_MESSAGES = "/message/";

@@ -1,21 +1,21 @@
-import { BORDER_RADIUS, COLORS, FONTS } from "@/app/theme";
+import { BORDER_RADIUS, FONTS } from "@/app/theme";
+import { Translate } from "@/components/common";
 import { useTheme } from "@/contexts/ThemeContext";
 import useInit from "@/hooks/useInit";
+import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { BlurView } from "expo-blur";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  Easing,
   Image,
   Platform,
   StyleSheet,
   View,
-  Easing,
 } from "react-native";
-import { Translate } from "@/components/common";
 
 // Replace with your actual logo
 const LOGO_IMAGE = require("@/assets/images/logo.png");
@@ -54,7 +54,11 @@ const Start = () => {
           await fetchAllMessagesInfo();
           await new Promise((resolve) => setTimeout(resolve, 5000));
           setIsAuthComplete(true);
-          checkRedirectPath(user);
+          if (user && user._id) {
+            checkRedirectPath(user);
+          } else {
+            router.push("/home");
+          }
         } catch (error) {
           console.error("Auth initialization failed:", error);
           setIsAuthComplete(true);
@@ -92,17 +96,6 @@ const Start = () => {
       size: useRef(new Animated.Value(Math.random() * 6 + 2)).current,
       opacity: useRef(new Animated.Value(0)).current,
     }));
-
-  // Navigation effect - monitors both animation completion and initialization status
-  useEffect(() => {
-    if (isAnimationComplete && isAuthComplete && !initLoading) {
-      router.replace("/auth/login");
-    }
-  }, [isAnimationComplete, isAuthComplete, initLoading, router]);
-
-  // Helper function to get accent color based on theme
-  const getAccentColor = () =>
-    isDarkMode ? COLORS.SECONDARY : LIGHT_THEME_ACCENT;
 
   // Animate particles
   useEffect(() => {
