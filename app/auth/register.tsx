@@ -657,6 +657,14 @@ const RegisterScreen = () => {
                         </Text>
                       </TouchableOpacity>
                     </View>
+
+                    <View style={styles.signInContainer}>
+                      <Button
+                        title="Continue as guest to explore"
+                        variant="ghost"
+                        onPress={() => router.replace("/home")}
+                      />
+                    </View>
                   </View>
                 </View>
               </LinearGradient>

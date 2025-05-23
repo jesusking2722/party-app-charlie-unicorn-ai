@@ -126,6 +126,7 @@ const useInit = () => {
       const decoded = jwtDecode<TokenPayload>(token);
 
       const response = await fetchAllMessages(decoded.id);
+
       if (response.ok) {
         const { messages } = response.data;
         await dispatch(setMessageSliceAsync(messages)).unwrap();

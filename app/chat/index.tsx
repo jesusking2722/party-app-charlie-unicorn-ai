@@ -62,6 +62,7 @@ const ChatScreen = () => {
   const typingTimeoutRef = useRef<any>(null);
   const prevMessagesRef = useRef<Message[]>([]);
   const prevChatListRef = useRef<IChatItem[]>([]);
+  const isSendingRef = useRef<boolean>(false); // Add ref to prevent duplicate sends
 
   // Redux state
   const { user } = useSelector((state: RootState) => state.auth);
@@ -100,15 +101,65 @@ const ChatScreen = () => {
   const scaleAnimation = useRef(new Animated.Value(1)).current;
   const profileAnimation = useRef(new Animated.Value(0)).current;
 
+  // Build chat list from contacts and messages
+  const buildChatList = useCallback(() => {
+    if (!user || !user.contacts) return [];
+
+    return user.contacts.map((contact) => {
+      // Get messages for this contact
+      const contactMessages = messages.filter(
+        (message) =>
+          (message.sender._id === contact._id &&
+            message.receiver._id === user._id) ||
+          (message.sender._id === user._id &&
+            message.receiver._id === contact._id)
+      );
+
+      // Get latest message
+      const latestMessage =
+        contactMessages.length > 0
+          ? contactMessages[contactMessages.length - 1]
+          : null;
+
+      // Count unread messages
+      const unreadCount = contactMessages.filter(
+        (message) =>
+          message.sender._id === contact._id && message.status !== "read"
+      ).length;
+
+      return {
+        _id: contact._id ?? "",
+        avatar: contact.avatar ?? "",
+        alt: contact.name ?? "",
+        status: contact.status ?? "offline",
+        date: latestMessage ? new Date(latestMessage.date) : new Date(),
+        title: contact.name ?? "",
+        subtitle: latestMessage ? latestMessage.text : "",
+        unread: unreadCount,
+      };
+    });
+  }, [user, messages]);
+
+  // Initialize chat list when user is available
+  useEffect(() => {
+    console.log(messages);
+    if (user && user.contacts) {
+      const initialChatList = buildChatList();
+      // console.log("initialChat list", initialChatList);
+      // console.log("messages: ", messages);
+      setChatList(initialChatList);
+    }
+  }, [user, buildChatList, messages]);
+
   // Initial setup for contact from route params
   useEffect(() => {
-    if (contactId && user) {
+    if (contactId && user && chatList.length > 0) {
       const contacter = user.contacts.find(
         (contact) => contact._id === contactId
       );
 
       if (contacter) {
-        const contactChatItem = buildChatList().find(
+        const contactChatItem = chatList.find(
           (chat) => chat._id === contacter._id
         );
         if (contactChatItem) {
@@ -116,7 +167,7 @@ const ChatScreen = () => {
         }
       }
     }
-  }, [contactId, user]);
+  }, [contactId, user, chatList]);
 
   // Handle back button on Android
   useEffect(() => {
@@ -192,45 +243,6 @@ const ChatScreen = () => {
       profileAnimation.stopAnimation();
     };
   }, [view, slideAnimation, fadeAnimation, scaleAnimation, profileAnimation]);
-
-  // Build chat list from contacts and messages
-  const buildChatList = useCallback(() => {
-    if (!user || !user.contacts) return [];
-
-    return user.contacts.map((contact) => {
-      // Get messages for this contact
-      const contactMessages = messages.filter(
-        (message) =>
-          (message.sender._id === contact._id &&
-            message.receiver._id === user._id) ||
-          (message.sender._id === user._id &&
-            message.receiver._id === contact._id)
-      );
-
-      // Get latest message
-      const latestMessage =
-        contactMessages.length > 0
-          ? contactMessages[contactMessages.length - 1]
-          : null;
-
-      // Count unread messages
-      const unreadCount = contactMessages.filter(
-        (message) =>
-          message.sender._id === contact._id && message.status !== "read"
-      ).length;
-
-      return {
-        _id: contact._id ?? "",
-        avatar: contact.avatar ?? "",
-        alt: contact.name ?? "",
-        status: contact.status ?? "offline",
-        date: latestMessage ? new Date(latestMessage.date) : new Date(),
-        title: contact.name ?? "",
-        subtitle: latestMessage ? latestMessage.text : "",
-        unread: unreadCount,
-      };
-    });
-  }, [user, messages]);
 
   // Convert messages to the format needed for MessageList
   const convertMessagesToIMessages = useCallback(
@@ -384,11 +396,15 @@ const ChatScreen = () => {
     setMediaItems((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  // Handle sending messages
+  // Handle sending messages - FIXED VERSION
   const handleSendMessage = useCallback(async () => {
     try {
       if (!user || !selectedContacter || !selectedChatItem) return;
       if (text.trim() === "" && mediaItems.length === 0) return;
+      if (isSendingRef.current) return; // Prevent duplicate sends
+
+      // Set sending flag
+      isSendingRef.current = true;
 
       // Clear typing indicator
       if (isTyping) {
@@ -398,10 +414,14 @@ const ChatScreen = () => {
 
       setSendLoading(true);
 
+      // Store the current message text and media for later UI update
+      const messageText = text.trim();
+      const currentMediaItems = [...mediaItems];
+
       // Handle media uploads
-      if (mediaItems.length > 0) {
+      if (currentMediaItems.length > 0) {
         setUploadLoading(true);
-        const imageUrls = await uploadMultipleToImgBB(mediaItems);
+        const imageUrls = await uploadMultipleToImgBB(currentMediaItems);
         setUploadLoading(false);
 
         if (imageUrls.length > 0) {
@@ -410,56 +430,53 @@ const ChatScreen = () => {
             user._id,
             selectedContacter._id,
             user.name,
-            text,
+            messageText,
             imageUrls
           );
         }
       } else {
-        if (text.trim() === "") return;
+        if (messageText === "") return;
 
         socket.emit(
           "message-send:text",
           user._id,
           selectedContacter._id,
           user.name,
-          text
+          messageText
         );
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Clear input and media immediately after sending
+      setMediaItems([]);
+      setText("");
 
-      const latestMessage = messages[messages.length - 1];
-
-      // Update selected chat item with latest message
+      // Update UI optimistically with the message we just sent
       const updatedSelectedChatItem: IChatItem = {
         ...selectedChatItem,
-        subtitle: latestMessage.text,
-        date: new Date(latestMessage.date),
+        subtitle: messageText || "Media",
+        date: new Date(),
       };
 
       setSelectedChatItem(updatedSelectedChatItem);
 
-      // Update chat list
+      // Update chat list optimistically
       setChatList((prevChatList) =>
         prevChatList.map((chat) =>
           chat._id === selectedContacter._id
             ? {
                 ...chat,
-                subtitle: latestMessage.text,
-                date: new Date(latestMessage.date),
+                subtitle: messageText || "Media",
+                date: new Date(),
               }
             : chat
         )
       );
-
-      // Clear input and media
-      setMediaItems([]);
-      setText("");
     } catch (error) {
       console.error("Send message error:", error);
       showToast("Failed to send message", "error");
     } finally {
       setSendLoading(false);
+      isSendingRef.current = false; // Reset sending flag
     }
   }, [
     user,
@@ -467,7 +484,6 @@ const ChatScreen = () => {
     selectedChatItem,
     text,
     mediaItems,
-    messages,
     isTyping,
     showToast,
   ]);
@@ -715,36 +731,6 @@ const ChatScreen = () => {
               <Translate>Messages</Translate>
             </Text>
           </View>
-          {/* <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.headerIconButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name="search-outline"
-                size={20}
-                color={
-                  isDarkMode
-                    ? COLORS.DARK_TEXT_PRIMARY
-                    : COLORS.LIGHT_TEXT_PRIMARY
-                }
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerIconButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name="add"
-                size={22}
-                color={
-                  isDarkMode
-                    ? COLORS.DARK_TEXT_PRIMARY
-                    : COLORS.LIGHT_TEXT_PRIMARY
-                }
-              />
-            </TouchableOpacity>
-          </View> */}
         </View>
       );
     } else if (view === "chat" && selectedContacter) {
@@ -837,20 +823,6 @@ const ChatScreen = () => {
           </View>
 
           <View style={styles.headerActions}>
-            {/* <TouchableOpacity
-              style={styles.headerIconButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons
-                name="call-outline"
-                size={20}
-                color={
-                  isDarkMode
-                    ? COLORS.DARK_TEXT_PRIMARY
-                    : COLORS.LIGHT_TEXT_PRIMARY
-                }
-              />
-            </TouchableOpacity> */}
             <TouchableOpacity
               style={styles.headerIconButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
