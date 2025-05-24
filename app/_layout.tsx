@@ -34,8 +34,6 @@ export const configGoogleSignIn = () => {
   });
 };
 
-const projectId = "412854a00bfc70975863b6e40c0a46f6";
-
 const walletConnectConfig = {
   projectId: "412854a00bfc70975863b6e40c0a46f6",
   providerMetadata: {
@@ -57,10 +55,8 @@ const walletConnectConfig = {
           "eth_sign",
           "personal_sign",
           "eth_signTypedData",
-          "wallet_switchEthereumChain",
-          "wallet_addEthereumChain",
         ],
-        chains: ["eip155:56"], // BSC Mainnet
+        chains: ["eip155:56"],
         events: ["chainChanged", "accountsChanged"],
         rpcMap: {
           56: "https://bsc-dataseed1.binance.org/",

@@ -11,11 +11,6 @@ import {
   CHRLE_PRESALE_ADDRESS,
 } from "@/contract";
 import { TransactionResponse } from "@/types/api";
-// import {
-//   useAppKitAccount,
-//   useAppKitProvider,
-//   useAppKitState,
-// } from "@reown/appkit-ethers-react-native";
 import { useWalletConnectModal } from "@walletconnect/modal-react-native";
 import {
   AddressLike,
@@ -36,23 +31,6 @@ const useWeb3 = () => {
   const { provider: walletProvider, address: walletAddress } =
     useWalletConnectModal();
 
-  const getConnectedChainId = () => {
-    if (walletProvider) {
-      const session = walletProvider.session;
-      if (session) {
-        const namespaces = session.namespaces;
-        const accounts = namespaces["eip155"]?.accounts;
-        console.log(accounts);
-        if (accounts && accounts.length > 0) {
-          const [namespace, chainId, address] = accounts[0].split(":");
-          return Number(chainId);
-        }
-      }
-    }
-
-    return null;
-  };
-
   const getBalance = async (address: AddressLike, selectedChainId: number) => {
     if (!walletProvider) {
       throw new Error("Wallet provider is not available");
@@ -67,8 +45,11 @@ const useWeb3 = () => {
     return new JsonRpcSigner(provider, address as unknown as string);
   };
 
-  const getProvider = () => {
-    const chainId = getConnectedChainId();
+  const getProvider = async () => {
+    if (!walletProvider) throw new Error("Wallet provider is not available");
+    const chainId = await walletProvider.request({
+      method: "eth_chainId",
+    });
 
     if (!walletProvider) {
       throw new Error("Wallet provider is not available");
@@ -81,8 +62,8 @@ const useWeb3 = () => {
     return new BrowserProvider(walletProvider, chainId);
   };
 
-  const getDistributorContract = () => {
-    const provider = getProvider();
+  const getDistributorContract = async () => {
+    const provider = await getProvider();
     const signer = getSigner(provider, walletAddress as unknown as string);
     const contract = new ethers.Contract(
       CHRLE_PARTY_CONTRACT_ADDRESS,
@@ -92,8 +73,8 @@ const useWeb3 = () => {
     return contract;
   };
 
-  const getPresaleContract = () => {
-    const provider = getProvider();
+  const getPresaleContract = async () => {
+    const provider = await getProvider();
     const signer = getSigner(provider, walletAddress as unknown as string);
     const contract = new ethers.Contract(
       CHRLE_PRESALE_ADDRESS,
@@ -108,7 +89,7 @@ const useWeb3 = () => {
     address: string
   ): Promise<TransactionResponse | null> => {
     try {
-      const partyContract = getDistributorContract();
+      const partyContract = await getDistributorContract();
       if (!partyContract) return null;
 
       setLoading(true);
@@ -141,8 +122,8 @@ const useWeb3 = () => {
     value: string
   ): Promise<TransactionResponse | null> => {
     try {
-      const partyContract = getDistributorContract();
-      const presaleContract = getPresaleContract();
+      const partyContract = await getDistributorContract();
+      const presaleContract = await getPresaleContract();
       if (!partyContract) return null;
 
       setLoading(true);
@@ -213,13 +194,48 @@ const useWeb3 = () => {
     }
   };
 
+  const ensureBSCChain = async (provider: any) => {
+    try {
+      const currentChainId = await provider.request({
+        method: "eth_chainId",
+      });
+      if (Number(currentChainId) !== 56) {
+        // 0x38 is 56 in hex
+        // Try to switch to BSC
+        await provider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x38" }],
+        });
+      }
+    } catch (err: any) {
+      // If BSC is not added, prompt to add it
+      if (err.code === 4902) {
+        await provider.request({
+          method: "wallet_addEthereumChain",
+          params: [
+            {
+              chainId: "0x38",
+              chainName: "Binance Smart Chain",
+              rpcUrls: ["https://bsc-dataseed1.binance.org/"],
+              nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+              blockExplorerUrls: ["https://bscscan.com"],
+            },
+          ],
+        });
+      } else {
+        // Handle other errors (optional)
+        console.error("Chain switch error:", err);
+      }
+    }
+  };
+
   return {
-    getConnectedChainId,
     fetchBnbPrice,
     getBalanceForSpecialAddress,
     getBalance,
     depositSticker,
     depositSubscription,
+    ensureBSCChain,
     loading,
   };
 };

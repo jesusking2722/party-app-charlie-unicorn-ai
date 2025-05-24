@@ -101,8 +101,13 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
 
   const { open, isConnected, address, provider } = useWalletConnectModal();
 
-  const { getBalance, fetchBnbPrice, depositSticker, depositSubscription } =
-    useWeb3();
+  const {
+    getBalance,
+    fetchBnbPrice,
+    depositSticker,
+    depositSubscription,
+    ensureBSCChain,
+  } = useWeb3();
 
   const { user } = useSelector((state: RootState) => state.auth);
 
@@ -388,6 +393,8 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
         try {
           // Add small delay to let network settle
           await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          await ensureBSCChain(provider);
 
           const currentChainId = await provider.request({
             method: "eth_chainId",
