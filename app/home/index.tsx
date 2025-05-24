@@ -725,6 +725,7 @@ const HomeScreen = () => {
                               : COLORS.LIGHT_BORDER,
                           },
                         ]}
+                        onPress={() => router.push("/parties")}
                       >
                         <Text
                           style={[
@@ -757,6 +758,12 @@ const HomeScreen = () => {
                           },
                         ]}
                         activeOpacity={0.9}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/parties/[id]",
+                            params: { id: party._id as string },
+                          })
+                        }
                       >
                         {/* Event Image */}
                         <View style={styles.eventImageContainer}>

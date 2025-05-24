@@ -1,5 +1,5 @@
 import { Party } from "@/types/data";
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import {
   addNewApplicantToSelectedPartyAsync,
   addNewPartyAsync,

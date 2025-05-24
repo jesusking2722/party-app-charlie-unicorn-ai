@@ -50,8 +50,8 @@ const Start = () => {
         try {
           const user = (await fetchAuthUser()) as any;
           await fetchAllPartiesInfo();
-          await fetchAllTicketsInfo();
           await fetchAllMessagesInfo();
+          await fetchAllTicketsInfo();
           await new Promise((resolve) => setTimeout(resolve, 5000));
           setIsAuthComplete(true);
           if (user && user._id) {

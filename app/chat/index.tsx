@@ -66,12 +66,9 @@ const ChatScreen = () => {
 
   // Redux state
   const { user } = useSelector((state: RootState) => state.auth);
-  const {
-    messages,
-    currentSenderId,
-    currentMessageId,
-    typingUser: reduxTypingUser,
-  } = useSelector((state: RootState) => state.message);
+  const { messages, currentSenderId, currentMessageId } = useSelector(
+    (state: RootState) => state.message
+  );
 
   // Component state
   const [text, setText] = useState<string>("");
@@ -142,11 +139,8 @@ const ChatScreen = () => {
 
   // Initialize chat list when user is available
   useEffect(() => {
-    console.log(messages);
     if (user && user.contacts) {
       const initialChatList = buildChatList();
-      // console.log("initialChat list", initialChatList);
-      // console.log("messages: ", messages);
       setChatList(initialChatList);
     }
   }, [user, buildChatList, messages]);

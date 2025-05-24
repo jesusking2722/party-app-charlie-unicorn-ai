@@ -946,7 +946,43 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       <Feather name="log-out" size={18} color="#FF4D4D" />
                     </View>
                     <Text style={styles.logoutText}>
-                      <Translate>Logout</Translate>
+                      <Translate>Sign out</Translate>
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {!user && (
+                  <TouchableOpacity
+                    style={[
+                      styles.settingButton,
+                      {
+                        borderBottomColor: isDarkMode
+                          ? "rgba(55, 65, 81, 0.5)"
+                          : "rgba(230, 234, 240, 0.8)",
+                      },
+                    ]}
+                    onPress={() => router.replace("/auth/login")}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.settingIconContainer,
+                        {
+                          backgroundColor: isDarkMode
+                            ? "rgba(31, 41, 55, 0.7)"
+                            : "rgba(240, 240, 240, 0.9)",
+                        },
+                      ]}
+                    >
+                      <Feather name="log-in" size={18} color={getIconColor()} />
+                    </View>
+                    <Text
+                      style={[
+                        styles.settingButtonText,
+                        { color: getTextColor() },
+                      ]}
+                    >
+                      <Translate>Sign in</Translate>
                     </Text>
                   </TouchableOpacity>
                 )}

@@ -43,7 +43,6 @@ import { loginByEmail, loginByGoogle } from "@/lib/scripts/auth.scripts";
 import { setAuthAsync } from "@/redux/actions/auth.actions";
 import { useAppDispatch } from "@/redux/store";
 
-import GoogleAuthService from "@/lib/services/google.auth.services";
 import {
   GoogleSignin,
   isErrorWithCode,
@@ -84,10 +83,7 @@ const LoginScreen = () => {
 
   const dispatch = useAppDispatch();
 
-  const { checkRedirectPath } = useInit();
-
-  // google auth
-  const [googleRequest, googleResponse] = GoogleAuthService.useGoogleAuth();
+  const { checkRedirectPath, initializeInfo } = useInit();
 
   // Particle animations for the background
   const particles = Array(6)
@@ -302,6 +298,9 @@ const LoginScreen = () => {
         const { user, token } = response.data;
         setAuthToken(token);
         await dispatch(setAuthAsync({ isAuthenticated: true, user })).unwrap();
+
+        await initializeInfo();
+
         showToast("Welcome back !!!", "success");
         checkRedirectPath(user);
       } else {
@@ -351,6 +350,9 @@ const LoginScreen = () => {
           await dispatch(
             setAuthAsync({ isAuthenticated: true, user })
           ).unwrap();
+
+          await initializeInfo();
+
           showToast("Welcome back !!!", "success");
           checkRedirectPath(user);
         } else {

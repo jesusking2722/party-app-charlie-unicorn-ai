@@ -124,7 +124,6 @@ const useInit = () => {
       }
 
       const decoded = jwtDecode<TokenPayload>(token);
-
       const response = await fetchAllMessages(decoded.id);
 
       if (response.ok) {
@@ -137,6 +136,12 @@ const useInit = () => {
     }
   };
 
+  const initializeInfo = async () => {
+    await fetchAllPartiesInfo();
+    await fetchAllMessagesInfo();
+    await fetchAllTicketsInfo();
+  };
+
   return {
     initLoading,
     initError,
@@ -145,6 +150,7 @@ const useInit = () => {
     fetchAllTicketsInfo,
     fetchAllMessagesInfo,
     checkRedirectPath,
+    initializeInfo,
   };
 };
 

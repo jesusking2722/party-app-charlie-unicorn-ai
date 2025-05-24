@@ -1,12 +1,11 @@
 import { FONTS } from "@/app/theme";
 import { Button, Currency, Translate } from "@/components/common";
-import { FontAwesome, FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { FontAwesome, FontAwesome5 } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Dimensions,
   Image,
@@ -30,20 +29,16 @@ import {
   SPACING,
 } from "@/app/theme";
 import { useTheme } from "@/contexts/ThemeContext";
-import {
-  useAppKit,
-  useAppKitAccount,
-  useAppKitState,
-} from "@reown/appkit-ethers-react-native";
 import { useToast } from "@/contexts/ToastContext";
-import { extractNumericPrice } from "@/utils/price";
 import useWeb3 from "@/hooks/useWeb3";
-import fetchUsdRates from "@/utils/currency";
-import { User } from "@/types/data";
-import { TransactionResponse } from "@/types/api";
 import { saveCryptoTransaction } from "@/lib/scripts/crypto.transaction.scripts";
-import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
+import { TransactionResponse } from "@/types/api";
+import { User } from "@/types/data";
+import fetchUsdRates from "@/utils/currency";
+import { extractNumericPrice } from "@/utils/price";
+import { useWalletConnectModal } from "@walletconnect/modal-react-native";
+import { useSelector } from "react-redux";
 
 const PaymentHeaderImage = require("@/assets/images/crypto-payment.png");
 const { width, height } = Dimensions.get("window");
@@ -94,6 +89,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   const [showWalletInfo, setShowWalletInfo] = useState(true);
   const [totalAmount, setTotalAmount] = useState<number>(0);
   const [balance, setBalance] = useState<number>(0);
+  const [chainId, setChainId] = useState<number | null>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -103,9 +99,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
   const infoHeight = useRef(new Animated.Value(0)).current;
   const infoOpacity = useRef(new Animated.Value(0)).current;
 
-  const { open } = useAppKit();
-  const { isConnected, address } = useAppKitAccount();
-  const { selectedNetworkId } = useAppKitState();
+  const { open, isConnected, address, provider } = useWalletConnectModal();
 
   const { getBalance, fetchBnbPrice, depositSticker, depositSubscription } =
     useWeb3();
@@ -284,13 +278,12 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
     amount: string,
     address: string,
     buyer: User
-  ): Promise<boolean> => {
+  ) => {
     try {
       const txResponse = await depositSticker(
         Number(amount).toString(),
         address
       );
-
       if (txResponse?.success) {
         const transaction: TransactionResponse = {
           ...txResponse,
@@ -306,13 +299,9 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
     }
   };
 
-  const handleBuySubscription = async (
-    amount: string,
-    buyer: User
-  ): Promise<boolean> => {
+  const handleBuySubscription = async (amount: string, buyer: User) => {
     try {
       const txResponse = await depositSubscription(amount);
-
       if (txResponse?.success) {
         const transaction: TransactionResponse = {
           ...txResponse,
@@ -335,7 +324,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
       return;
     }
 
-    if (selectedNetworkId !== 56) {
+    if (chainId !== 56) {
       showToast("Please change your network into BNB in your wallet", "error");
       return;
     }
@@ -389,22 +378,44 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
       // Wait a moment for the user to see the success message
       setTimeout(() => {
         onPaymentComplete(true);
-      }, 2000);
+      }, 3000);
     }
   }, [paymentStatus, onPaymentComplete]);
 
   useEffect(() => {
     const initializeAfterConnected = async () => {
-      if (isConnected && address && selectedNetworkId) {
-        const balance = await getBalance(address, selectedNetworkId);
-        setBalance(balance);
-        setWalletConnected(isConnected);
-        setWalletAddress(address as string);
+      if (isConnected && address && provider) {
+        try {
+          // Add small delay to let network settle
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          const currentChainId = await provider.request({
+            method: "eth_chainId",
+          });
+
+          setChainId(currentChainId as number);
+          setWalletConnected(true);
+          setWalletAddress(address);
+
+          // Handle balance fetch separately to avoid blocking
+          getBalance(address, currentChainId as number)
+            .then(setBalance)
+            .catch((error) => {
+              console.log("Balance fetch failed, using 0");
+              setBalance(0);
+            });
+        } catch (error: any) {
+          if (error.code === "NETWORK_ERROR") {
+            console.log("Network is changing, will retry...");
+            // Network is changing, retry after delay
+            setTimeout(() => initializeAfterConnected(), 2000);
+          }
+        }
       }
     };
 
     initializeAfterConnected();
-  }, [isConnected, address, selectedNetworkId]);
+  }, [isConnected, address, provider]);
 
   useEffect(() => {
     const calculateTotalBnb = async () => {
@@ -721,7 +732,7 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                             Trust Wallet
                           </Text>
                         </View>
-                        <View style={styles.walletItem}>
+                        <View style={[styles.walletItem, { marginTop: 10 }]}>
                           <Image
                             source={BinanceImage}
                             style={styles.walletLogo}
@@ -895,25 +906,66 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                               },
                             ]}
                           >
-                            <View style={styles.walletAddressRow}>
-                              <FontAwesome5
-                                name="check-circle"
-                                size={16}
-                                color={getAccentColor()}
-                                style={{ marginRight: SPACING.XS }}
-                              />
-                              <Text
+                            <View style={styles.walletHeaderRow}>
+                              <View style={styles.walletAddressRow}>
+                                <FontAwesome5
+                                  name="check-circle"
+                                  size={16}
+                                  color={getAccentColor()}
+                                  style={{ marginRight: SPACING.XS }}
+                                />
+                                <Text
+                                  style={[
+                                    styles.walletAddressLabel,
+                                    {
+                                      color: isDarkMode
+                                        ? COLORS.DARK_TEXT_SECONDARY
+                                        : COLORS.LIGHT_TEXT_SECONDARY,
+                                    },
+                                  ]}
+                                >
+                                  <Translate>Connected Wallet:</Translate>
+                                </Text>
+                              </View>
+                              <TouchableOpacity
                                 style={[
-                                  styles.walletAddressLabel,
+                                  styles.disconnectButton,
                                   {
-                                    color: isDarkMode
-                                      ? COLORS.DARK_TEXT_SECONDARY
-                                      : COLORS.LIGHT_TEXT_SECONDARY,
+                                    backgroundColor: isDarkMode
+                                      ? "rgba(244, 67, 54, 0.15)"
+                                      : "rgba(244, 67, 54, 0.1)",
+                                    borderColor: isDarkMode
+                                      ? "#F44336"
+                                      : "#D32F2F",
                                   },
                                 ]}
+                                onPress={() => {
+                                  if (provider) {
+                                    provider.disconnect();
+                                    setWalletConnected(false);
+                                    setWalletAddress("");
+                                    setBalance(0);
+                                    setChainId(null);
+                                  }
+                                }}
                               >
-                                <Translate>Connected Wallet:</Translate>
-                              </Text>
+                                <FontAwesome5
+                                  name="sign-out-alt"
+                                  size={12}
+                                  color={isDarkMode ? "#F44336" : "#D32F2F"}
+                                  style={{ marginRight: SPACING.XS }}
+                                />
+                                <Text
+                                  style={[
+                                    styles.disconnectButtonText,
+                                    {
+                                      color: isDarkMode ? "#F44336" : "#D32F2F",
+                                    },
+                                  ]}
+                                >
+                                  <Translate>Disconnect</Translate>
+                                </Text>
+                              </TouchableOpacity>
                             </View>
                             <Text
                               style={[
@@ -966,6 +1018,31 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                                 {balance.toFixed(6)} BNB
                               </Text>
                             </View>
+
+                            {/* Wrong Network Warning */}
+                            {chainId !== null && chainId !== 56 && (
+                              <View style={styles.wrongNetworkContainer}>
+                                <FontAwesome
+                                  name="exclamation-triangle"
+                                  size={12}
+                                  color={isDarkMode ? "#FF9800" : "#F57C00"}
+                                  style={{ marginRight: SPACING.XS }}
+                                />
+                                <Text
+                                  style={[
+                                    styles.wrongNetworkText,
+                                    {
+                                      color: isDarkMode ? "#FF9800" : "#F57C00",
+                                    },
+                                  ]}
+                                >
+                                  <Translate>
+                                    Please switch to BNB Smart Chain (BSC)
+                                    network in your wallet
+                                  </Translate>
+                                </Text>
+                              </View>
+                            )}
 
                             {/* Insufficient Balance Warning */}
                             {balance < totalAmount && totalAmount > 0 && (
@@ -1029,7 +1106,11 @@ const CryptoPayment: React.FC<CryptoPaymentProps> = ({
                           loading={loading}
                           variant={isDarkMode ? "primary" : "secondary"}
                           small={false}
-                          disabled={balance < totalAmount || totalAmount === 0}
+                          disabled={
+                            balance < totalAmount ||
+                            totalAmount === 0 ||
+                            chainId !== 56
+                          }
                           icon={
                             <FontAwesome5
                               name="coins"
@@ -1309,10 +1390,29 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.S,
     borderWidth: 0.5,
   },
+  walletHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: SPACING.XS,
+  },
   walletAddressRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: SPACING.XS,
+    flex: 1,
+  },
+  disconnectButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: SPACING.S,
+    paddingVertical: SPACING.XS,
+    borderRadius: BORDER_RADIUS.S,
+    borderWidth: 1,
+    marginLeft: SPACING.S,
+  },
+  disconnectButtonText: {
+    fontFamily: FONTS.MEDIUM,
+    fontSize: FONT_SIZES.XS,
   },
   walletAddressLabel: {
     fontFamily: FONTS.REGULAR,
@@ -1336,13 +1436,26 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.SEMIBOLD,
     fontSize: FONT_SIZES.XS,
   },
-  insufficientBalanceContainer: {
+  wrongNetworkContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: SPACING.XS,
     padding: SPACING.XS,
-    backgroundColor: "rgba(244, 67, 54, 0.1)",
+    backgroundColor: "rgba(255, 152, 0, 0.1)",
     borderRadius: BORDER_RADIUS.S,
+  },
+  wrongNetworkText: {
+    fontFamily: FONTS.REGULAR,
+    fontSize: FONT_SIZES.XS,
+    flex: 1,
+  },
+  insufficientBalanceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: SPACING.XS,
+    padding: SPACING.S,
+    backgroundColor: "rgba(244, 67, 54, 0.1)",
+    borderRadius: BORDER_RADIUS.M,
   },
   insufficientBalanceText: {
     fontFamily: FONTS.REGULAR,

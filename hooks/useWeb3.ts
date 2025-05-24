@@ -11,12 +11,12 @@ import {
   CHRLE_PRESALE_ADDRESS,
 } from "@/contract";
 import { TransactionResponse } from "@/types/api";
-import {
-  useAppKitAccount,
-  useAppKitProvider,
-  useAppKitState,
-} from "@reown/appkit-ethers-react-native";
-import { Address } from "@stripe/stripe-react-native";
+// import {
+//   useAppKitAccount,
+//   useAppKitProvider,
+//   useAppKitState,
+// } from "@reown/appkit-ethers-react-native";
+import { useWalletConnectModal } from "@walletconnect/modal-react-native";
 import {
   AddressLike,
   BrowserProvider,
@@ -31,12 +31,27 @@ import { useState } from "react";
 const useWeb3 = () => {
   const [loading, setLoading] = useState<boolean>(false);
 
-  const { walletProvider } = useAppKitProvider();
-  const { selectedNetworkId } = useAppKitState();
-
-  const { address: walletAddress } = useAppKitAccount();
-
   const { showToast } = useToast();
+
+  const { provider: walletProvider, address: walletAddress } =
+    useWalletConnectModal();
+
+  const getConnectedChainId = () => {
+    if (walletProvider) {
+      const session = walletProvider.session;
+      if (session) {
+        const namespaces = session.namespaces;
+        const accounts = namespaces["eip155"]?.accounts;
+        console.log(accounts);
+        if (accounts && accounts.length > 0) {
+          const [namespace, chainId, address] = accounts[0].split(":");
+          return Number(chainId);
+        }
+      }
+    }
+
+    return null;
+  };
 
   const getBalance = async (address: AddressLike, selectedChainId: number) => {
     if (!walletProvider) {
@@ -48,23 +63,27 @@ const useWeb3 = () => {
     return Number(eth);
   };
 
-  const getSigner = (
-    provider: JsonRpcApiProvider,
-    address: Address
-  ): Signer => {
+  const getSigner = (provider: JsonRpcApiProvider, address: string): Signer => {
     return new JsonRpcSigner(provider, address as unknown as string);
   };
 
   const getProvider = () => {
+    const chainId = getConnectedChainId();
+
     if (!walletProvider) {
       throw new Error("Wallet provider is not available");
     }
-    return new BrowserProvider(walletProvider, selectedNetworkId);
+
+    if (!chainId) {
+      throw new Error("Wallet provider is not available");
+    }
+
+    return new BrowserProvider(walletProvider, chainId);
   };
 
   const getDistributorContract = () => {
     const provider = getProvider();
-    const signer = getSigner(provider, walletAddress as Address);
+    const signer = getSigner(provider, walletAddress as unknown as string);
     const contract = new ethers.Contract(
       CHRLE_PARTY_CONTRACT_ADDRESS,
       CHRLE_PARTY_CONTRACT_ABI,
@@ -75,7 +94,7 @@ const useWeb3 = () => {
 
   const getPresaleContract = () => {
     const provider = getProvider();
-    const signer = getSigner(provider, walletAddress as Address);
+    const signer = getSigner(provider, walletAddress as unknown as string);
     const contract = new ethers.Contract(
       CHRLE_PRESALE_ADDRESS,
       CHRLE_PRESALE_ABI,
@@ -195,6 +214,7 @@ const useWeb3 = () => {
   };
 
   return {
+    getConnectedChainId,
     fetchBnbPrice,
     getBalanceForSpecialAddress,
     getBalance,

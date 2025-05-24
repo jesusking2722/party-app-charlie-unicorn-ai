@@ -22,6 +22,8 @@ import AppStateListener from "./AppStateListener";
 
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 
+import { WalletConnectModal } from "@walletconnect/modal-react-native";
+
 export const configGoogleSignIn = () => {
   GoogleSignin.configure({
     webClientId:
@@ -32,44 +34,41 @@ export const configGoogleSignIn = () => {
   });
 };
 
-import "@walletconnect/react-native-compat";
+const projectId = "412854a00bfc70975863b6e40c0a46f6";
 
-import {
-  AppKit,
-  createAppKit,
-  defaultConfig,
-} from "@reown/appkit-ethers-react-native";
-
-const projectId = "496a6d2135269fb305efd97d87c9d969";
-
-const metadata = {
-  name: "PARTY APP",
-  description: "PARTY APP POWERED BY CHARLIE UNICORN AI",
-  url: "https://reown.com/appkit",
-  icons: ["https://avatars.githubusercontent.com/u/179229932"],
-  redirect: {
-    native: "partyappcharlieunicornai://",
+const walletConnectConfig = {
+  projectId: "412854a00bfc70975863b6e40c0a46f6",
+  providerMetadata: {
+    name: "Party App Charlie Unicorn AI",
+    description: "PARTY APP POWERED BY CHARLIE UNICORN AI",
+    url: "https://charlieparty.eu",
+    icons: ["https://charlieparty.eu/logo.png"],
+    redirect: {
+      native: "partyappcharlieunicornai://",
+      universal: "https://charlieparty.eu",
+    },
+  },
+  sessionParams: {
+    namespaces: {
+      eip155: {
+        methods: [
+          "eth_sendTransaction",
+          "eth_signTransaction",
+          "eth_sign",
+          "personal_sign",
+          "eth_signTypedData",
+          "wallet_switchEthereumChain",
+          "wallet_addEthereumChain",
+        ],
+        chains: ["eip155:56"], // BSC Mainnet
+        events: ["chainChanged", "accountsChanged"],
+        rpcMap: {
+          56: "https://bsc-dataseed1.binance.org/",
+        },
+      },
+    },
   },
 };
-
-const config = defaultConfig({ metadata });
-
-const mainnet = {
-  chainId: 1,
-  name: "Ethereum",
-  currency: "ETH",
-  explorerUrl: "https://etherscan.io",
-  rpcUrl: "https://cloudflare-eth.com",
-};
-
-const chains = [mainnet];
-
-createAppKit({
-  projectId,
-  chains,
-  config,
-  enableAnalytics: true,
-});
 
 SplashScreen.preventAutoHideAsync();
 
@@ -245,7 +244,7 @@ export default function RootLayout() {
                   )}
                 </View>
 
-                <AppKit />
+                <WalletConnectModal {...walletConnectConfig} />
               </ToastProvider>
             </ThemeProvider>
           </Translator>
