@@ -110,7 +110,11 @@ const CardPayment: React.FC<CardPaymentProps> = ({
 
   useEffect(() => {
     (async function () {
-      setIsApplePayAvailable(await isPlatformPaySupported());
+      if (Platform.OS === "ios") {
+        setIsApplePayAvailable(await isPlatformPaySupported());
+      } else {
+        setIsApplePayAvailable(false);
+      }
       setIsGooglePayAvailable(
         await isPlatformPaySupported({ googlePay: { testEnv: false } })
       );
@@ -316,12 +320,10 @@ const CardPayment: React.FC<CardPaymentProps> = ({
     const { customer, paymentIntent, ephemeralKey } = response.data;
 
     await initPaymentSheet({
-      merchantDisplayName: "Example, Inc.",
+      merchantDisplayName: "Charlie Unicorn AI, Inc",
       customerId: customer,
       customerEphemeralKeySecret: ephemeralKey,
       paymentIntentClientSecret: paymentIntent,
-      // Set `allowsDelayedPaymentMethods` to true if your business can handle payment
-      //methods that complete payment after a delay, like SEPA Debit and Sofort.
       allowsDelayedPaymentMethods: true,
       defaultBillingDetails: {
         name: user.name as string,
@@ -411,8 +413,8 @@ const CardPayment: React.FC<CardPaymentProps> = ({
 
       const { error } = await confirmPlatformPayPayment(clientSecret, {
         googlePay: {
-          testEnv: true,
-          merchantName: "Charlie Unicorn AI",
+          testEnv: false,
+          merchantName: "Charlie Unicorn AI, Inc",
           merchantCountryCode: "PL",
           currencyCode: currency,
           billingAddressConfig: {
@@ -789,21 +791,11 @@ const CardPayment: React.FC<CardPaymentProps> = ({
                             },
                           ]}
                         >
-                          {/* <PlatformPayButton
-                            onPress={handleApplePay}
-                            type={PlatformPay.ButtonType.Order}
-                            appearance={PlatformPay.ButtonStyle.Black}
-                            borderRadius={4}
-                            style={{
-                              width: "100%",
-                              height: 50,
-                            }}
-                          /> */}
                           <Button
-                            title="Apple pay (Coming soon)"
+                            title="Apple pay"
                             variant={isDarkMode ? "primary" : "secondary"}
                             onPress={handleApplePay}
-                            disabled={cardLoading || true}
+                            disabled={cardLoading}
                             loading={applePayLoading}
                             icon={
                               <FontAwesome5

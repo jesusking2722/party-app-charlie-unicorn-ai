@@ -197,8 +197,8 @@ export default function RootLayout() {
     <Provider store={store}>
       <StripeProvider
         publishableKey={publishableKey}
-        merchantIdentifier="merchant.com.yourapp"
-        urlScheme="your-url-scheme"
+        merchantIdentifier="merchant.partyappcharlieunicornai"
+        urlScheme="partyappcharlieunicornai"
         threeDSecureParams={{ backgroundColor: "#FFF" }}
       >
         <LanguageProvider>
