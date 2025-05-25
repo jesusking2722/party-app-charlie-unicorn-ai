@@ -70,13 +70,13 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+          "locationAlwaysAndWhenInUsePermission": "Allow Charlie Party to use your location."
         }
       ],
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "yourMerchantIdentifier",
+          "merchantIdentifier": "merchant.partyappcharlieunicornai",
           "enableGooglePay": true
         }
       ],

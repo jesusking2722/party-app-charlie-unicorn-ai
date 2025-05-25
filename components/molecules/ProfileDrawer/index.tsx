@@ -21,7 +21,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { setAuthToken } from "@/lib/axiosInstance";
 import { updateAuthUser } from "@/lib/scripts/auth.scripts";
-import { setAuthUserAsync } from "@/redux/actions/auth.actions";
+import { setAuthAsync, setAuthUserAsync } from "@/redux/actions/auth.actions";
 import { RootState, useAppDispatch } from "@/redux/store";
 import { User } from "@/types/data";
 import { Feather, FontAwesome, FontAwesome5 } from "@expo/vector-icons";
@@ -405,6 +405,9 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
 
   const handleLogout = async () => {
     await setAuthToken(null);
+    await dispatch(
+      setAuthAsync({ isAuthenticated: false, user: null })
+    ).unwrap();
     onClose();
     router.replace("/auth/login");
   };

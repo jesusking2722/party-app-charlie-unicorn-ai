@@ -426,8 +426,7 @@ const CardPayment: React.FC<CardPaymentProps> = ({
       });
 
       if (error) {
-        console.error(error);
-        showToast(error.message, "error");
+        showToast("Payment failed", "error");
         setGooglePayLoading(false);
         return;
       }
