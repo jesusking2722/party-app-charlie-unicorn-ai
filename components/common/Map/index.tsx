@@ -304,7 +304,7 @@ const AnimatedPartyMarker: FC<{
           </View>
 
           {/* Distance indicator */}
-          {distance !== null && (
+          {/* {distance !== null && (
             <View
               style={[
                 styles.distanceIndicator,
@@ -319,7 +319,7 @@ const AnimatedPartyMarker: FC<{
             >
               <Text style={styles.distanceText}>{distance.toFixed(1)} km</Text>
             </View>
-          )}
+          )} */}
         </Animated.View>
       </View>
     </Marker>
@@ -369,9 +369,9 @@ const UserLocationMarker: FC<{
         <View style={styles.userMarker}>
           <FontAwesome5 name="user" size={12} color="white" />
         </View>
-        <View style={styles.userLocationLabel}>
+        {/* <View style={styles.userLocationLabel}>
           <Text style={styles.userLocationText}>You are here</Text>
-        </View>
+        </View> */}
       </View>
     </Marker>
   );

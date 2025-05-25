@@ -175,6 +175,9 @@ const TicketScreen: React.FC = () => {
       if (success) {
         setPaymentFlow(null);
         setTicketModalVisible(false);
+
+        console.log(selectedTicket);
+
         if (!user || !selectedTicket) return;
 
         const updatingUser: User = {
@@ -182,9 +185,12 @@ const TicketScreen: React.FC = () => {
           stickers: [...(user.stickers || []), selectedTicket as any],
         };
 
+        console.log("updating user: ", updatingUser);
+
         const response = await updateAuthUser(updatingUser);
         if (response.ok) {
           const { user: updatedUser } = response.data;
+          console.log("updated user: ", updatedUser);
           await dispatch(setAuthUserAsync(updatedUser)).unwrap();
           showToast("Ticket purchased successfully!", "success");
         }

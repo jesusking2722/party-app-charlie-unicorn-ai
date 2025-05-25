@@ -10,7 +10,7 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 import { RootState } from "@/redux/store";
 import { Party } from "@/types/data";
-import { FontAwesome5 } from "@expo/vector-icons";
+import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { FC } from "react";
@@ -218,13 +218,23 @@ const PartyDetailsModal: FC<PartyDetailsModalProps> = ({
                 <FontAwesome5 name={partyIcon} size={20} color="white" />
               </LinearGradient>
               <View>
-                <Text style={styles.partyTypeText}>
+                <Text
+                  style={[
+                    styles.partyTypeText,
+                    { color: isDarkMode ? "white" : "black" },
+                  ]}
+                >
                   <Translate>
                     {party.type.charAt(0).toUpperCase() + party.type.slice(1)}
                   </Translate>{" "}
                   <Translate>Party</Translate>
                 </Text>
-                <Text style={styles.locationText}>
+                <Text
+                  style={[
+                    styles.locationText,
+                    { color: isDarkMode ? "white" : "black" },
+                  ]}
+                >
                   {party.region}, {party.country}
                 </Text>
               </View>
@@ -550,13 +560,13 @@ const PartyDetailsModal: FC<PartyDetailsModalProps> = ({
               },
             ]}
           >
-            {!user && (
+            {!user ? (
               <Button
                 title="Sign in to join"
                 variant={isDarkMode ? "primary" : "secondary"}
                 icon={
-                  <FontAwesome5
-                    name="plus"
+                  <Feather
+                    name="log-in"
                     color="white"
                     style={styles.joinButtonIcon}
                   />
@@ -567,27 +577,27 @@ const PartyDetailsModal: FC<PartyDetailsModalProps> = ({
                 }}
                 small={true}
               />
+            ) : (
+              <Button
+                title="Join"
+                variant={isDarkMode ? "primary" : "secondary"}
+                icon={
+                  <FontAwesome5
+                    name="plus"
+                    color="white"
+                    style={styles.joinButtonIcon}
+                  />
+                }
+                onPress={() => {
+                  router.push({
+                    pathname: "/parties/[id]",
+                    params: { id: party._id as string },
+                  });
+                  onClose();
+                }}
+                small={true}
+              />
             )}
-
-            <Button
-              title="Join"
-              variant={isDarkMode ? "primary" : "secondary"}
-              icon={
-                <FontAwesome5
-                  name="plus"
-                  color="white"
-                  style={styles.joinButtonIcon}
-                />
-              }
-              onPress={() => {
-                router.push({
-                  pathname: "/parties/[id]",
-                  params: { id: party._id as string },
-                });
-                onClose();
-              }}
-              small={true}
-            />
           </View>
         )}
       </LinearGradient>
@@ -626,12 +636,10 @@ const styles = StyleSheet.create({
   partyTypeText: {
     fontSize: FONT_SIZES.L,
     fontFamily: FONTS.BOLD,
-    color: "white",
   },
   locationText: {
     fontSize: FONT_SIZES.S,
     fontFamily: FONTS.REGULAR,
-    color: "rgba(255, 255, 255, 0.8)",
     marginTop: 2,
   },
   closeButton: {
