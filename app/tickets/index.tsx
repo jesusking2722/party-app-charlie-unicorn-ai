@@ -30,25 +30,16 @@ import {
   Tabs,
   Translate,
 } from "@/components/common";
-import { Ticket } from "@/components/molecules";
+import { Ticket, TicketModal } from "@/components/molecules";
 import { useTheme } from "@/contexts/ThemeContext";
-import { RootState, useAppDispatch } from "@/redux/store";
-import type {
-  CardTransaction,
-  CurrencyType,
-  Ticket as TicketType,
-  User,
-} from "@/types/data";
-import { formatPrice } from "@/utils/currency";
-import { useSelector } from "react-redux";
-import { useLocalSearchParams, useSearchParams } from "expo-router/build/hooks";
-import { TicketModal } from "@/components/molecules";
+import { useToast } from "@/contexts/ToastContext";
 import { updateAuthUser } from "@/lib/scripts/auth.scripts";
 import { setAuthUserAsync } from "@/redux/actions/auth.actions";
-import { useToast } from "@/contexts/ToastContext";
-import { extractNumericPrice } from "@/utils/price";
-import { saveCardTransaction } from "@/lib/scripts/card.transaction.scripts";
-import { addNewCardTransactionSliceAsync } from "@/redux/actions/card.transaction.actions";
+import { RootState, useAppDispatch } from "@/redux/store";
+import type { CurrencyType, Ticket as TicketType, User } from "@/types/data";
+import { formatPrice } from "@/utils/currency";
+import { useLocalSearchParams } from "expo-router/build/hooks";
+import { useSelector } from "react-redux";
 
 const TicketBannerImage = require("@/assets/images/ticket-banner.png");
 
@@ -357,7 +348,7 @@ const TicketScreen: React.FC = () => {
                 {/* Currency Tabs */}
                 <View style={styles.tabsContainer}>
                   <Tabs
-                    tabs={currencies.map((curr) => curr.toUpperCase())} // Display uppercase for UI but use lowercase internally
+                    tabs={currencies.map((curr) => curr.toUpperCase())}
                     activeIndex={activeCurrencyIndex}
                     onTabPress={setActiveCurrencyIndex}
                   />

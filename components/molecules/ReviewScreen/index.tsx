@@ -7,13 +7,14 @@ import {
   SHADOWS,
   SPACING,
 } from "@/app/theme";
-import { Button, Drawer, Translate } from "@/components/common";
+import { Rating, Translate } from "@/components/common";
 import { BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Review, User } from "@/types/data";
+import { Review } from "@/types/data";
+import { formatDate } from "@/utils/date";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   Image,
   SafeAreaView,
@@ -23,8 +24,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { Rating } from "@/components/common";
-import { formatDate } from "@/utils/date";
 
 // Type for ReviewsScreen component
 interface ReviewsScreenProps {

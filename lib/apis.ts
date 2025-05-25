@@ -43,6 +43,8 @@ export const SAVE_CRYPTO_TRANSACTION = "/crypto-transaction/save";
 // Mail apis
 export const SEND_TOPUP_MESSAGE_TO_OWNER = "/mail/top-up";
 
+export const SEND_MESSAGE_TO_SUPPORT_TEAM = "/mail/contact-us";
+
 // Web3 apis
 export const PAY_USER_SELL = "/web3/sell";
 

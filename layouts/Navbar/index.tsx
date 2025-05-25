@@ -50,7 +50,7 @@ interface NavbarProps {
   onCreatePress?: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ unreadChats = 0, onCreatePress }) => {
+const Navbar: React.FC<NavbarProps> = ({ onCreatePress }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { isDarkMode } = useTheme();
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 30,
+    zIndex: 999, // Increased zIndex
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.15,
@@ -245,18 +245,21 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
+    minWidth: 60, // Ensures enough width for label (adjust as needed)
     height: 50,
     justifyContent: "center",
     alignItems: "center",
     position: "relative",
   },
-  activeNavItem: {
-    // Active item styling
-  },
   navLabel: {
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 4,
     fontFamily: FONTS.MEDIUM,
+    textAlign: "center",
+    flexShrink: 1,
+  },
+  activeNavItem: {
+    // Active item styling
   },
   createButton: {
     marginTop: -20, // Lift it up for prominence

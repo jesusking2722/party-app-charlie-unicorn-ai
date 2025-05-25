@@ -231,15 +231,7 @@ const Header: React.FC<HeaderProps> = ({
           end={{ x: 1, y: 1 }}
         />
 
-        <Animated.View
-          style={[
-            styles.headerContent,
-            {
-              transform: [{ translateY }, { scale: scaleAnim }],
-              opacity: opacityAnim,
-            },
-          ]}
-        >
+        <View style={styles.headerContent}>
           {/* Logo and Title */}
           <View style={styles.leftSection}>
             <View style={styles.logoContainer}>
@@ -249,7 +241,6 @@ const Header: React.FC<HeaderProps> = ({
                 resizeMode="contain"
               />
             </View>
-
             <View style={styles.titleContainer}>
               <Text
                 style={[
@@ -260,6 +251,8 @@ const Header: React.FC<HeaderProps> = ({
                       : "rgba(255, 255, 255, 0.8)",
                   },
                 ]}
+                numberOfLines={1} // Add this
+                ellipsizeMode="tail" // Add this
               >
                 CHARLIE UNICORN AI
               </Text>
@@ -347,7 +340,7 @@ const Header: React.FC<HeaderProps> = ({
             {/* User avatar or menu bar icon */}
             {renderRightMostButton()}
           </View>
-        </Animated.View>
+        </View>
       </View>
 
       {/* Profile Drawer */}
@@ -372,7 +365,7 @@ const styles = StyleSheet.create({
     height: Platform.OS === "ios" ? 120 : 110,
     paddingTop: Platform.OS === "ios" ? 50 : StatusBar.currentHeight,
     position: "relative",
-    zIndex: 30,
+    zIndex: 9999,
     ...SHADOWS.MEDIUM,
   },
   background: {
@@ -409,6 +402,22 @@ const styles = StyleSheet.create({
   leftSection: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1, // Add this to allow it to grow
+  },
+  titleContainer: {
+    flex: 1, // Add this to allow text to use available space
+    flexDirection: "column",
+  },
+  subtitle: {
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.BOLD,
+    flexShrink: 1, // Add this to allow shrinking
+  },
+  rightSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SPACING.S,
+    // Optionally set minWidth or maxWidth if needed
   },
   logoContainer: {
     height: 60,
@@ -420,22 +429,11 @@ const styles = StyleSheet.create({
     height: "100%",
     width: "100%",
   },
-  titleContainer: {
-    flexDirection: "column",
-  },
+
   title: {
     fontSize: FONT_SIZES.L,
     fontFamily: FONTS.BOLD,
     marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: FONT_SIZES.XS,
-    fontFamily: FONTS.REGULAR,
-  },
-  rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SPACING.S,
   },
   iconButton: {
     width: 36,
@@ -447,7 +445,6 @@ const styles = StyleSheet.create({
     ...SHADOWS.SMALL,
   },
   menuButton: {
-    // Additional styles for menu button if needed
     width: 40,
     height: 40,
   },

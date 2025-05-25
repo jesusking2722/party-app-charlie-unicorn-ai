@@ -6,7 +6,6 @@ import {
   Animated,
   Dimensions,
   Image,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -30,6 +29,7 @@ import {
   Button,
   CountryPicker,
   Dropdown,
+  LocationPicker,
   RegionPicker,
   Slider,
   StatusBadge,
@@ -99,6 +99,8 @@ const EventListScreen = () => {
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [country, setCountry] = useState<CountryType | null>(null);
   const [region, setRegion] = useState<RegionType | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
+  const [locationDetails, setLocationDetails] = useState<any | null>(null);
   const [eventType, setEventType] = useState<any>({
     label: "All Types",
     value: "all",
@@ -125,50 +127,41 @@ const EventListScreen = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { parties } = useSelector((state: RootState) => state.party);
 
-  // Effect for initial animation
+  // Effect for initial animation - REMOVED DELAYS
   useEffect(() => {
-    // Main UI animation
-    const animationDelay = Platform.OS === "ios" ? 200 : 300;
+    // Start all animations immediately without delays
+    Animated.parallel([
+      // Fade in entire view
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: ANIMATIONS.FAST, // Reduced from MEDIUM to FAST
+        useNativeDriver: true,
+      }),
+      // Slide up animation
+      Animated.spring(translateY, {
+        toValue: 0,
+        tension: 80, // Increased tension for faster animation
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      // Card scale animation
+      Animated.spring(cardScale, {
+        toValue: 1,
+        tension: 80, // Increased tension for faster animation
+        friction: 8,
+        useNativeDriver: true,
+      }),
+      // Button animation - start immediately
+      Animated.spring(buttonScale, {
+        toValue: 1,
+        tension: 80, // Increased tension for faster animation
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // Main elements fade in
-    setTimeout(() => {
-      Animated.parallel([
-        // Fade in entire view
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: ANIMATIONS.MEDIUM,
-          useNativeDriver: true,
-        }),
-        // Slide up animation
-        Animated.spring(translateY, {
-          toValue: 0,
-          tension: 60,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-        // Card scale animation
-        Animated.spring(cardScale, {
-          toValue: 1,
-          tension: 60,
-          friction: 6,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Button animation
-      Animated.sequence([
-        Animated.delay(animationDelay),
-        Animated.spring(buttonScale, {
-          toValue: 1,
-          tension: 60,
-          friction: 6,
-          useNativeDriver: true,
-        }),
-      ]).start();
-
-      // Start particle animations
-      animateParticles();
-    }, 100);
+    // Start particle animations immediately
+    animateParticles();
   }, []);
 
   // Continuous animation for floating particles
@@ -226,59 +219,61 @@ const EventListScreen = () => {
     });
   };
 
-  // Animate cards when they appear
+  // Animate cards when they appear - REMOVED STAGGERED DELAYS
   const animateCards = () => {
-    // Animate each card with a staggered delay
-    paginatedEvents.forEach((_, index) => {
-      Animated.sequence([
-        Animated.delay(index * 100), // Stagger the animations
-        Animated.parallel([
-          Animated.spring(cardAnims[index].scale, {
-            toValue: 1,
-            tension: 50,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-          Animated.timing(cardAnims[index].opacity, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.spring(cardAnims[index].translateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 7,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]).start();
-    });
+    // Animate all cards simultaneously for faster display
+    const cardAnimations = paginatedEvents.map((_, index) =>
+      Animated.parallel([
+        Animated.spring(cardAnims[index].scale, {
+          toValue: 1,
+          tension: 100, // Increased tension for faster animation
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardAnims[index].opacity, {
+          toValue: 1,
+          duration: 150, // Reduced from 300 to 150
+          useNativeDriver: true,
+        }),
+        Animated.spring(cardAnims[index].translateY, {
+          toValue: 0,
+          tension: 100, // Increased tension for faster animation
+          friction: 8,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    // Start all card animations at once
+    Animated.parallel(cardAnimations).start();
   };
 
-  // Reset card animations when events change
+  // Reset card animations when events change - REMOVED DELAY
   useEffect(() => {
     // Reset animation values
     paginatedEvents.forEach((_, index) => {
-      cardAnims[index].scale.setValue(0.95);
-      cardAnims[index].opacity.setValue(0);
-      cardAnims[index].translateY.setValue(20);
+      if (cardAnims[index]) {
+        cardAnims[index].scale.setValue(0.98); // Less dramatic initial scale
+        cardAnims[index].opacity.setValue(0);
+        cardAnims[index].translateY.setValue(10); // Reduced initial offset
+      }
     });
 
-    // Start animations after a short delay
-    setTimeout(animateCards, 100);
+    // Start animations immediately
+    animateCards();
   }, [paginatedEvents]);
 
   // Effect for filter animation
   useEffect(() => {
     Animated.parallel([
       Animated.timing(filterHeight, {
-        toValue: isFilterExpanded ? 450 : 0,
-        duration: 300,
+        toValue: isFilterExpanded ? 480 : 0,
+        duration: 250,
         useNativeDriver: false,
       }),
       Animated.timing(filterOpacity, {
         toValue: isFilterExpanded ? 1 : 0,
-        duration: 300,
+        duration: 250,
         useNativeDriver: false,
       }),
     ]).start();
@@ -303,8 +298,8 @@ const EventListScreen = () => {
 
     setTotalEvents(sorted);
     const newCardAnims = sorted.map(() => ({
-      scale: new Animated.Value(0.95),
-      translateY: new Animated.Value(20),
+      scale: new Animated.Value(0.98), // Less dramatic initial scale
+      translateY: new Animated.Value(10), // Reduced initial offset
       opacity: new Animated.Value(0),
     }));
     setCardAnims(newCardAnims);
@@ -336,6 +331,10 @@ const EventListScreen = () => {
     // Apply event type filter
     if (eventType?.value !== "all") {
       filtered = filtered.filter((event) => event.type === eventType.value);
+    }
+
+    if (location) {
+      filtered = filtered.filter((event) => event.address === location);
     }
 
     // Apply user-related filters
@@ -420,10 +419,10 @@ const EventListScreen = () => {
   const renderEventItem = ({ item, index }: { item: Party; index: number }) => (
     <Animated.View
       style={{
-        opacity: cardAnims[index].opacity,
+        opacity: cardAnims[index]?.opacity || 1,
         transform: [
-          { scale: cardAnims[index].scale },
-          { translateY: cardAnims[index].translateY },
+          { scale: cardAnims[index]?.scale || 1 },
+          { translateY: cardAnims[index]?.translateY || 0 },
         ],
       }}
     >
@@ -980,6 +979,21 @@ const EventListScreen = () => {
                     placeholder="Select region"
                     value={region}
                     onSelect={setRegion}
+                    countryCode={country?.code}
+                  />
+
+                  <LocationPicker
+                    label="Address"
+                    placeholder="Select Address"
+                    value={location}
+                    regionCode={region?.code}
+                    onSelect={(locationData) => {
+                      setLocation(locationData.formattedAddress);
+                      setLocationDetails({
+                        geometry: locationData.geometry,
+                        address_components: locationData.address_components,
+                      });
+                    }}
                     countryCode={country?.code}
                   />
 

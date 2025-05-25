@@ -30,6 +30,7 @@ import {
   CountryPicker,
   Dropdown,
   DropdownOption,
+  LocationPicker,
   Map,
   RegionPicker,
   Slider,
@@ -65,6 +66,8 @@ const HomeScreen = () => {
   const [country, setCountry] = useState<CountryType | null>(null);
   const [region, setRegion] = useState<RegionType | null>(null);
   const [partyType, setPartyType] = useState<DropdownOption | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
+  const [locationDetails, setLocationDetails] = useState<any | null>(null);
   const [zoom, setZoom] = useState<number>(2);
   const [filteredParties, setFilteredParties] = useState<Party[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<Party[]>([]);
@@ -260,11 +263,15 @@ const HomeScreen = () => {
       filtered = filtered.filter((p) => p.region === region.name);
     }
 
+    if (location) {
+      filtered = filtered.filter((p) => p.address === location);
+    }
+
     setZoom(2);
 
     // Update the filtered parties
     setFilteredParties(filtered);
-  }, [partyType, country, region]);
+  }, [partyType, country, region, location]);
 
   // Update map center when country changes
   useEffect(() => {
@@ -595,6 +602,24 @@ const HomeScreen = () => {
                             value={region}
                             onSelect={(selectedRegion) => {
                               setRegion(selectedRegion);
+                            }}
+                            countryCode={country?.code}
+                          />
+                        </View>
+
+                        <View style={styles.filterItem}>
+                          <LocationPicker
+                            label="Address"
+                            placeholder="Select Address"
+                            value={location}
+                            regionCode={region?.code}
+                            onSelect={(locationData) => {
+                              setLocation(locationData.formattedAddress);
+                              setLocationDetails({
+                                geometry: locationData.geometry,
+                                address_components:
+                                  locationData.address_components,
+                              });
                             }}
                             countryCode={country?.code}
                           />
@@ -1123,7 +1148,7 @@ const styles = StyleSheet.create({
     height: 400,
     width: "100%",
     borderRadius: BORDER_RADIUS.L,
-    overflow: "hidden",
+    // overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },

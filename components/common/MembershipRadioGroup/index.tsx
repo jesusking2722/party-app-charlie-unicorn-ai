@@ -21,6 +21,7 @@ import {
   GRADIENTS,
   SPACING,
 } from "@/app/theme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import fetchUsdRates from "@/utils/currency";
 import Translate from "../Translate";
 
@@ -67,6 +68,8 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
   const [isLoadingRates, setIsLoadingRates] = useState<boolean>(false);
 
   const { isDarkMode } = useTheme();
+
+  const { language } = useLanguage();
 
   const LIGHT_THEME_ACCENT = "#FF0099";
 
@@ -616,7 +619,12 @@ const MembershipRadioGroup: React.FC<MembershipRadioGroupProps> = ({
                         },
                       ]}
                     >
-                      <Translate>Save</Translate> {savingsPercentage}%
+                      {language === "pl" ? (
+                        "Rabat"
+                      ) : (
+                        <Translate>Save</Translate>
+                      )}{" "}
+                      {savingsPercentage}%
                     </Text>
                   </View>
                 )}

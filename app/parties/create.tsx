@@ -340,13 +340,13 @@ const CreatePartyScreen = () => {
 
     if (step === "details") {
       if (!partyTitle.trim()) {
-        newErrors.partyTitle = "Party title is required";
+        newErrors.partyTitle = "Event title is required";
       }
       if (!partyType) {
-        newErrors.partyType = "Please select a party type";
+        newErrors.partyType = "Please select a event type";
       }
       if (!partyDescription.trim()) {
-        newErrors.partyDescription = "Party description is required";
+        newErrors.partyDescription = "Event description is required";
       } else if (partyDescription.length < 10) {
         newErrors.partyDescription =
           "Description must be at least 10 characters";
@@ -855,7 +855,7 @@ const CreatePartyScreen = () => {
                             },
                           ]}
                         >
-                          <Translate>Party Details</Translate>
+                          <Translate>Event Details</Translate>
                         </Text>
                         <Text
                           style={[
@@ -871,8 +871,8 @@ const CreatePartyScreen = () => {
                         </Text>
 
                         <Input
-                          label="Party Title"
-                          placeholder="Enter a catchy title for your party"
+                          label="Event Title"
+                          placeholder="Enter a catchy title for your event"
                           value={partyTitle}
                           onChangeText={(text) => {
                             setPartyTitle(text);
@@ -907,8 +907,8 @@ const CreatePartyScreen = () => {
                         />
 
                         <Textarea
-                          label="Party Description"
-                          placeholder="Describe your awesome party..."
+                          label="Event Description"
+                          placeholder="Describe your awesome event..."
                           value={partyDescription}
                           onChangeText={(text) => {
                             setPartyDescription(text);
@@ -937,7 +937,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              <Translate>Party Setup</Translate>
+                              <Translate>Event Setup</Translate>
                             </Text>
                             <Text
                               style={[
@@ -1160,7 +1160,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              <Translate>Party Setup</Translate>
+                              <Translate>Event Setup</Translate>
                             </Text>
                             <Text
                               style={[
@@ -1332,7 +1332,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              <Translate>Party Setup</Translate>
+                              <Translate>Event Setup</Translate>
                             </Text>
                             <Text
                               style={[
@@ -1526,7 +1526,7 @@ const CreatePartyScreen = () => {
                                 },
                               ]}
                             >
-                              <Translate>Party Setup Complete</Translate>
+                              <Translate>Event Setup Complete</Translate>
                             </Text>
                             <Text
                               style={[

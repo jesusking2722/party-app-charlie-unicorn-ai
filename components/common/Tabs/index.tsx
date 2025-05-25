@@ -27,7 +27,6 @@ const Tabs: React.FC<TabsProps> = ({
   badgeCounts,
 }) => {
   const { isDarkMode } = useTheme();
-  const theme = isDarkMode ? "DARK" : "LIGHT";
 
   return (
     <View style={styles.container}>
@@ -64,7 +63,7 @@ const Tabs: React.FC<TabsProps> = ({
                 },
               ]}
             >
-              <Translate>{tab}</Translate>
+              {tab === "PLN" ? "PLN" : <Translate>{tab}</Translate>}
             </Text>
 
             {/* Display badge count if provided */}

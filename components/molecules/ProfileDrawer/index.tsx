@@ -15,7 +15,12 @@ import {
   Textarea,
   Translate,
 } from "@/components/common";
-import { ReviewScreen } from "@/components/molecules";
+import {
+  ContactUs as ContactUsScreen,
+  ProfileBadge,
+  ReviewScreen,
+  MyTicket as TicketsScreen,
+} from "@/components/molecules";
 import { API_ENDPOINT, BACKEND_BASE_URL } from "@/constant";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -77,9 +82,9 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   // Theme context
   const { isDarkMode, toggleTheme } = useTheme();
 
-  // State for different editing sections
+  // State for different editing sections - Added "contact"
   const [activeSection, setActiveSection] = useState<
-    "profile" | "account" | "reviews" | null
+    "profile" | "account" | "reviews" | "tickets" | "contact" | null
   >(null);
 
   // State for form fields
@@ -262,6 +267,16 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   // Toggle reviews mode
   const handleViewReviews = () => {
     setActiveSection("reviews");
+  };
+
+  // Toggle tickets mode
+  const handleViewTickets = () => {
+    setActiveSection("tickets");
+  };
+
+  // Toggle contact mode
+  const handleViewContact = () => {
+    setActiveSection("contact");
   };
 
   // Cancel edit mode
@@ -492,6 +507,38 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
     );
   }
 
+  // If tickets section is active, show the tickets screen
+  if (activeSection === "tickets") {
+    return (
+      <Drawer
+        visible={visible}
+        onClose={handleCancelEdit}
+        position="right"
+        width={Platform.OS === "ios" ? "85%" : "90%"}
+      >
+        <TicketsScreen
+          visible={true}
+          onClose={handleCancelEdit}
+          tickets={user?.stickers || []}
+        />
+      </Drawer>
+    );
+  }
+
+  // If contact section is active, show the contact screen
+  if (activeSection === "contact") {
+    return (
+      <Drawer
+        visible={visible}
+        onClose={handleCancelEdit}
+        position="right"
+        width={Platform.OS === "ios" ? "85%" : "90%"}
+      >
+        <ContactUsScreen visible={true} onClose={handleCancelEdit} />
+      </Drawer>
+    );
+  }
+
   return (
     <Drawer
       visible={visible}
@@ -568,6 +615,26 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                     </Text>
                   </View>
                 </View>
+
+                {(user?.kycVerified || user?.membership === "premium") && (
+                  <View
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      gap: 10,
+                      marginTop: 20,
+                      alignItems: "center",
+                      justifyContent: "flex-start",
+                      width: "100%",
+                      paddingLeft: 20,
+                    }}
+                  >
+                    {user?.kycVerified && <ProfileBadge type="verified" />}
+                    {user?.membership === "premium" && (
+                      <ProfileBadge type="premium" />
+                    )}
+                  </View>
+                )}
 
                 <View style={styles.descriptionContainer}>
                   <Text
@@ -783,7 +850,7 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       />
                     </TouchableOpacity>
 
-                    {/* New Reviews Button */}
+                    {/* Reviews Button */}
                     <TouchableOpacity
                       style={[
                         styles.settingButton,
@@ -827,8 +894,101 @@ const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                         color={getSecondaryTextColor()}
                       />
                     </TouchableOpacity>
+
+                    {/* Tickets Button */}
+                    <TouchableOpacity
+                      style={[
+                        styles.settingButton,
+                        {
+                          borderBottomColor: isDarkMode
+                            ? "rgba(55, 65, 81, 0.5)"
+                            : "rgba(230, 234, 240, 0.8)",
+                        },
+                      ]}
+                      onPress={handleViewTickets}
+                      activeOpacity={0.7}
+                    >
+                      <View
+                        style={[
+                          styles.settingIconContainer,
+                          {
+                            backgroundColor: isDarkMode
+                              ? "rgba(31, 41, 55, 0.7)"
+                              : "rgba(240, 240, 240, 0.9)",
+                          },
+                        ]}
+                      >
+                        <FontAwesome5
+                          name="ticket-alt"
+                          size={18}
+                          color={getIconColor()}
+                        />
+                      </View>
+                      <Text
+                        style={[
+                          styles.settingButtonText,
+                          { color: getTextColor() },
+                        ]}
+                      >
+                        <Translate>My Tickets</Translate>
+                      </Text>
+                      <View style={styles.ticketBadge}>
+                        <Text style={styles.ticketBadgeText}>
+                          {user?.stickers?.length || 0}
+                        </Text>
+                      </View>
+                      <Feather
+                        name="chevron-right"
+                        size={18}
+                        color={getSecondaryTextColor()}
+                      />
+                    </TouchableOpacity>
                   </>
                 )}
+
+                {/* Contact Us Button - Available for all users */}
+                <TouchableOpacity
+                  style={[
+                    styles.settingButton,
+                    {
+                      borderBottomColor: isDarkMode
+                        ? "rgba(55, 65, 81, 0.5)"
+                        : "rgba(230, 234, 240, 0.8)",
+                    },
+                  ]}
+                  onPress={handleViewContact}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.settingIconContainer,
+                      {
+                        backgroundColor: isDarkMode
+                          ? "rgba(31, 41, 55, 0.7)"
+                          : "rgba(240, 240, 240, 0.9)",
+                      },
+                    ]}
+                  >
+                    <FontAwesome5
+                      name="envelope"
+                      size={18}
+                      color={getIconColor()}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.settingButtonText,
+                      { color: getTextColor() },
+                    ]}
+                  >
+                    <Translate>Contact Us</Translate>
+                  </Text>
+                  <Feather
+                    name="chevron-right"
+                    size={18}
+                    color={getSecondaryTextColor()}
+                  />
+                </TouchableOpacity>
 
                 {/* Language Setting */}
                 <View
@@ -1263,6 +1423,21 @@ const styles = StyleSheet.create({
     marginRight: SPACING.S,
   },
   reviewBadgeText: {
+    color: COLORS.WHITE,
+    fontSize: FONT_SIZES.XS,
+    fontFamily: FONTS.BOLD,
+  },
+  // Ticket Badge styles
+  ticketBadge: {
+    backgroundColor: "#FF0099",
+    borderRadius: BORDER_RADIUS.CIRCLE,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.S,
+  },
+  ticketBadgeText: {
     color: COLORS.WHITE,
     fontSize: FONT_SIZES.XS,
     fontFamily: FONTS.BOLD,

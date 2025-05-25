@@ -699,10 +699,17 @@ const LoginScreen = () => {
                       </TouchableOpacity>
                     </View>
 
-                    <View style={styles.signUpContainer}>
+                    <View style={[styles.signUpContainer, { marginTop: 20 }]}>
                       <Button
                         title="Continue as guest to explore"
-                        variant="ghost"
+                        variant="outline"
+                        icon={
+                          <FontAwesome
+                            name="user"
+                            size={16}
+                            color={isDarkMode ? "white" : "black"}
+                          />
+                        }
                         onPress={() => router.replace("/home")}
                       />
                     </View>
@@ -889,12 +896,12 @@ const styles = StyleSheet.create({
   },
   signUpText: {
     fontFamily: FONTS.REGULAR,
-    fontSize: FONT_SIZES.XS,
+    fontSize: FONT_SIZES.S,
     marginRight: SPACING.XS,
   },
   signUpButtonText: {
     fontFamily: FONTS.BOLD,
-    fontSize: FONT_SIZES.XS,
+    fontSize: FONT_SIZES.S,
   },
   themeToggle: {
     position: "absolute",
