@@ -42,7 +42,7 @@ const walletConnectConfig = {
     url: "https://charlieparty.eu",
     icons: ["https://charlieparty.eu/logo.png"],
     redirect: {
-      native: "partyappcharlieunicornai://",
+      native: "charlieparty://",
       universal: "https://charlieparty.eu",
     },
   },
